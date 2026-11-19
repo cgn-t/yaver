@@ -5,6 +5,7 @@
 > Bu belge **LLM'in döndürmesi gereken yanıtın** biçimini ve bu yanıtın mevcut Yaver uçlarına nasıl eşlendiğini tanımlar.
 >
 > Dayandığı sürüm: **0.7.0** (iş kaynakları Mail/Zoom/TFS/Jira, talep eden seviyeleri, IT ops konuları).
+> GenAI Studio Chat Block ile kullanım (0.8): [`GENAI-STUDIO.md`](GENAI-STUDIO.md).
 > İlgili belge: [`AJAN-API.md`](AJAN-API.md) (A4 triyaj, A7 ajan yorumu, B4 politika, B5 uçlar). MCP yok; her şey REST.
 > Uçtan uca örnek istek/yanıtlar: [`AI-ORNEK-ISTEK-YANIT.md`](AI-ORNEK-ISTEK-YANIT.md).
 
@@ -94,6 +95,7 @@ LLM ──► AiYorumYaniti (bu belgedeki şema)
 | `summary` | string ≤ 200 | ✔ | Tek cümle özet. Bildirim / liste satırı için. | `agent_suggestion.summary` |
 | `comment` | string ≤ 2000 (sunucu 8000 keser) | ✔ | Türkçe, en fazla ~6 satır, `**kalın**` destekli. Satır başına bir bilgi. Son satır `**Öneri:** …` | `agent_comment` |
 | `classification.topic_keys` | string[] | – | LLM'in gördüğü konu anahtarları (`keyword_rule.key`: `mq`, `openshift`, `server`, `decom`, `devops`, `failed`, `servis`, `yazilim` — `GET /api/settings/keywords`). **Yalnız bilgi**: konu metinden otomatik hesaplanır, LLM değiştiremez (bkz. 8.1). | `agent_suggestion.topic_keys` |
+| `classification.category` | string | – | (0.8) İşin kategorisi: `Olay`, `Talep`, `Değişiklik` … Kategori önerisi olarak uygulanır. | `category` önerisi |
 | `classification.mgmt_level` | `ust\|birim\|po\|diger` | – | LLM'in talep eden seviyesi tahmini. Kişi rehberindekiyle farklıysa `warnings`'e yazılır, otomatik değiştirilmez. | `agent_suggestion.mgmt_level` |
 | `classification.is_duplicate_of` | int \| null | – | Aynı işin açık bir kopyası varsa onun `id`'si. Doluysa genelde `changes` içinde `status: cancelled` + `link` önerisi olur. | `agent_suggestion.duplicate_of` |
 | `classification.is_actionable` | bool | – | `false` = bilgi maili / teşekkür / otomatik bildirim; iş açılmamalıydı. | `agent_suggestion.actionable` |
@@ -171,6 +173,7 @@ LangGraph'ta `llm.with_structured_output(...)` ya da sağlayıcının JSON-schem
       "additionalProperties": false,
       "properties": {
         "topic_keys": { "type": "array", "items": { "type": "string" }, "maxItems": 5 },
+        "category": { "type": "string" },
         "mgmt_level": { "enum": ["ust", "birim", "po", "diger"] },
         "is_duplicate_of": { "type": ["integer", "null"] },
         "is_actionable": { "type": "boolean" }

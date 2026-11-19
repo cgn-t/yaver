@@ -21,6 +21,9 @@ export const SLA_BY_LEVEL = { ust: '4 saat', birim: '1 iş günü', po: '2 iş g
 export const SOURCE_LABEL = { mail: 'Mail', zoom: 'Zoom', tfs: 'TFS Kanban', jira: 'Jira', manual: 'Manuel', api: 'API' }
 
 const DEMO_ENV = process.env.AGENT_DEMO_INTERPRETER ?? 'auto'
+let isGenaiActive = () => false
+/** genai.js kendini kaydeder (döngüsel import olmasın diye) */
+export const setGenaiProbe = (fn) => { isGenaiActive = fn }
 export const DEMO_INTERPRETER = DEMO_ENV === 'true' || (DEMO_ENV === 'auto' && !process.env.AGENT_WEBHOOK_URL)
 
 const lower = (s) => String(s ?? '').toLocaleLowerCase('tr')
@@ -53,14 +56,15 @@ async function findContact(c, email, name) {
 /** İşin anahtar kelimelerini ve üst yönetim seviyesini hesaplayıp yazar. tx içinden c ile çağrılmalı. */
 export async function enrichItem(c, id) {
   const it = (await db(c).query(
-    `SELECT w.id, w.title, w.description, w.requester, w.requester_email, w.source_type, w.source_id,
+    `SELECT w.id, w.title, w.description, w.requester, w.requester_email, w.source_type, w.source_id, w.keywords AS cur_keywords, w.keywords_by,
             (SELECT string_agg(coalesce(e.subject, '') || ' ' || coalesce(e.body_text, e.body_preview, ''), ' ')
              FROM email e WHERE e.work_item_id = w.id OR (w.source_type = 'mail' AND e.id = w.source_id)) AS mail_text,
             (SELECT e.from_address FROM email e WHERE w.source_type = 'mail' AND e.id = w.source_id) AS mail_from
      FROM work_item w WHERE w.id = $1`, [id])).rows[0]
   if (!it) return null
   const rules = await keywordRules(c)
-  const keywords = matchKeywords(`${it.title} ${it.description ?? ''} ${it.mail_text ?? ''}`, rules)
+  // Konu GenAI tarafından atandıysa (keywords_by = 'genai') metin eşleşmesi onu ezmez
+  const keywords = it.keywords_by ? it.cur_keywords : matchKeywords(`${it.title} ${it.description ?? ''} ${it.mail_text ?? ''}`, rules)
   const contact = await findContact(c, it.requester_email || it.mail_from, it.requester)
   await db(c).query(
     `UPDATE work_item SET keywords = $2, mgmt_level = $3, requester_email = coalesce(requester_email, $4) WHERE id = $1`,
@@ -353,7 +357,7 @@ const DEMO_TICKETS = [
 
 export async function bulkSendMail(body, actor) {
   const createItems = body.create_items !== false
-  const runInterpret = body.interpret !== false && DEMO_INTERPRETER
+  const runInterpret = body.interpret !== false && DEMO_INTERPRETER && !isGenaiActive()
   let mails = body.mails
   if (mails !== undefined && !Array.isArray(mails)) throw httpError(400, 'invalid', 'mails dizi olmalı', { field: 'mails' })
   if (!mails?.length) {
@@ -407,7 +411,7 @@ export async function bulkSendMail(body, actor) {
 // TFS Kanban / Jira kalemleri (bulk-import)
 // =====================================================================
 export async function bulkImport(body, actor) {
-  const runInterpret = body.interpret !== false && DEMO_INTERPRETER
+  const runInterpret = body.interpret !== false && DEMO_INTERPRETER && !isGenaiActive()
   let items = body.items
   if (items !== undefined && !Array.isArray(items)) throw httpError(400, 'invalid', 'items dizi olmalı', { field: 'items' })
   if (!items?.length) {

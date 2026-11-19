@@ -6,6 +6,7 @@ import { bootstrapAgentToken, login } from './auth.js'
 import { startPoller } from './poller.js'
 import { apiRouter, errorHandler } from './routes.js'
 import { loadDemoHistory } from './demo.js'
+import { startGenai } from './genai.js'
 import { startDispatcher, startEventCleanup, startEventListener } from './events.js'
 
 const PORT = Number(process.env.PORT ?? 8080)
@@ -90,3 +91,4 @@ ready = true
 startPoller()
 startDispatcher()
 startEventCleanup()
+await startGenai()

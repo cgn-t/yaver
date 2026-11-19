@@ -36,6 +36,20 @@ stringData:
   # LangGraph ajanının Yaver'e bağlanacağı token (yvr_ ile başlasın, en az 24 karakter): echo yvr_$(openssl rand -hex 24)
   AGENT_TOKEN: "yvr_DEGISTIRIN-ajan-icin-uzun-rastgele-deger"
   AGENT_WEBHOOK_SECRET: "DEGISTIRIN-webhook-imza-anahtari"   # ajan, gelen olayların imzasını bununla doğrular
+# ---------------------------------------------------------------------
+# GenAI Studio (Chat Block) bağlantısı — docs/GENAI-STUDIO.md
+# Değerler bu dosyada YOKTUR. OpenShift'te ayrı bir Secret olarak oluşturun; pod onu envFrom ile okur:
+#   oc -n yaver create secret generic yaver-genai \
+#     --from-literal=GENAI_APPLICATION_BACKEND_URL=<application_backend_url> \
+#     --from-literal=GENAI_SSO_URL=<sso_url> \
+#     --from-literal=GENAI_CHAT_CLIENT_ID=<chat_client_id> \
+#     --from-literal=GENAI_CHAT_CLIENT_SECRET=<chat_client_secret> \
+#     --from-literal=GENAI_APP_ID=<app_id> \
+#     --from-literal=GENAI_APP_IDENTIFIER=<app_identifier>
+# İsteğe bağlı: GENAI_SSO_REALM (varsayılan genai-studio), GENAI_SSO_SCOPE (varsayılan openid), GENAI_SSO_TOKEN_PATH.
+# Secret yoksa entegrasyon kapalı kalır, Yaver normal çalışır.
+# Bağlantı denemesi: oc -n yaver rsh deploy/yaver node server/scripts/genai-ping.mjs "Merhaba"
+# Kurum içi CA ile imzalı HTTPS için: CA'yı ConfigMap olarak bağlayıp NODE_EXTRA_CA_CERTS=/certs/ca.crt verin.
 ---
 apiVersion: v1
 kind: PersistentVolumeClaim
@@ -75,7 +89,7 @@ spec:
       terminationGracePeriodSeconds: 30   # kapanırken veritabanı dosyaları düzgün kapatılır
       containers:
         - name: yaver
-          image: ghcr.io/cgn-t/yaver:0.7.0
+          image: ghcr.io/cgn-t/yaver:0.8.0
           imagePullPolicy: IfNotPresent
           env:
             - name: TOKEN_SECRET
@@ -96,6 +110,8 @@ spec:
             # - { name: AGENT_WEBHOOK_FORMAT, value: "plain" }            # LangGraph Server /runs için: langgraph
             # Chat: AGENT_CHAT_URL verilirse Yaver ajandan SSE ile cevap akıtır; verilmezse chat.message olayı gider
             # - { name: AGENT_CHAT_URL, value: "http://yaver-agent.yaver.svc:8000/chat" }
+          envFrom:
+            - secretRef: { name: yaver-genai, optional: true }   # GENAI_* değişkenleri (yukarıdaki oc komutu)
           ports:
             - { name: http, containerPort: 8080 }
           startupProbe:

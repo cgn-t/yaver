@@ -9,6 +9,7 @@ import { alpha } from '@mui/material/styles'
 import { useSnackbar } from 'notistack'
 import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
+import { GenaiLogTab, GenaiTab } from '../components/GenaiSettings'
 import { LiveDot } from '../components/Motion'
 import PageHeader from '../components/PageHeader'
 import { AnimatePresence, motion } from 'motion/react'
@@ -378,6 +379,10 @@ const NAV_GROUPS: { title: string; items: NavItem[] }[] = [
   { title: 'Entegrasyonlar', items: [
     { key: 'api', label: 'API Çağrı Servisi', desc: 'Dış sistemlere belirli aralıklarla (varsayılan 1 dk) çağrı atar, dönen kayıtları içeri alır', wide: true, el: <ApiServiceTab /> },
     { key: 'api-log', label: 'Çağrı Geçmişi', desc: 'API çağrılarının sonucu, süresi ve alınan kayıt sayısı', wide: true, el: <ApiLogTab /> },
+  ] },
+  { title: 'Yapay Zekâ', items: [
+    { key: 'genai', label: 'GenAI Studio', desc: 'Gelen işleri Chat Block API ile yorumlatır ve kategorize eder', el: <GenaiTab /> },
+    { key: 'genai-log', label: 'GenAI Çağrıları', desc: 'Her işin Chat Block çağrısı, sonucu ve uygulanan değişiklikler', wide: true, el: <GenaiLogTab /> },
   ] },
   { title: 'Kimlik & Erişim', items: [
     { key: 'ldap', label: 'LDAP / Active Directory', desc: 'Kurumsal dizinle kimlik doğrulama', el: <LdapTab /> },

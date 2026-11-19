@@ -1,0 +1,796 @@
+YAVER — IT OPERASYON EKİBİ GEÇMİŞ VERİSİ (örnek / demo veri)
+Dışa aktarım: 2026-11-19 · Kaynak: Yaver 0.8.0 örnek veritabanı
+
+BU DOSYA NE?
+IT operasyon ekibine gelen işlerin (Mail, Zoom, TFS Kanban, Jira) geçmişi. Yeni bir iş geldiğinde benzer eski işleri,
+kimin nasıl ve kaç günde çözdüğünü, ilgili wiki (runbook) sayfasını ve talep edenin seviyesini bulmak için kullanılır.
+Her iş "İŞ YVR-xxxx" başlığıyla başlar. Alanlar: Konu, Kaynak, Talep eden (seviye), Durum, Öncelik, Atanan/Çözen, Açılış,
+Kapanış, Çözüm süresi, Açıklama, Tarihçe, Çözüm notu. Tarihler UTC. Kişi ve kurum adları örnektir.
+
+İÇİNDEKİLER: 1) Ekip  2) Talep edenler ve SLA  3) Konular  4) Wiki / runbook  5) Çözülmüş işler  6) Açık işler  7) Mailler  8) Toplantılar  9) Konuya göre özet
+
+==============================================================================
+1) EKİP (işleri çözen kişiler)
+==============================================================================
+- ayse.yilmaz (Ayşe Yılmaz) — açık iş: 1, çözdüğü iş: 6 [OpenShift Upgrade, Decom, DevOps, Servis Yönetimi]
+- can.ozturk (Can Öztürk) — açık iş: 4, çözdüğü iş: 5 [OpenShift Upgrade, Yazılım, Failed hataları, DevOps, MQ, Servis Yönetimi]
+- mehmet.kaya (Mehmet Kaya) — açık iş: 3, çözdüğü iş: 7 [Server Upgrade, MQ, Servis Yönetimi, Decom, Failed hataları]
+- zeynep.demir (Zeynep Demir) — açık iş: 2, çözdüğü iş: 7 [DevOps, OpenShift Upgrade, Failed hataları, Decom, MQ, Server Upgrade]
+
+==============================================================================
+2) TALEP EDENLER VE SLA
+==============================================================================
+Seviye → ilk dönüş süresi: Üst Yönetim: 4 saat içinde ilk dönüş · Birim Yöneticisi: 1 iş günü · PO: 2 iş günü (sprint önceliği) · Diğer: standart
+
+- Hakan Erdem <hakan.erdem@firma.com> — BT Genel Müdür Yardımcısı, Bilgi Teknolojileri — Seviye: Üst Yönetim
+- Selin Koç <selin.koc@firma.com> — Altyapı ve Operasyon Direktörü, Bilgi Teknolojileri — Seviye: Üst Yönetim
+- Burak Çetin <burak.cetin@firma.com> — Uygulama Geliştirme Birim Müdürü, Yazılım Geliştirme — Seviye: Birim Yöneticisi
+- Deniz Arslan <deniz.arslan@firma.com> — Middleware ve Entegrasyon Birim Müdürü, Middleware — Seviye: Birim Yöneticisi
+- Elif Şahin <elif.sahin@firma.com> — Servis Yönetimi Birim Müdürü, Servis Yönetimi — Seviye: Birim Yöneticisi
+- Murat Aydın <murat.aydin@firma.com> — Sistem Yönetimi Birim Müdürü, Sistem Yönetimi — Seviye: Birim Yöneticisi
+- Ece Tan <ece.tan@firma.com> — Product Owner — Müşteri Portalı, Dijital Kanallar — Seviye: PO
+- Emre Kurt <emre.kurt@firma.com> — Product Owner — Mobil Kanal, Dijital Kanallar — Seviye: PO
+- Gizem Yıldız <gizem.yildiz@firma.com> — Product Owner — Ödeme Platformu, Ödeme Sistemleri — Seviye: PO
+- Ayşe Yılmaz <ayse.yilmaz@firma.com> — Takım Lideri — DevOps ve Operasyon, DevOps — Seviye: Diğer
+- Can Öztürk <can.ozturk@firma.com> — DevOps Mühendisi (CI/CD), DevOps — Seviye: Diğer
+- Mehmet Kaya <mehmet.kaya@firma.com> — Middleware / MQ Uzmanı, DevOps — Seviye: Diğer
+- Zeynep Demir <zeynep.demir@firma.com> — Sistem ve OpenShift Uzmanı, DevOps — Seviye: Diğer
+- İzleme Sistemi <noreply@monitor.firma.com> — Otomatik alarm, İzleme — Seviye: Diğer
+
+==============================================================================
+3) TAKİP EDİLEN KONULAR (anahtar kelime grupları)
+==============================================================================
+- mq = MQ: mq, ibm mq, qmgr, kuyruk, queue, channel, dlq, mesaj kuyruğu
+- openshift = OpenShift Upgrade: openshift, ocp, pod, cluster upgrade, operator, worker node, kubernetes, k8s
+- server = Server Upgrade: server upgrade, sunucu upgrade, os upgrade, rhel, yama, patch, firmware, windows server, sunucu güncelleme
+- decom = Decom: decom, decommission, devreden çıkar, kapatılması, sunucu kapatma, emekliye
+- devops = DevOps: pipeline, ci/cd, jenkins, argocd, helm, azure devops, gitlab, build, deploy
+- failed = Failed hataları: failed, başarısız, hata, error, exception, crashloop, timeout, patladı, down
+- servis = Servis Yönetimi: incident, olay kaydı, change, değişiklik kaydı, cab, problem kaydı, itsm, servicenow, sla ihlali, sla süresi
+- yazilim = Yazılım: yazılım, bug , bug', bugfix, geliştirme, release, versiyon, user story, backlog, sprint, kod
+
+==============================================================================
+4) WIKI / RUNBOOK SAYFALARI
+==============================================================================
+
+WIKI batch-failed — Batch job FAILED runbook (EOD)
+  Alan: Operasyon · Etiketler: batch, failed, eod, ora-01555 · Adres: https://wiki.firma.local/display/Operasyon/batch-failed · Güncelleyen: ayse.yilmaz
+  EOD_MUTABAKAT failed olursa job logundaki ORA kodu kontrol edilir. ORA-01555: undo retention / yedekleme penceresi çakışması.
+  Job yeniden çalıştırılmadan önce yarım kalan kayıtlar temizlenir; sabah raporları için 07:00'ye kadar bitmelidir.
+
+WIKI change-cab — Change ve CAB süreci
+  Alan: Servis Yönetimi · Etiketler: change, cab, değişiklik, itsm · Adres: https://wiki.firma.local/display/Servis%20Y%C3%B6netimi/change-cab · Güncelleyen: ayse.yilmaz
+  Normal change'ler Salı CAB toplantısında onaylanır; acil change için CAB üyelerinden ikisinin onayı yeterlidir.
+  Yıl sonu dondurma döneminde (15 Aralık – 5 Ocak) yalnız acil change yapılır.
+
+WIKI decom-sureci — Sunucu / uygulama decom süreci
+  Alan: Sistem Yönetimi · Etiketler: decom, decommission, dns, yedek, cmdb · Adres: https://wiki.firma.local/display/Sistem%20Y%C3%B6netimi/decom-sureci · Güncelleyen: ayse.yilmaz
+  Decom adımları: 90 günlük trafik/bağımlılık analizi → son yedek → 2 hafta kapalı bekletme → DNS, firewall ve CMDB temizliği → lisans iadesi.
+  Ortalama süre 1-2 hafta; acil değildir, düşük öncelikle planlanır.
+
+WIKI incident-p1 — Incident (P1/P2) yönetimi
+  Alan: Servis Yönetimi · Etiketler: incident, p1, olay, down · Adres: https://wiki.firma.local/display/Servis%20Y%C3%B6netimi/incident-p1 · Güncelleyen: ayse.yilmaz
+  P1: servis tamamen down ya da para hareketi etkileniyor. 15 dk içinde incident kaydı ve köprü toplantısı; her 30 dk durum notu.
+  Kök neden analizi 2 iş günü içinde problem kaydı olarak açılır.
+
+WIKI mq-channel-retry — MQ channel RETRY / STOPPED durumları
+  Alan: Middleware · Etiketler: mq, channel, sertifika, tls · Adres: https://wiki.firma.local/display/Middleware/mq-channel-retry · Güncelleyen: ayse.yilmaz
+  Channel RETRY'da kalıyorsa sırasıyla: 1) TLS sertifika süresi, 2) karşı QMGR listener, 3) HBINT/KAINT ayarları.
+  Sertifika yenilemede REFRESH SECURITY TYPE(SSL) sonrası channel'lar tek tek yeniden başlatılır; kesintisiz yapılabilir.
+
+WIKI mq-kuyruk-dolulugu — MQ kuyruk doluluğu ve DLQ runbook
+  Alan: Middleware · Etiketler: mq, kuyruk, queue, dlq · Adres: https://wiki.firma.local/display/Middleware/mq-kuyruk-dolulugu · Güncelleyen: ayse.yilmaz
+  Kuyruk max depth'e yaklaşınca önce consumer uygulamanın ayakta olduğu (OpenShift pod durumu) kontrol edilir; en sık neden consumer pod'larının CrashLoop'ta olmasıdır.
+  Geçici çözüm: MAXDEPTH artırılır, DLQ handler çalıştırılır. Kalıcı çözüm için consumer ekibiyle incident açılır.
+
+WIKI openshift-upgrade — OpenShift upgrade kontrol listesi
+  Alan: Platform · Etiketler: openshift, ocp, upgrade, cluster, worker node · Adres: https://wiki.firma.local/display/Platform/openshift-upgrade · Güncelleyen: ayse.yilmaz
+  Upgrade öncesi: operator uyumluluk matrisi, etcd yedeği, PodDisruptionBudget kontrolü. Prod upgrade'i test cluster provasından en az 1 hafta sonra yapılır.
+  Worker drain uzun sürüyorsa PDB'si minAvailable=replicas olan uygulamalar bulunur. Bakım penceresi CAB onayıyla Cumartesi 02:00.
+
+WIKI pipeline-failed — Pipeline failed — sık nedenler
+  Alan: DevOps · Etiketler: pipeline, failed, jenkins, helm, build, deploy · Adres: https://wiki.firma.local/display/DevOps/pipeline-failed · Güncelleyen: ayse.yilmaz
+  Helm adımında timeout: readiness probe ve --wait süresi kontrol edilir. Build adımında failed: nexus erişimi ve bağımlılık sürümü.
+  Jenkins agent'ları down ise önce agent diskleri (workspace) kontrol edilir.
+
+WIKI release-yonetimi — Release ve deploy penceresi talepleri
+  Alan: Yazılım · Etiketler: release, deploy, versiyon, sprint, po · Adres: https://wiki.firma.local/display/Yaz%C4%B1l%C4%B1m/release-yonetimi · Güncelleyen: ayse.yilmaz
+  PO, sprint sonu release için deploy penceresini TFS kartı ile en geç Perşembe ister. Prod deploy Salı ve Perşembe 22:00 pencerelerindedir.
+  Release öncesi: test onayı, release notu, geri dönüş planı.
+
+WIKI server-upgrade-rhel — RHEL / Windows server upgrade süreci
+  Alan: Sistem Yönetimi · Etiketler: server, upgrade, rhel, yama, patch, windows server · Adres: https://wiki.firma.local/display/Sistem%20Y%C3%B6netimi/server-upgrade-rhel · Güncelleyen: ayse.yilmaz
+  Destek süresi biten OS'lar için server upgrade TFS Kanban'da kart olarak izlenir. Sıra: snapshot → upgrade → uygulama sahibinin testi → CMDB güncelleme.
+  RHEL 7→8 geçişinde Java 8 / Python 2 bağımlılıkları en sık engeldir; istisna için birim müdürü onayı gerekir.
+
+WIKI ust-yonetim-sla — Talep eden seviyesine göre SLA
+  Alan: Servis Yönetimi · Etiketler: üst-yönetim, sla, öncelik, po, birim · Adres: https://wiki.firma.local/display/Servis%20Y%C3%B6netimi/ust-yonetim-sla · Güncelleyen: ayse.yilmaz
+  Üst Yönetim (GMY, Direktör) taleplerine 4 saat içinde ilk dönüş yapılır, iş en az Yüksek öncelikle açılır ve takım lideri (ayse.yilmaz) bilgilendirilir.
+  Birim yöneticisi taleplerinde ilk dönüş 1 iş günüdür. PO talepleri sprint önceliğine göre 2 iş günü içinde planlanır.
+
+==============================================================================
+5) ÇÖZÜLMÜŞ / KAPANMIŞ İŞLER (31)
+==============================================================================
+
+İŞ YVR-1005 — Q1 sunucu decom listesi
+  Konu: Decom · Kategori: Planlama · Kaynak: Manuel
+  Talep eden: admin — Diğer (SLA: standart)
+  Durum: Tamamlandı · Öncelik: Düşük · Atanan/Çözen: ayse.yilmaz · Son tarih: 2026-11-16
+  Açılış: 2026-11-15 13:35 · Kapanış: 2026-11-18 07:35 · Çözüm süresi: 2.8 gün
+  Açıklama:
+    Kullanılmayan sunucular için decom planı çıkarılacak.
+
+İŞ YVR-1007 — MQ kuyruk derinliği alarmı
+  Konu: MQ · Kategori: Talep · Kaynak: Mail
+  Talep eden: Deniz Arslan <deniz.arslan@firma.com> — Birim Yöneticisi (SLA: 1 iş günü)
+  Durum: Tamamlandı · Öncelik: Normal · Atanan/Çözen: admin · Son tarih: 2026-11-21
+  Açılış: 2026-11-19 03:35 · Kapanış: 2026-11-19 09:35 · Çözüm süresi: 0.3 gün
+  Açıklama:
+    Takıma iletilen talep.
+
+İŞ YVR-1008 — Jenkins agent disk doluluğu
+  Konu: DevOps · Kategori: Kanban · Kaynak: TFS Kanban (TFS-47017)
+  Talep eden: Murat Aydın <murat.aydin@firma.com> — Birim Yöneticisi (SLA: 1 iş günü)
+  Durum: Tamamlandı · Öncelik: Kritik · Atanan/Çözen: zeynep.demir · Son tarih: 2026-11-20
+  Açılış: 2026-11-17 14:35 · Kapanış: 2026-11-18 18:47 · Çözüm süresi: 1.2 gün
+  Açıklama:
+    TFS Kanban kartından gelen iş.
+
+İŞ YVR-1009 — OpenShift test cluster upgrade
+  Konu: OpenShift Upgrade · Kategori: Jira · Kaynak: Jira (OPS-914)
+  Talep eden: Burak Çetin <burak.cetin@firma.com> — Birim Yöneticisi (SLA: 1 iş günü)
+  Durum: Tamamlandı · Öncelik: Normal · Atanan/Çözen: ayse.yilmaz · Son tarih: 2026-11-20
+  Açılış: 2026-11-16 01:35 · Kapanış: 2026-11-18 03:59 · Çözüm süresi: 2.1 gün
+  Açıklama:
+    Jira kaydından gelen iş.
+
+İŞ YVR-1013 — Eski DNS kayıtlarının temizliği (decom)
+  Konu: Decom · Kategori: Kanban · Kaynak: TFS Kanban (TFS-47102)
+  Talep eden: Emre Kurt <emre.kurt@firma.com> — PO (SLA: 2 iş günü (sprint önceliği))
+  Durum: Tamamlandı · Öncelik: Normal · Atanan/Çözen: zeynep.demir · Son tarih: 2026-11-13
+  Açılış: 2026-11-09 21:35 · Kapanış: 2026-11-15 16:47 · Çözüm süresi: 5.8 gün
+  Açıklama:
+    TFS Kanban kartından gelen iş.
+
+İŞ YVR-1014 — Helm chart versiyon güncellemesi
+  Konu: DevOps, Yazılım · Kategori: Planlama · Kaynak: Manuel
+  Talep eden: Hakan Erdem <hakan.erdem@firma.com> — Üst Yönetim (SLA: 4 saat içinde ilk dönüş)
+  Durum: İptal · Öncelik: Kritik · Atanan: ayse.yilmaz · Son tarih: 2026-11-13
+  Açılış: 2026-11-08 08:35 · Kapanış: 2026-11-15 01:59 · Çözüm süresi: 6.7 gün
+  Açıklama:
+    Takıma iletilen talep.
+
+İŞ YVR-1015 — Incident: API gateway timeout
+  Konu: Failed hataları · Kategori: Talep · Kaynak: Mail
+  Talep eden: Deniz Arslan <deniz.arslan@firma.com> — Birim Yöneticisi (SLA: 1 iş günü)
+  Durum: Tamamlandı · Öncelik: Normal · Atanan/Çözen: can.ozturk · Son tarih: 2026-11-08
+  Açılış: 2026-11-06 19:35 · Kapanış: 2026-11-14 11:11 · Çözüm süresi: 7.7 gün
+  Açıklama:
+    Takıma iletilen talep.
+
+İŞ YVR-1016 — Windows Server 2012 server upgrade
+  Konu: Server Upgrade · Kategori: Kanban · Kaynak: TFS Kanban (TFS-47153)
+  Talep eden: Murat Aydın <murat.aydin@firma.com> — Birim Yöneticisi (SLA: 1 iş günü)
+  Durum: Tamamlandı · Öncelik: Düşük · Atanan/Çözen: mehmet.kaya · Son tarih: 2026-11-21
+  Açılış: 2026-11-18 14:35 · Kapanış: 2026-11-19 04:23 · Çözüm süresi: 0.6 gün
+  Açıklama:
+    TFS Kanban kartından gelen iş.
+
+İŞ YVR-1017 — MQ sertifika yenilemesi
+  Konu: MQ · Kategori: Jira · Kaynak: Jira (OPS-970)
+  Talep eden: Burak Çetin <burak.cetin@firma.com> — Birim Yöneticisi (SLA: 1 iş günü)
+  Durum: Tamamlandı · Öncelik: Yüksek · Atanan/Çözen: admin · Son tarih: 2026-11-21
+  Açılış: 2026-11-17 01:35 · Kapanış: 2026-11-18 13:35 · Çözüm süresi: 1.5 gün
+  Açıklama:
+    Jira kaydından gelen iş.
+
+İŞ YVR-1021 — Decom: eski rapor sunucuları
+  Konu: Decom · Kategori: Kanban · Kaynak: TFS Kanban (TFS-47238)
+  Talep eden: Emre Kurt <emre.kurt@firma.com> — PO (SLA: 2 iş günü (sprint önceliği))
+  Durum: Tamamlandı · Öncelik: Normal · Atanan/Çözen: mehmet.kaya · Son tarih: 2026-11-14
+  Açılış: 2026-11-10 21:35 · Kapanış: 2026-11-16 02:23 · Çözüm süresi: 5.2 gün
+  Açıklama:
+    TFS Kanban kartından gelen iş.
+
+İŞ YVR-1022 — Sprint release deploy penceresi
+  Konu: DevOps, Yazılım · Kategori: Planlama · Kaynak: Manuel
+  Talep eden: Hakan Erdem <hakan.erdem@firma.com> — Üst Yönetim (SLA: 4 saat içinde ilk dönüş)
+  Durum: İptal · Öncelik: Düşük · Atanan: admin · Son tarih: 2026-11-14
+  Açılış: 2026-11-09 08:35 · Kapanış: 2026-11-15 11:35 · Çözüm süresi: 6.1 gün
+  Açıklama:
+    Takıma iletilen talep.
+
+İŞ YVR-1023 — MQ kuyruk derinliği alarmı
+  Konu: MQ · Kategori: Talep · Kaynak: Mail
+  Talep eden: Deniz Arslan <deniz.arslan@firma.com> — Birim Yöneticisi (SLA: 1 iş günü)
+  Durum: Tamamlandı · Öncelik: Yüksek · Atanan/Çözen: zeynep.demir · Son tarih: 2026-11-09
+  Açılış: 2026-11-07 19:35 · Kapanış: 2026-11-14 20:47 · Çözüm süresi: 7.1 gün
+  Açıklama:
+    Takıma iletilen talep.
+
+İŞ YVR-1024 — Jenkins agent disk doluluğu
+  Konu: DevOps · Kategori: Kanban · Kaynak: TFS Kanban (TFS-47289)
+  Talep eden: Murat Aydın <murat.aydin@firma.com> — Birim Yöneticisi (SLA: 1 iş günü)
+  Durum: Tamamlandı · Öncelik: Normal · Atanan/Çözen: ayse.yilmaz · Son tarih: 2026-11-09
+  Açılış: 2026-11-06 06:35 · Kapanış: 2026-11-14 05:59 · Çözüm süresi: 8 gün
+  Açıklama:
+    TFS Kanban kartından gelen iş.
+
+İŞ YVR-1025 — OpenShift test cluster upgrade
+  Konu: OpenShift Upgrade · Kategori: Jira · Kaynak: Jira (OPS-1026)
+  Talep eden: Burak Çetin <burak.cetin@firma.com> — Birim Yöneticisi (SLA: 1 iş günü)
+  Durum: Tamamlandı · Öncelik: Normal · Atanan/Çözen: can.ozturk · Son tarih: 2026-11-22
+  Açılış: 2026-11-18 01:35 · Kapanış: 2026-11-18 23:11 · Çözüm süresi: 0.9 gün
+  Açıklama:
+    Jira kaydından gelen iş.
+
+İŞ YVR-1029 — Eski DNS kayıtlarının temizliği (decom)
+  Konu: Decom · Kategori: Kanban · Kaynak: TFS Kanban (TFS-47374)
+  Talep eden: Emre Kurt <emre.kurt@firma.com> — PO (SLA: 2 iş günü (sprint önceliği))
+  Durum: Tamamlandı · Öncelik: Yüksek · Atanan/Çözen: ayse.yilmaz · Son tarih: 2026-11-15
+  Açılış: 2026-11-11 21:35 · Kapanış: 2026-11-16 11:59 · Çözüm süresi: 4.6 gün
+  Açıklama:
+    TFS Kanban kartından gelen iş.
+
+İŞ YVR-1030 — Helm chart versiyon güncellemesi
+  Konu: DevOps, Yazılım · Kategori: Planlama · Kaynak: Manuel
+  Talep eden: Hakan Erdem <hakan.erdem@firma.com> — Üst Yönetim (SLA: 4 saat içinde ilk dönüş)
+  Durum: İptal · Öncelik: Normal · Atanan: can.ozturk · Son tarih: 2026-11-15
+  Açılış: 2026-11-10 08:35 · Kapanış: 2026-11-15 21:11 · Çözüm süresi: 5.5 gün
+  Açıklama:
+    Takıma iletilen talep.
+
+İŞ YVR-1031 — Incident: API gateway timeout
+  Konu: Failed hataları · Kategori: Talep · Kaynak: Mail
+  Talep eden: Deniz Arslan <deniz.arslan@firma.com> — Birim Yöneticisi (SLA: 1 iş günü)
+  Durum: Tamamlandı · Öncelik: Normal · Atanan/Çözen: mehmet.kaya · Son tarih: 2026-11-10
+  Açılış: 2026-11-08 19:35 · Kapanış: 2026-11-15 06:23 · Çözüm süresi: 6.5 gün
+  Açıklama:
+    Takıma iletilen talep.
+
+İŞ YVR-1032 — Windows Server 2012 server upgrade
+  Konu: Server Upgrade · Kategori: Kanban · Kaynak: TFS Kanban (TFS-47425)
+  Talep eden: Murat Aydın <murat.aydin@firma.com> — Birim Yöneticisi (SLA: 1 iş günü)
+  Durum: Tamamlandı · Öncelik: Kritik · Atanan/Çözen: admin · Son tarih: 2026-11-10
+  Açılış: 2026-11-07 06:35 · Kapanış: 2026-11-14 15:35 · Çözüm süresi: 7.4 gün
+  Açıklama:
+    TFS Kanban kartından gelen iş.
+
+İŞ YVR-1033 — MQ PAYMENT.IN kuyruğu doldu
+  Konu: MQ · Kategori: Olay · Kaynak: Mail
+  Talep eden: Deniz Arslan <deniz.arslan@firma.com> — Birim Yöneticisi (SLA: 1 iş günü)
+  Durum: Tamamlandı · Öncelik: Kritik · Atanan/Çözen: mehmet.kaya
+  Açılış: 2026-09-23 13:35 · Kapanış: 2026-09-24 13:35 · Çözüm süresi: 1 gün
+  Açıklama:
+    Ödeme kanalında MQ kuyruğu max depth'e ulaştı, işlemler beklemede.
+  Tarihçe:
+    2026-09-23 14:47 mehmet.kaya: Atanan: mehmet.kaya
+    2026-09-24 12:23 mehmet.kaya: Consumer uygulamanın 2 pod'u CrashLoop'taydı; yeniden başlatıldı, MAXDEPTH 50k yapıldı, DLQ boşaltıldı.
+    2026-09-24 13:35 mehmet.kaya: Durum: Devam Ediyor → Tamamlandı
+  Çözüm notu: Consumer uygulamanın 2 pod'u CrashLoop'taydı; yeniden başlatıldı, MAXDEPTH 50k yapıldı, DLQ boşaltıldı.
+  Bağlı mail: #15 "MQ PAYMENT.IN kuyruğu doldu" (Deniz Arslan, 2026-09-23 13:35)
+
+İŞ YVR-1034 — Mobil kanalda transferler failed oluyor
+  Konu: Failed hataları · Kategori: Olay · Kaynak: Mail
+  Talep eden: Hakan Erdem <hakan.erdem@firma.com> — Üst Yönetim (SLA: 4 saat içinde ilk dönüş)
+  Durum: Tamamlandı · Öncelik: Kritik · Atanan/Çözen: mehmet.kaya
+  Açılış: 2026-09-30 13:35 · Kapanış: 2026-09-30 17:11 · Çözüm süresi: 0.2 gün
+  Açıklama:
+    Mobil kanalda para transferleri failed dönüyor, bugün içinde çözülmeli.
+  Tarihçe:
+    2026-09-30 13:45 mehmet.kaya: Atanan: mehmet.kaya
+    2026-09-30 17:00 mehmet.kaya: MQ channel TLS sertifikası süresi dolmuştu, yenilendi; channel RUNNING. GMY'ye 3 saatte dönüldü.
+    2026-09-30 17:11 mehmet.kaya: Durum: Devam Ediyor → Tamamlandı
+  Çözüm notu: MQ channel TLS sertifikası süresi dolmuştu, yenilendi; channel RUNNING. GMY'ye 3 saatte dönüldü.
+  Bağlı mail: #16 "ACİL: Mobil kanalda transferler failed oluyor" (Hakan Erdem, 2026-09-30 13:35)
+
+İŞ YVR-1035 — OpenShift test cluster 4.12 → 4.14 upgrade
+  Konu: OpenShift Upgrade · Kategori: Planlama · Kaynak: Jira (OPS-1012)
+  Talep eden: Selin Koç <selin.koc@firma.com> — Üst Yönetim (SLA: 4 saat içinde ilk dönüş)
+  Durum: Tamamlandı · Öncelik: Yüksek · Atanan/Çözen: zeynep.demir
+  Açılış: 2026-10-04 13:35 · Kapanış: 2026-10-10 13:35 · Çözüm süresi: 6 gün
+  Açıklama:
+    Prod öncesi prova: test cluster upgrade'i.
+  Tarihçe:
+    2026-10-04 20:47 zeynep.demir: Atanan: zeynep.demir
+    2026-10-10 06:23 zeynep.demir: Upgrade tamamlandı. Worker drain için PDB'ler düzeltildi, Elastic operator uyumsuzluğu wiki'ye yazıldı.
+    2026-10-10 13:35 zeynep.demir: Durum: Devam Ediyor → Tamamlandı
+  Çözüm notu: Upgrade tamamlandı. Worker drain için PDB'ler düzeltildi, Elastic operator uyumsuzluğu wiki'ye yazıldı.
+
+İŞ YVR-1037 — RHEL 7 → 8 server upgrade (APPSRV01-06)
+  Konu: Server Upgrade · Kategori: Kanban · Kaynak: TFS Kanban (TFS-46988)
+  Talep eden: Murat Aydın <murat.aydin@firma.com> — Birim Yöneticisi (SLA: 1 iş günü)
+  Durum: Tamamlandı · Öncelik: Normal · Atanan/Çözen: zeynep.demir
+  Açılış: 2026-10-12 13:35 · Kapanış: 2026-10-24 13:35 · Çözüm süresi: 12 gün
+  Açıklama:
+    6 uygulama sunucusunun OS upgrade'i.
+  Tarihçe:
+    2026-10-13 03:59 zeynep.demir: Atanan: zeynep.demir
+    2026-10-23 23:11 zeynep.demir: 6 sunucu 3 bakım penceresinde yükseltildi; Java 8 bağımlılığı olan 1 uygulama için istisna açıldı.
+    2026-10-24 13:35 zeynep.demir: Durum: Devam Ediyor → Tamamlandı
+  Çözüm notu: 6 sunucu 3 bakım penceresinde yükseltildi; Java 8 bağımlılığı olan 1 uygulama için istisna açıldı.
+
+İŞ YVR-1038 — Firewall change'i için CAB onayı
+  Konu: Servis Yönetimi · Kategori: Talep · Kaynak: Mail
+  Talep eden: Elif Şahin <elif.sahin@firma.com> — Birim Yöneticisi (SLA: 1 iş günü)
+  Durum: Tamamlandı · Öncelik: Normal · Atanan/Çözen: ayse.yilmaz
+  Açılış: 2026-10-17 13:35 · Kapanış: 2026-10-20 13:35 · Çözüm süresi: 3 gün
+  Açıklama:
+    Gece yapılacak firewall değişikliği için change kaydı ve CAB onayı.
+  Tarihçe:
+    2026-10-17 17:11 ayse.yilmaz: Atanan: ayse.yilmaz
+    2026-10-20 09:59 ayse.yilmaz: CHG-2231 CAB'den geçti, gece uygulandı, geri dönüş gerekmedi.
+    2026-10-20 13:35 ayse.yilmaz: Durum: Devam Ediyor → Tamamlandı
+  Çözüm notu: CHG-2231 CAB'den geçti, gece uygulandı, geri dönüş gerekmedi.
+  Bağlı mail: #17 "Firewall change'i için CAB onayı" (Elif Şahin, 2026-10-17 13:35)
+
+İŞ YVR-1039 — [ALARM] Batch job FAILED — EOD_MUTABAKAT
+  Konu: Failed hataları · Kategori: Olay · Kaynak: Mail
+  Talep eden: İzleme Sistemi <noreply@monitor.firma.com> — Diğer (SLA: standart)
+  Durum: Tamamlandı · Öncelik: Yüksek · Atanan/Çözen: zeynep.demir
+  Açılış: 2026-10-21 13:35 · Kapanış: 2026-10-23 01:35 · Çözüm süresi: 1.5 gün
+  Açıklama:
+    EOD_MUTABAKAT job'ı failed: ORA-01555 snapshot too old.
+  Tarihçe:
+    2026-10-21 15:23 zeynep.demir: Atanan: zeynep.demir
+    2026-10-22 23:47 zeynep.demir: Undo retention artırıldı, job yeniden çalıştırıldı; yedekleme penceresi 04:00'e kaydırıldı.
+    2026-10-23 01:35 zeynep.demir: Durum: Devam Ediyor → Tamamlandı
+  Çözüm notu: Undo retention artırıldı, job yeniden çalıştırıldı; yedekleme penceresi 04:00'e kaydırıldı.
+  Bağlı mail: #18 "[ALARM] Batch job FAILED — EOD_MUTABAKAT" (İzleme Sistemi, 2026-10-21 13:35)
+
+İŞ YVR-1040 — Eski log sunucularının decom edilmesi
+  Konu: Decom · Kategori: Planlama · Kaynak: Jira (OPS-1055)
+  Talep eden: Murat Aydın <murat.aydin@firma.com> — Birim Yöneticisi (SLA: 1 iş günü)
+  Durum: Tamamlandı · Öncelik: Düşük · Atanan/Çözen: ayse.yilmaz
+  Açılış: 2026-10-25 13:35 · Kapanış: 2026-11-02 13:35 · Çözüm süresi: 8 gün
+  Açıklama:
+    LOGSRV01-03 artık kullanılmıyor, decom edilecek.
+  Tarihçe:
+    2026-10-25 23:11 ayse.yilmaz: Atanan: ayse.yilmaz
+    2026-11-02 03:59 ayse.yilmaz: Bağımlılık analizi yapıldı, son yedek alındı, DNS ve CMDB temizlendi, sunucular kapatıldı.
+    2026-11-02 13:35 ayse.yilmaz: Durum: Devam Ediyor → Tamamlandı
+  Çözüm notu: Bağımlılık analizi yapıldı, son yedek alındı, DNS ve CMDB temizlendi, sunucular kapatıldı.
+
+İŞ YVR-1041 — Incident: Jenkins agent'ları down
+  Konu: MQ, DevOps, Failed hataları, Servis Yönetimi · Kategori: Olay · Kaynak: Zoom
+  Talep eden: Selin Koç <selin.koc@firma.com> — Üst Yönetim (SLA: 4 saat içinde ilk dönüş)
+  Durum: Tamamlandı · Öncelik: Kritik · Atanan/Çözen: can.ozturk
+  Açılış: 2026-10-30 13:35 · Kapanış: 2026-10-30 20:47 · Çözüm süresi: 0.3 gün
+  Açıklama:
+    Haftalık operasyon toplantısında açılan incident: tüm build'ler kuyrukta.
+  Tarihçe:
+    2026-10-30 13:56 can.ozturk: Atanan: can.ozturk
+    2026-10-30 20:25 can.ozturk: Agent diskleri dolmuştu; workspace temizliği cron'a bağlandı, agent'lar ayağa kalktı.
+    2026-10-30 20:47 can.ozturk: Durum: Devam Ediyor → Tamamlandı
+  Çözüm notu: Agent diskleri dolmuştu; workspace temizliği cron'a bağlandı, agent'lar ayağa kalktı.
+
+İŞ YVR-1042 — Ödeme platformu 3.7 release ve prod deploy
+  Konu: DevOps, Yazılım · Kategori: Kanban · Kaynak: TFS Kanban (TFS-47560)
+  Talep eden: Gizem Yıldız <gizem.yildiz@firma.com> — PO (SLA: 2 iş günü (sprint önceliği))
+  Durum: Tamamlandı · Öncelik: Normal · Atanan/Çözen: can.ozturk
+  Açılış: 2026-11-03 13:35 · Kapanış: 2026-11-07 13:35 · Çözüm süresi: 4 gün
+  Açıklama:
+    Sprint 40 release kartı: deploy penceresi talebi.
+  Tarihçe:
+    2026-11-03 18:23 can.ozturk: Atanan: can.ozturk
+    2026-11-07 08:47 can.ozturk: Release CAB'den geçti, Salı 22:00 penceresinde deploy edildi; smoke test OK.
+    2026-11-07 13:35 can.ozturk: Durum: Devam Ediyor → Tamamlandı
+  Çözüm notu: Release CAB'den geçti, Salı 22:00 penceresinde deploy edildi; smoke test OK.
+
+İŞ YVR-1043 — MQ QMGR_PROD1 TLS sertifika yenilemesi
+  Konu: MQ · Kategori: Talep · Kaynak: Jira (OPS-1088)
+  Talep eden: Deniz Arslan <deniz.arslan@firma.com> — Birim Yöneticisi (SLA: 1 iş günü)
+  Durum: Tamamlandı · Öncelik: Yüksek · Atanan/Çözen: mehmet.kaya
+  Açılış: 2026-11-07 13:35 · Kapanış: 2026-11-09 13:35 · Çözüm süresi: 2 gün
+  Açıklama:
+    Sertifika bitişine 10 gün kaldı.
+  Tarihçe:
+    2026-11-07 15:59 mehmet.kaya: Atanan: mehmet.kaya
+    2026-11-09 11:11 mehmet.kaya: Sertifika keystore'a eklendi, channel'lar REFRESH SECURITY ile sırayla yenilendi; kesinti olmadı.
+    2026-11-09 13:35 mehmet.kaya: Durum: Devam Ediyor → Tamamlandı
+  Çözüm notu: Sertifika keystore'a eklendi, channel'lar REFRESH SECURITY ile sırayla yenilendi; kesinti olmadı.
+
+İŞ YVR-1044 — Mobil uygulamada login bug'ı (Android)
+  Konu: Yazılım · Kategori: Olay · Kaynak: Mail
+  Talep eden: Emre Kurt <emre.kurt@firma.com> — PO (SLA: 2 iş günü (sprint önceliği))
+  Durum: Tamamlandı · Öncelik: Yüksek · Atanan/Çözen: can.ozturk
+  Açılış: 2026-11-11 13:35 · Kapanış: 2026-11-12 13:35 · Çözüm süresi: 1 gün
+  Açıklama:
+    Yeni versiyonda Android kullanıcılar login olamıyor.
+  Tarihçe:
+    2026-11-11 14:47 can.ozturk: Atanan: can.ozturk
+    2026-11-12 12:23 can.ozturk: Token yenileme bug'ı hotfix release ile giderildi (v5.2.1).
+    2026-11-12 13:35 can.ozturk: Durum: Devam Ediyor → Tamamlandı
+  Çözüm notu: Token yenileme bug'ı hotfix release ile giderildi (v5.2.1).
+  Bağlı mail: #19 "Mobil uygulamada login bug'ı (Android)" (Emre Kurt, 2026-11-11 13:35)
+
+İŞ YVR-1045 — OpenShift prod'da ödeme pod'ları CrashLoop
+  Konu: OpenShift Upgrade, Failed hataları · Kategori: Olay · Kaynak: Mail
+  Talep eden: Hakan Erdem <hakan.erdem@firma.com> — Üst Yönetim (SLA: 4 saat içinde ilk dönüş)
+  Durum: Tamamlandı · Öncelik: Kritik · Atanan/Çözen: zeynep.demir
+  Açılış: 2026-11-14 13:35 · Kapanış: 2026-11-14 18:23 · Çözüm süresi: 0.2 gün
+  Açıklama:
+    Ödeme servisi prod'da çalışmıyor, pod'lar sürekli yeniden başlıyor.
+  Tarihçe:
+    2026-11-14 13:49 zeynep.demir: Atanan: zeynep.demir
+    2026-11-14 18:08 zeynep.demir: Worker node'da memory pressure vardı; limitler artırıldı, pod'lar başka node'a taşındı.
+    2026-11-14 18:23 zeynep.demir: Durum: Devam Ediyor → Tamamlandı
+  Çözüm notu: Worker node'da memory pressure vardı; limitler artırıldı, pod'lar başka node'a taşındı.
+  Bağlı mail: #20 "OpenShift prod'da ödeme pod'ları CrashLoop" (Hakan Erdem, 2026-11-14 13:35)
+
+İŞ YVR-1046 — Problem kaydı: tekrarlayan MQ channel kesintileri
+  Konu: MQ, Servis Yönetimi · Kategori: Talep · Kaynak: Jira (ITSM-3290)
+  Talep eden: Elif Şahin <elif.sahin@firma.com> — Birim Yöneticisi (SLA: 1 iş günü)
+  Durum: Tamamlandı · Öncelik: Normal · Atanan/Çözen: mehmet.kaya
+  Açılış: 2026-11-16 13:35 · Kapanış: 2026-11-18 13:35 · Çözüm süresi: 2 gün
+  Açıklama:
+    Son ay 3 kez yaşanan channel kesintileri için problem kaydı.
+  Tarihçe:
+    2026-11-16 15:59 mehmet.kaya: Atanan: mehmet.kaya
+    2026-11-18 11:11 mehmet.kaya: Kök neden heartbeat ayarı; HBINT 300→60 yapıldı, problem kapatıldı.
+    2026-11-18 13:35 mehmet.kaya: Durum: Devam Ediyor → Tamamlandı
+  Çözüm notu: Kök neden heartbeat ayarı; HBINT 300→60 yapıldı, problem kapatıldı.
+
+==============================================================================
+6) AÇIK İŞLER (23)
+==============================================================================
+
+İŞ YVR-1001 — MQ channel CRM.TO.CORE RETRY durumunda
+  Konu: MQ · Kategori: Olay · Kaynak: Mail
+  Talep eden: Deniz Arslan <deniz.arslan@firma.com> — Birim Yöneticisi (SLA: 1 iş günü)
+  Durum: İşlemde · Öncelik: Yüksek · Atanan: mehmet.kaya · Son tarih: 2026-11-19
+  Açılış: 2026-11-19 12:11
+  Etiketler: mq, prod
+  Açıklama:
+    Sabahtan beri CRM → Çekirdek MQ channel RETRY durumunda, mesajlar DLQ'ya düşüyor. Kontrol edebilir misiniz?
+  Tarihçe:
+    2026-11-19 12:35 admin: Durum: Yeni → Devam ediyor
+    2026-11-19 12:55 mehmet.kaya: Yavaş sorgu tespit edildi, indeks analizi yapılıyor.
+  Bağlı mail: #1 "MQ channel CRM.TO.CORE RETRY durumunda" (Deniz Arslan, 2026-11-19 12:05)
+
+İŞ YVR-1002 — APPSRV07-09 server upgrade (RHEL 8)
+  Konu: Server Upgrade · Kategori: Talep · Kaynak: Mail
+  Talep eden: Murat Aydın <murat.aydin@firma.com> — Birim Yöneticisi (SLA: 1 iş günü)
+  Durum: Yeni · Öncelik: Normal · Atanan: atanmamış · Son tarih: 2026-11-21
+  Açılış: 2026-11-19 09:41
+  Etiketler: upgrade
+  Açıklama:
+    Destek süresi biten üç uygulama sunucusunun RHEL 8'e server upgrade'i için bakım penceresi planlayalım. Liste ektedir.
+  Bağlı mail: #2 "APPSRV07-09 server upgrade (RHEL 8)" (Murat Aydın, 2026-11-19 09:35)
+
+İŞ YVR-1003 — OpenShift operator uyumluluk kontrolü
+  Konu: OpenShift Upgrade · Kategori: Aksiyon · Kaynak: Zoom
+  Talep eden: Selin Koç <selin.koc@firma.com> — Üst Yönetim (SLA: 4 saat içinde ilk dönüş)
+  Durum: Yeni · Öncelik: Yüksek · Atanan: zeynep.demir · Son tarih: 2026-11-20
+  Açılış: 2026-11-19 11:05
+  Etiketler: openshift
+  Açıklama:
+    Upgrade hazırlık toplantısından çıkan aksiyon maddesi.
+
+İŞ YVR-1004 — Ödeme platformu release'i için test ortamı deploy
+  Konu: DevOps, Yazılım · Kategori: Talep · Kaynak: Mail
+  Talep eden: Gizem Yıldız <gizem.yildiz@firma.com> — PO (SLA: 2 iş günü (sprint önceliği))
+  Durum: Bekliyor · Öncelik: Normal · Atanan: can.ozturk · Son tarih: 2026-11-18
+  Açılış: 2026-11-18 12:35
+  Etiketler: release
+  Açıklama:
+    Cuma günkü sprint demosu için ödeme platformunun son versiyonunun test ortamına deploy edilmesi gerekiyor.
+  Tarihçe:
+    2026-11-19 07:35 can.ozturk: Durum: Devam ediyor → Beklemede
+  Bağlı mail: #4 "Ödeme platformu release'i için test ortamı" (Gizem Yıldız, 2026-11-18 11:35)
+
+İŞ YVR-1006 — Kart: mobil backend pipeline build adımında failed
+  Konu: DevOps, Failed hataları · Kategori: Kanban · Kaynak: TFS Kanban (TFS-48190)
+  Talep eden: Burak Çetin <burak.cetin@firma.com> — Birim Yöneticisi (SLA: 1 iş günü)
+  Durum: İşlemde · Öncelik: Kritik · Atanan: can.ozturk · Son tarih: 2026-11-19
+  Açılış: 2026-11-19 05:35
+  Etiketler: pipeline
+  Açıklama:
+    TFS Kanban kartı — build adımında nexus bağımlılık hatası.
+
+İŞ YVR-1010 — RHEL yama (patch) penceresi
+  Konu: Server Upgrade · Kategori: Planlama · Kaynak: Mail
+  Talep eden: Selin Koç <selin.koc@firma.com> — Üst Yönetim (SLA: 4 saat içinde ilk dönüş)
+  Durum: İşlemde · Öncelik: Düşük · Atanan: can.ozturk · Son tarih: 2026-11-19
+  Açılış: 2026-11-14 12:35
+  Açıklama:
+    Takıma iletilen talep.
+
+İŞ YVR-1011 — Batch job failed — gece mutabakatı
+  Konu: Failed hataları · Kategori: Talep · Kaynak: Zoom
+  Talep eden: Elif Şahin <elif.sahin@firma.com> — Birim Yöneticisi (SLA: 1 iş günü)
+  Durum: Bekliyor · Öncelik: Yüksek · Atanan: mehmet.kaya · Son tarih: 2026-11-14
+  Açılış: 2026-11-12 23:35
+  Açıklama:
+    Takıma iletilen talep.
+
+İŞ YVR-1012 — Change kaydı için CAB onayı
+  Konu: Servis Yönetimi · Kategori: Jira · Kaynak: Jira (OPS-935)
+  Talep eden: Gizem Yıldız <gizem.yildiz@firma.com> — PO (SLA: 2 iş günü (sprint önceliği))
+  Durum: Yeni · Öncelik: Normal · Atanan: admin · Son tarih: 2026-11-14
+  Açılış: 2026-11-11 10:35
+  Açıklama:
+    Jira kaydından gelen iş.
+
+İŞ YVR-1018 — ArgoCD senkron hatası
+  Konu: DevOps, Failed hataları · Kategori: Planlama · Kaynak: Mail
+  Talep eden: Selin Koç <selin.koc@firma.com> — Üst Yönetim (SLA: 4 saat içinde ilk dönüş)
+  Durum: İşlemde · Öncelik: Normal · Atanan: zeynep.demir · Son tarih: 2026-11-20
+  Açılış: 2026-11-15 12:35
+  Açıklama:
+    Takıma iletilen talep.
+
+İŞ YVR-1019 — Backlog: log toplama geliştirmesi
+  Konu: Yazılım · Kategori: Talep · Kaynak: Zoom
+  Talep eden: Elif Şahin <elif.sahin@firma.com> — Birim Yöneticisi (SLA: 1 iş günü)
+  Durum: Bekliyor · Öncelik: Normal · Atanan: ayse.yilmaz · Son tarih: 2026-11-15
+  Açılış: 2026-11-13 23:35
+  Açıklama:
+    Takıma iletilen talep.
+
+İŞ YVR-1020 — Problem kaydı: tekrarlayan pod restart
+  Konu: OpenShift Upgrade, Servis Yönetimi · Kategori: Jira · Kaynak: Jira (OPS-991)
+  Talep eden: Gizem Yıldız <gizem.yildiz@firma.com> — PO (SLA: 2 iş günü (sprint önceliği))
+  Durum: Yeni · Öncelik: Kritik · Atanan: can.ozturk · Son tarih: 2026-11-15
+  Açılış: 2026-11-12 10:35
+  Açıklama:
+    Jira kaydından gelen iş.
+
+İŞ YVR-1026 — RHEL yama (patch) penceresi
+  Konu: Server Upgrade · Kategori: Planlama · Kaynak: Mail
+  Talep eden: Selin Koç <selin.koc@firma.com> — Üst Yönetim (SLA: 4 saat içinde ilk dönüş)
+  Durum: İşlemde · Öncelik: Kritik · Atanan: mehmet.kaya · Son tarih: 2026-11-21
+  Açılış: 2026-11-16 12:35
+  Açıklama:
+    Takıma iletilen talep.
+
+İŞ YVR-1027 — Batch job failed — gece mutabakatı
+  Konu: Failed hataları · Kategori: Talep · Kaynak: Zoom
+  Talep eden: Elif Şahin <elif.sahin@firma.com> — Birim Yöneticisi (SLA: 1 iş günü)
+  Durum: Bekliyor · Öncelik: Normal · Atanan: admin · Son tarih: 2026-11-16
+  Açılış: 2026-11-14 23:35
+  Açıklama:
+    Takıma iletilen talep.
+
+İŞ YVR-1028 — Change kaydı için CAB onayı
+  Konu: Servis Yönetimi · Kategori: Jira · Kaynak: Jira (OPS-1047)
+  Talep eden: Gizem Yıldız <gizem.yildiz@firma.com> — PO (SLA: 2 iş günü (sprint önceliği))
+  Durum: Yeni · Öncelik: Düşük · Atanan: atanmamış · Son tarih: 2026-11-16
+  Açılış: 2026-11-13 10:35
+  Açıklama:
+    Jira kaydından gelen iş.
+
+İŞ YVR-1047 — Ödeme kanalında MQ kuyrukları doluyor
+  Konu: MQ · Kategori: Talep · Kaynak: Mail
+  Talep eden: Hakan Erdem <hakan.erdem@firma.com> — Üst Yönetim (SLA: 4 saat içinde ilk dönüş)
+  Durum: Yeni · Öncelik: Yüksek · Atanan: atanmamış
+  Açılış: 2026-11-19 11:35
+  Açıklama:
+    Ödeme kanalında işlemler beklemede kalıyor; MQ tarafında PAYMENT.IN kuyruğunun dolduğu söyleniyor. Bugün içinde durum ve kök neden rica ediyorum.
+  Bağlı mail: #21 "ACİL: Ödeme kanalında MQ kuyrukları doluyor" (Hakan Erdem, 2026-11-19 11:35)
+
+İŞ YVR-1048 — OpenShift prod cluster upgrade — worker node drain sorunu
+  Konu: OpenShift Upgrade · Kategori: Jira · Kaynak: Jira (OPS-1131)
+  Talep eden: Selin Koç <selin.koc@firma.com> — Üst Yönetim (SLA: 4 saat içinde ilk dönüş)
+  Durum: Yeni · Öncelik: Yüksek · Atanan: atanmamış
+  Açılış: 2026-11-19 08:35
+  Açıklama:
+    Upgrade provasında worker node drain 40 dk sürdü; prod upgrade öncesi PDB ayarları gözden geçirilmeli.
+
+İŞ YVR-1049 — Ödeme servisi deploy pipeline'ı helm adımında failed
+  Konu: DevOps, Failed hataları, Yazılım · Kategori: Kanban · Kaynak: TFS Kanban (TFS-48213)
+  Talep eden: Burak Çetin <burak.cetin@firma.com> — Birim Yöneticisi (SLA: 1 iş günü)
+  Durum: Yeni · Öncelik: Yüksek · Atanan: atanmamış
+  Açılış: 2026-11-18 17:35
+  Açıklama:
+    Kanban kartı: Dev → Test geçişinde helm upgrade timeout veriyor, sprint sonu release riskte.
+
+İŞ YVR-1050 — RHEL 7 sunucuların server upgrade takvimi
+  Konu: Server Upgrade · Kategori: Talep · Kaynak: Mail
+  Talep eden: Murat Aydın <murat.aydin@firma.com> — Birim Yöneticisi (SLA: 1 iş günü)
+  Durum: Yeni · Öncelik: Normal · Atanan: atanmamış
+  Açılış: 2026-11-18 07:35
+  Açıklama:
+    Destek süresi biten RHEL 7 sunucular için OS upgrade takvimini birim bazında çıkaralım.
+  Bağlı mail: #22 "RHEL 7 sunucuların server upgrade takvimi" (Murat Aydın, 2026-11-18 07:35)
+
+İŞ YVR-1051 — Ödeme platformu 3.8 release hazırlığı
+  Konu: DevOps, Yazılım · Kategori: Kanban · Kaynak: TFS Kanban (TFS-48230)
+  Talep eden: Gizem Yıldız <gizem.yildiz@firma.com> — PO (SLA: 2 iş günü (sprint önceliği))
+  Durum: Yeni · Öncelik: Normal · Atanan: atanmamış
+  Açılış: 2026-11-17 09:35
+  Açıklama:
+    Sprint 42 release kartı: release notları hazır, prod deploy penceresi talep ediyorum.
+
+İŞ YVR-1052 — Yıl sonu dondurma öncesi change takvimi
+  Konu: Servis Yönetimi · Kategori: Talep · Kaynak: Zoom
+  Talep eden: Elif Şahin <elif.sahin@firma.com> — Birim Yöneticisi (SLA: 1 iş günü)
+  Durum: Yeni · Öncelik: Normal · Atanan: atanmamış
+  Açılış: 2026-11-16 10:35
+  Açıklama:
+    Servis yönetimi toplantısı aksiyonu: freeze öncesi yapılması gereken change kayıtları ve CAB tarihleri.
+
+İŞ YVR-1053 — Legacy FTP sunucusunun decom edilmesi
+  Konu: Decom · Kategori: Jira · Kaynak: Jira (OPS-1140)
+  Talep eden: Murat Aydın <murat.aydin@firma.com> — Birim Yöneticisi (SLA: 1 iş günü)
+  Durum: Yeni · Öncelik: Düşük · Atanan: atanmamış
+  Açılış: 2026-11-15 09:35
+  Açıklama:
+    Son 90 günde trafik yok; decom öncesi bağımlılık analizi yapılmalı.
+
+İŞ YVR-1054 — Mobil backend yeni versiyon için test ortamı
+  Konu: DevOps, Yazılım · Kategori: Talep · Kaynak: Mail
+  Talep eden: Emre Kurt <emre.kurt@firma.com> — PO (SLA: 2 iş günü (sprint önceliği))
+  Durum: Yeni · Öncelik: Normal · Atanan: atanmamış
+  Açılış: 2026-11-12 11:35
+  Açıklama:
+    Yeni API versiyonunun test ortamına deploy edilmesi gerekiyor, backlog önceliği yüksek.
+  Bağlı mail: #23 "Mobil backend yeni versiyon için test ortamı" (Emre Kurt, 2026-11-12 11:35)
+
+İŞ YVR-1055 — [ALARM] Batch job FAILED — EOD_MUTABAKAT
+  Konu: Failed hataları · Kategori: Talep · Kaynak: Mail
+  Talep eden: İzleme Sistemi <noreply@monitor.firma.com> — Diğer (SLA: standart)
+  Durum: Yeni · Öncelik: Yüksek · Atanan: atanmamış
+  Açılış: 2026-11-11 05:35
+  Açıklama:
+    EOD_MUTABAKAT job'ı 02:14'te failed durumuna düştü. Hata: ORA-01555 snapshot too old.
+  Bağlı mail: #24 "[ALARM] Batch job FAILED — EOD_MUTABAKAT" (İzleme Sistemi, 2026-11-11 05:35)
+
+==============================================================================
+7) GELEN MAİLLER (24)
+==============================================================================
+
+MAİL #15 — MQ PAYMENT.IN kuyruğu doldu
+  Gönderen: Deniz Arslan <deniz.arslan@firma.com> · Tarih: 2026-09-23 13:35 · Önem: high · İş: YVR-1033
+  Ödeme kanalında MQ kuyruğu max depth'e ulaştı, işlemler beklemede.
+
+MAİL #16 — ACİL: Mobil kanalda transferler failed oluyor
+  Gönderen: Hakan Erdem <hakan.erdem@firma.com> · Tarih: 2026-09-30 13:35 · Önem: high · İş: YVR-1034
+  Mobil kanalda para transferleri failed dönüyor, bugün içinde çözülmeli.
+
+MAİL #17 — Firewall change'i için CAB onayı
+  Gönderen: Elif Şahin <elif.sahin@firma.com> · Tarih: 2026-10-17 13:35 · Önem: normal · İş: YVR-1038
+  Gece yapılacak firewall değişikliği için change kaydı ve CAB onayı.
+
+MAİL #18 — [ALARM] Batch job FAILED — EOD_MUTABAKAT
+  Gönderen: İzleme Sistemi <noreply@monitor.firma.com> · Tarih: 2026-10-21 13:35 · Önem: high · İş: YVR-1039
+  EOD_MUTABAKAT job'ı failed: ORA-01555 snapshot too old.
+
+MAİL #24 — [ALARM] Batch job FAILED — EOD_MUTABAKAT
+  Gönderen: İzleme Sistemi <noreply@monitor.firma.com> · Tarih: 2026-11-11 05:35 · Önem: high · İş: YVR-1055
+  EOD_MUTABAKAT job'ı 02:14'te failed durumuna düştü. Hata: ORA-01555 snapshot too old.
+
+MAİL #19 — Mobil uygulamada login bug'ı (Android)
+  Gönderen: Emre Kurt <emre.kurt@firma.com> · Tarih: 2026-11-11 13:35 · Önem: high · İş: YVR-1044
+  Yeni versiyonda Android kullanıcılar login olamıyor.
+
+MAİL #23 — Mobil backend yeni versiyon için test ortamı
+  Gönderen: Emre Kurt <emre.kurt@firma.com> · Tarih: 2026-11-12 11:35 · Önem: normal · İş: YVR-1054
+  Yeni API versiyonunun test ortamına deploy edilmesi gerekiyor, backlog önceliği yüksek.
+
+MAİL #20 — OpenShift prod'da ödeme pod'ları CrashLoop
+  Gönderen: Hakan Erdem <hakan.erdem@firma.com> · Tarih: 2026-11-14 13:35 · Önem: high · İş: YVR-1045
+  Ödeme servisi prod'da çalışmıyor, pod'lar sürekli yeniden başlıyor.
+
+MAİL #14 — Windows Server 2012 server upgrade
+  Gönderen: Burak Çetin <burak.cetin@firma.com> · Tarih: 2026-11-16 07:35 · Önem: high · İşe dönüşmedi
+  Merhaba ekip, konuyla ilgili desteğinizi rica ederim. Detaylar aşağıdadır.
+
+MAİL #13 — Eski DNS kayıtlarının temizliği (decom)
+  Gönderen: Murat Aydın <murat.aydin@firma.com> · Tarih: 2026-11-16 16:35 · Önem: normal · İşe dönüşmedi
+  Merhaba ekip, konuyla ilgili desteğinizi rica ederim. Detaylar aşağıdadır.
+
+MAİL #12 — RHEL yama (patch) penceresi
+  Gönderen: Deniz Arslan <deniz.arslan@firma.com> · Tarih: 2026-11-17 01:35 · Önem: normal · İşe dönüşmedi
+  Merhaba ekip, konuyla ilgili desteğinizi rica ederim. Detaylar aşağıdadır.
+
+MAİL #11 — MQ kuyruk derinliği alarmı
+  Gönderen: Hakan Erdem <hakan.erdem@firma.com> · Tarih: 2026-11-17 10:35 · Önem: normal · İşe dönüşmedi
+  Merhaba ekip, konuyla ilgili desteğinizi rica ederim. Detaylar aşağıdadır.
+
+MAİL #5 — Teşekkürler — Jenkins sorunu çözüldü
+  Gönderen: Selin Koç <selin.koc@firma.com> · Tarih: 2026-11-17 11:35 · Önem: low · İşe dönüşmedi
+  Dünkü Jenkins agent sorunu çözüldü, hızlı dönüşünüz için teşekkürler.
+
+MAİL #10 — Problem kaydı: tekrarlayan pod restart
+  Gönderen: Emre Kurt <emre.kurt@firma.com> · Tarih: 2026-11-17 19:35 · Önem: high · İşe dönüşmedi
+  Merhaba ekip, konuyla ilgili desteğinizi rica ederim. Detaylar aşağıdadır.
+
+MAİL #9 — MQ sertifika yenilemesi
+  Gönderen: Gizem Yıldız <gizem.yildiz@firma.com> · Tarih: 2026-11-18 04:35 · Önem: normal · İşe dönüşmedi
+  Merhaba ekip, konuyla ilgili desteğinizi rica ederim. Detaylar aşağıdadır.
+
+MAİL #22 — RHEL 7 sunucuların server upgrade takvimi
+  Gönderen: Murat Aydın <murat.aydin@firma.com> · Tarih: 2026-11-18 07:35 · Önem: normal · İş: YVR-1050
+  Destek süresi biten RHEL 7 sunucular için OS upgrade takvimini birim bazında çıkaralım.
+
+MAİL #4 — Ödeme platformu release'i için test ortamı
+  Gönderen: Gizem Yıldız <gizem.yildiz@firma.com> · Tarih: 2026-11-18 11:35 · Önem: normal · İş: YVR-1004
+  Cuma günkü sprint demosu için ödeme platformunun son versiyonunun test ortamına deploy edilmesi gerekiyor.
+
+MAİL #8 — Helm chart versiyon güncellemesi
+  Gönderen: Elif Şahin <elif.sahin@firma.com> · Tarih: 2026-11-18 13:35 · Önem: normal · İşe dönüşmedi
+  Merhaba ekip, konuyla ilgili desteğinizi rica ederim. Detaylar aşağıdadır.
+
+MAİL #7 — Batch job failed — gece mutabakatı
+  Gönderen: Selin Koç <selin.koc@firma.com> · Tarih: 2026-11-18 22:35 · Önem: normal · İşe dönüşmedi
+  Merhaba ekip, konuyla ilgili desteğinizi rica ederim. Detaylar aşağıdadır.
+
+MAİL #6 — Jenkins agent disk doluluğu
+  Gönderen: Burak Çetin <burak.cetin@firma.com> · Tarih: 2026-11-19 07:35 · Önem: high · İşe dönüşmedi
+  Merhaba ekip, konuyla ilgili desteğinizi rica ederim. Detaylar aşağıdadır.
+
+MAİL #2 — APPSRV07-09 server upgrade (RHEL 8)
+  Gönderen: Murat Aydın <murat.aydin@firma.com> · Tarih: 2026-11-19 09:35 · Önem: normal · İş: YVR-1002
+  Destek süresi biten üç uygulama sunucusunun RHEL 8'e server upgrade'i için bakım penceresi planlayalım. Liste ektedir.
+
+MAİL #21 — ACİL: Ödeme kanalında MQ kuyrukları doluyor
+  Gönderen: Hakan Erdem <hakan.erdem@firma.com> · Tarih: 2026-11-19 11:35 · Önem: high · İş: YVR-1047
+  Ödeme kanalında işlemler beklemede kalıyor; MQ tarafında PAYMENT.IN kuyruğunun dolduğu söyleniyor. Bugün içinde durum ve kök neden rica ediyorum.
+
+MAİL #1 — MQ channel CRM.TO.CORE RETRY durumunda
+  Gönderen: Deniz Arslan <deniz.arslan@firma.com> · Tarih: 2026-11-19 12:05 · Önem: high · İş: YVR-1001
+  Sabahtan beri CRM → Çekirdek MQ channel RETRY durumunda, mesajlar DLQ'ya düşüyor. Kontrol edebilir misiniz?
+
+MAİL #3 — [UYARI] OpenShift worker-node-05 disk doluluğu %85
+  Gönderen: İzleme Sistemi <noreply@monitor.firma.com> · Tarih: 2026-11-19 13:15 · Önem: high · İşe dönüşmedi
+  ocp-prod worker-node-05 üzerinde /var/lib/containers %85 doluluğa ulaştı.
+
+==============================================================================
+8) ZOOM TOPLANTILARI (9)
+==============================================================================
+- 2026-11-17 11:35 Sprint planlama (30 dk, düzenleyen: Ayşe Yılmaz)
+- 2026-11-18 10:35 OpenShift upgrade gözden geçirme (45 dk, düzenleyen: Mehmet Kaya)
+- 2026-11-19 10:35 OpenShift upgrade hazırlık toplantısı (30 dk, düzenleyen: Zeynep Demir, iş: YVR-1003) — Not: Operator uyumluluk matrisi eksik. Aksiyon: operator sürümlerini doğrula, PDB'leri gözden geçir.
+- 2026-11-19 15:35 Haftalık DevOps senkronu (45 dk, düzenleyen: Ayşe Yılmaz)
+- 2026-11-19 18:35 Incident sonrası değerlendirme (60 dk, düzenleyen: Can Öztürk)
+- 2026-11-20 11:35 CAB toplantısı (30 dk, düzenleyen: Ayşe Yılmaz)
+- 2026-11-20 15:35 CAB — haftalık change değerlendirmesi (60 dk, düzenleyen: Elif Şahin)
+- 2026-11-20 19:35 MQ mimari gözden geçirme (45 dk, düzenleyen: Mehmet Kaya)
+- 2026-11-21 13:35 Sprint planlama (60 dk, düzenleyen: Can Öztürk)
+
+==============================================================================
+9) KONUYA GÖRE ÖZET (benzer iş ararken buradan başla)
+==============================================================================
+
+KONU MQ (mq) — toplam 9 iş, çözülen 7, ortalama çözüm 2 gün
+  En çok çözen: mehmet.kaya (3), admin (2), zeynep.demir (1), can.ozturk (1)
+  İlgili wiki: mq-channel-retry, mq-kuyruk-dolulugu
+  İşler: YVR-1001 [İşlemde] MQ channel CRM.TO.CORE RETRY durumunda | YVR-1047 [Yeni] Ödeme kanalında MQ kuyrukları doluyor | YVR-1007 [Tamamlandı] MQ kuyruk derinliği alarmı | YVR-1017 [Tamamlandı] MQ sertifika yenilemesi | YVR-1046 [Tamamlandı] Problem kaydı: tekrarlayan MQ channel kesintileri | YVR-1023 [Tamamlandı] MQ kuyruk derinliği alarmı | YVR-1043 [Tamamlandı] MQ QMGR_PROD1 TLS sertifika yenilemesi | YVR-1041 [Tamamlandı] Incident: Jenkins agent'ları down | YVR-1033 [Tamamlandı] MQ PAYMENT.IN kuyruğu doldu
+
+KONU OpenShift Upgrade (openshift) — toplam 7 iş, çözülen 4, ortalama çözüm 2.3 gün
+  En çok çözen: zeynep.demir (2), can.ozturk (1), ayse.yilmaz (1)
+  İlgili wiki: openshift-upgrade
+  İşler: YVR-1003 [Yeni] OpenShift operator uyumluluk kontrolü | YVR-1048 [Yeni] OpenShift prod cluster upgrade — worker node drain sorunu | YVR-1025 [Tamamlandı] OpenShift test cluster upgrade | YVR-1009 [Tamamlandı] OpenShift test cluster upgrade | YVR-1045 [Tamamlandı] OpenShift prod'da ödeme pod'ları CrashLoop | YVR-1020 [Yeni] Problem kaydı: tekrarlayan pod restart | YVR-1035 [Tamamlandı] OpenShift test cluster 4.12 → 4.14 upgrade
+
+KONU Server Upgrade (server) — toplam 7 iş, çözülen 3, ortalama çözüm 6.7 gün
+  En çok çözen: mehmet.kaya (1), admin (1), zeynep.demir (1)
+  İlgili wiki: server-upgrade-rhel
+  İşler: YVR-1002 [Yeni] APPSRV07-09 server upgrade (RHEL 8) | YVR-1016 [Tamamlandı] Windows Server 2012 server upgrade | YVR-1050 [Yeni] RHEL 7 sunucuların server upgrade takvimi | YVR-1026 [İşlemde] RHEL yama (patch) penceresi | YVR-1010 [İşlemde] RHEL yama (patch) penceresi | YVR-1032 [Tamamlandı] Windows Server 2012 server upgrade | YVR-1037 [Tamamlandı] RHEL 7 → 8 server upgrade (APPSRV01-06)
+
+KONU Decom (decom) — toplam 6 iş, çözülen 5, ortalama çözüm 5.3 gün
+  En çok çözen: ayse.yilmaz (3), mehmet.kaya (1), zeynep.demir (1)
+  İlgili wiki: decom-sureci
+  İşler: YVR-1005 [Tamamlandı] Q1 sunucu decom listesi | YVR-1053 [Yeni] Legacy FTP sunucusunun decom edilmesi | YVR-1029 [Tamamlandı] Eski DNS kayıtlarının temizliği (decom) | YVR-1021 [Tamamlandı] Decom: eski rapor sunucuları | YVR-1013 [Tamamlandı] Eski DNS kayıtlarının temizliği (decom) | YVR-1040 [Tamamlandı] Eski log sunucularının decom edilmesi
+
+KONU DevOps (devops) — toplam 13 iş, çözülen 4, ortalama çözüm 3.4 gün
+  En çok çözen: can.ozturk (2), zeynep.demir (1), ayse.yilmaz (1)
+  İlgili wiki: pipeline-failed, release-yonetimi
+  İşler: YVR-1006 [İşlemde] Kart: mobil backend pipeline build adımında failed | YVR-1049 [Yeni] Ödeme servisi deploy pipeline'ı helm adımında failed | YVR-1004 [Bekliyor] Ödeme platformu release'i için test ortamı deploy | YVR-1008 [Tamamlandı] Jenkins agent disk doluluğu | YVR-1051 [Yeni] Ödeme platformu 3.8 release hazırlığı | YVR-1018 [İşlemde] ArgoCD senkron hatası | YVR-1054 [Yeni] Mobil backend yeni versiyon için test ortamı | YVR-1030 [İptal] Helm chart versiyon güncellemesi | YVR-1022 [İptal] Sprint release deploy penceresi | YVR-1014 [İptal] Helm chart versiyon güncellemesi | YVR-1024 [Tamamlandı] Jenkins agent disk doluluğu | YVR-1042 [Tamamlandı] Ödeme platformu 3.7 release ve prod deploy | YVR-1041 [Tamamlandı] Incident: Jenkins agent'ları down
+
+KONU Failed hataları (failed) — toplam 12 iş, çözülen 6, ortalama çözüm 2.7 gün
+  En çok çözen: zeynep.demir (2), mehmet.kaya (2), can.ozturk (2)
+  İlgili wiki: batch-failed, incident-p1, pipeline-failed
+  İşler: YVR-1006 [İşlemde] Kart: mobil backend pipeline build adımında failed | YVR-1049 [Yeni] Ödeme servisi deploy pipeline'ı helm adımında failed | YVR-1018 [İşlemde] ArgoCD senkron hatası | YVR-1027 [Bekliyor] Batch job failed — gece mutabakatı | YVR-1045 [Tamamlandı] OpenShift prod'da ödeme pod'ları CrashLoop | YVR-1011 [Bekliyor] Batch job failed — gece mutabakatı | YVR-1055 [Yeni] [ALARM] Batch job FAILED — EOD_MUTABAKAT | YVR-1031 [Tamamlandı] Incident: API gateway timeout | YVR-1015 [Tamamlandı] Incident: API gateway timeout | YVR-1041 [Tamamlandı] Incident: Jenkins agent'ları down | YVR-1039 [Tamamlandı] [ALARM] Batch job FAILED — EOD_MUTABAKAT | YVR-1034 [Tamamlandı] Mobil kanalda transferler failed oluyor
+
+KONU Servis Yönetimi (servis) — toplam 7 iş, çözülen 3, ortalama çözüm 1.8 gün
+  En çok çözen: mehmet.kaya (1), can.ozturk (1), ayse.yilmaz (1)
+  İlgili wiki: change-cab, incident-p1
+  İşler: YVR-1046 [Tamamlandı] Problem kaydı: tekrarlayan MQ channel kesintileri | YVR-1052 [Yeni] Yıl sonu dondurma öncesi change takvimi | YVR-1028 [Yeni] Change kaydı için CAB onayı | YVR-1020 [Yeni] Problem kaydı: tekrarlayan pod restart | YVR-1012 [Yeni] Change kaydı için CAB onayı | YVR-1041 [Tamamlandı] Incident: Jenkins agent'ları down | YVR-1038 [Tamamlandı] Firewall change'i için CAB onayı
+
+KONU Yazılım (yazilim) — toplam 10 iş, çözülen 2, ortalama çözüm 2.5 gün
+  En çok çözen: can.ozturk (2)
+  İlgili wiki: release-yonetimi
+  İşler: YVR-1049 [Yeni] Ödeme servisi deploy pipeline'ı helm adımında failed | YVR-1004 [Bekliyor] Ödeme platformu release'i için test ortamı deploy | YVR-1051 [Yeni] Ödeme platformu 3.8 release hazırlığı | YVR-1019 [Bekliyor] Backlog: log toplama geliştirmesi | YVR-1054 [Yeni] Mobil backend yeni versiyon için test ortamı | YVR-1044 [Tamamlandı] Mobil uygulamada login bug'ı (Android) | YVR-1030 [İptal] Helm chart versiyon güncellemesi | YVR-1022 [İptal] Sprint release deploy penceresi | YVR-1014 [İptal] Helm chart versiyon güncellemesi | YVR-1042 [Tamamlandı] Ödeme platformu 3.7 release ve prod deploy
+
+— dosya sonu —

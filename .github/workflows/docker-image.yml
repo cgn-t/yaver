@@ -73,9 +73,28 @@ jobs:
           node server/src/index.js > agent-server.log 2>&1 &
           for i in $(seq 1 40); do curl -sf localhost:8081/api/health && break; sleep 1; done
           node server/test/agent-e2e.mjs
+      - name: GenAI Studio Chat Block uçtan uca testi (sahte SSO + Chat Block ile)
+        env:
+          DATA_DIR: ${{ runner.temp }}/yaver-genai-data
+          PORT: 8082
+          YAVER_URL: http://127.0.0.1:8082
+          DEMO_FEEDS: "false"
+          ADMIN_ACTS_AS: ""
+          # yalnız test değerleri; gerçek değerler OpenShift Secret'ındadır
+          GENAI_APPLICATION_BACKEND_URL: http://127.0.0.1:9199
+          GENAI_SSO_URL: http://127.0.0.1:9199
+          GENAI_CHAT_CLIENT_ID: test-client
+          GENAI_CHAT_CLIENT_SECRET: test-secret
+          GENAI_APP_ID: "1"
+          GENAI_APP_IDENTIFIER: yaver
+        run: |
+          mkdir -p "$DATA_DIR"
+          node server/src/index.js > genai-server.log 2>&1 &
+          for i in $(seq 1 40); do curl -sf localhost:8082/api/health && break; sleep 1; done
+          node server/test/genai-e2e.mjs
       - name: Sunucu logu
         if: always()
-        run: cat server.log agent-server.log || true
+        run: cat server.log agent-server.log genai-server.log || true
 
   image:
     needs: check

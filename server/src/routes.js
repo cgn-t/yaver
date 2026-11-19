@@ -1,4 +1,5 @@
 import express from 'express'
+import * as G from './genai.js'
 import { adminOnly, createApiToken, humanOnly, ldapTest, loadLdapSettings, requireAuth, scope } from './auth.js'
 import { resetDemoData, query } from './db.js'
 import * as S from './state.js'
@@ -88,7 +89,7 @@ export function apiRouter() {
     await A.assertDirect(req.user, ['create'])
     const item = await S.createWorkItem({ ...b, title: String(b.title).trim() }, req.user)
     // Örnek yorumlayıcı (gerçek ajan bağlıysa kapalı): arka planda geçmişe bakıp yorum yazar
-    if (I.DEMO_INTERPRETER && req.user.role !== 'agent') I.interpret(item.id).catch((e) => console.warn('[intel]', e.message))
+    if (I.DEMO_INTERPRETER && !G.isActive() && req.user.role !== 'agent') I.interpret(item.id).catch((e) => console.warn('[intel]', e.message))
     res.status(201).json(item)
   }))
   api.patch('/work-items/:id', scope('items:write'), h(async (req, res) => {
@@ -121,9 +122,9 @@ export function apiRouter() {
     const r = await I.setAgentComment(id(req), req.body ?? {}, req.user)
     r ? res.json(r) : notFound(res, 'İş')
   }))
-  /** Örnek yorumlayıcıyı bu iş için yeniden çalıştırır */
+  /** İşi yeniden yorumlatır: GenAI Studio etkinse Chat Block'a sorar (senkron), değilse pod içi örnek yorumlayıcı */
   api.post('/work-items/:id/interpret', scope('items:write'), h(async (req, res) => {
-    const r = await I.interpret(id(req))
+    const r = G.isActive() ? await G.interpretWithGenAI(id(req), { trigger: 'manual' }) : await I.interpret(id(req))
     r ? res.json(r) : notFound(res, 'İş')
   }))
 
@@ -266,6 +267,20 @@ export function apiRouter() {
     if (!req.body?.bind_password || req.body.bind_password === S.MASK) cfg.bind_password = saved.bind_password
     res.json(await ldapTest(cfg))
   }))
+  // GenAI Studio (Chat Block): bağlantı bilgileri yalnız ortam değişkeninden; ekran yalnız davranış ayarlarını değiştirir
+  api.get('/settings/genai', humanOnly, h(async (_req, res) => res.json(await G.publicConfig())))
+  api.put('/settings/genai', adminOnly, h(async (req, res) => res.json(await G.saveConfig(req.body ?? {}, req.user))))
+  api.post('/settings/genai/test', adminOnly, h(async (req, res) => res.json(await G.testConnection(req.body ?? {}))))
+  api.get('/genai/jobs', scope('items:read'), h(async (req, res) => res.json({ jobs: await G.listJobs(req.query) })))
+  api.get('/genai/jobs/:id', humanOnly, h(async (req, res) => {
+    const j = (await G.listJobs({ id: id(req), full: true, limit: 1 }))[0]
+    j ? res.json(j) : notFound(res, 'Çağrı')
+  }))
+  api.post('/genai/jobs/:id/retry', humanOnly, h(async (req, res) => {
+    const r = await G.retryJob(id(req))
+    r ? res.json(r) : res.status(409).json({ detail: 'Bu çağrı tekrar kuyruğa alınamaz', code: 'conflict' })
+  }))
+  api.post('/genai/interpret-open', humanOnly, h(async (req, res) => res.json(await G.enqueueOpen({ onlyMissing: req.body?.only_missing !== false, limit: req.body?.limit }))))
   api.get('/settings/general', humanOnly, h(async (_req, res) => res.json(await S.getGeneral())))
   api.put('/settings/general', humanOnly, h(async (req, res) => { await S.saveGeneral(req.body ?? {}, req.user); res.json(await S.getGeneral()) }))
   api.get('/settings/agent', humanOnly, h(async (_req, res) => res.json({ ...(await A.getAgentSettings()), delivery: DELIVERY, chat_mode: C.CHAT_MODE })))

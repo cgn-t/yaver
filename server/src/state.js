@@ -17,7 +17,7 @@ export const ITEM_SQL = `
          w.status, w.priority, coalesce(w.category, '') AS category, u.username AS assignee, w.requester,
          w.due_date, w.created_at, w.updated_at, w.closed_at, w.external_ref, w.external_url, w.version,
          w.requester_email, w.mgmt_level, w.keywords, w.agent_comment, w.agent_sources, w.agent_confidence, w.agent_suggestion,
-         w.agent_comment_by, w.agent_comment_at,
+         w.agent_comment_by, w.agent_comment_at, w.keywords_by,
          coalesce((SELECT array_agg(t.tag ORDER BY t.tag) FROM work_item_tag t WHERE t.work_item_id = w.id), '{}') AS tags
   FROM work_item w LEFT JOIN app_user u ON u.id = w.assignee_id`
 
@@ -39,7 +39,7 @@ export function toApiConfig(r, { mask = true } = {}) {
   }
 }
 
-async function settings(category) {
+export async function settings(category) {
   const { rows } = await query('SELECT key, value, is_secret FROM app_setting WHERE category = $1', [category])
   return Object.fromEntries(rows.map((r) => [r.key, r.is_secret && r.value ? MASK : r.value]))
 }
@@ -222,7 +222,7 @@ export async function updateMeeting(id, patch) {
 }
 
 // ---------- Ayarlar ----------
-async function saveSettings(category, obj, secretKeys, actor) {
+export async function saveSettings(category, obj, secretKeys, actor) {
   await tx(async (c) => {
     for (const [k, v] of Object.entries(obj)) {
       if (secretKeys.includes(k) && v === MASK) continue          // maskeli değer geri geldi → dokunma
