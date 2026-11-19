@@ -3,6 +3,7 @@ import * as G from './genai.js'
 import * as D from './demoflow.js'
 import * as DR from './draftflow.js'
 import * as DB from './dbview.js'
+import * as GT from './genai-test.js'
 import { BOOT_ID, SUGGESTIONS, askYaver } from './ai-ask.js'
 import { adminOnly, createApiToken, humanOnly, ldapTest, loadLdapSettings, requireAuth, scope } from './auth.js'
 import { resetDemoData, query } from './db.js'
@@ -326,6 +327,9 @@ export function apiRouter() {
     const r = await G.retryJob(id(req))
     r ? res.json(r) : res.status(409).json({ detail: 'Bu çağrı tekrar kuyruğa alınamaz', code: 'conflict' })
   }))
+  // GenAI test seti (0.9.12): akış dalları + hata senaryoları; arka planda çalışır, GET ile ilerleme okunur
+  api.get('/genai/test-suite', humanOnly, h(async (_req, res) => res.json({ scenarios: GT.listTests(), run: GT.testStatus() })))
+  api.post('/genai/test-suite', humanOnly, h(async (req, res) => res.status(202).json(await GT.startTests(req.body ?? {}, req.user))))
   api.post('/genai/interpret-open', humanOnly, h(async (req, res) => res.json(await G.enqueueOpen({ onlyMissing: req.body?.only_missing !== false, limit: req.body?.limit }))))
   api.get('/settings/general', humanOnly, h(async (_req, res) => res.json(await S.getGeneral())))
   api.put('/settings/general', humanOnly, h(async (req, res) => { await S.saveGeneral(req.body ?? {}, req.user); res.json(await S.getGeneral()) }))

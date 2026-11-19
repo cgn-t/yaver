@@ -130,7 +130,7 @@ export async function saveConfig(body, actor) {
 // ---------- Token ----------
 const tokenCache = new Map()   // key → {token, exp}
 
-async function getToken(cfg, { force = false } = {}) {
+export async function getToken(cfg, { force = false } = {}) {
   const url = tokenUrl(cfg.sso_url, cfg.sso_token_path)
   const key = `${url}|${cfg.client_id}`
   const hit = tokenCache.get(key)
@@ -554,6 +554,20 @@ export async function interpretWithGenAI(itemId, { trigger = 'manual', jobId = n
     await query(`UPDATE agent_run SET status = 'failed', error = $2, finished_at = now() WHERE id = $1`, [run.id, e.message.slice(0, 1000)])
     throw e
   }
+}
+
+/** Test seti için: verilen AI yanıtını (Chat Block çağırmadan) doğrulayıp uygular. cfgOverride ile apply_changes vb. zorlanabilir. */
+export async function applyAiResult(itemId, ai, cfgOverride = {}) {
+  const cfg = { ...(await loadConfig()), ...cfgOverride }
+  const ctx = await buildContext(itemId)
+  const vocab = await vocabulary()
+  const v = validate(ai, ctx, vocab, cfg)
+  const applied = await apply(itemId, v, cfg, await agentActor())
+  return { v, applied }
+}
+/** Test seti için: yalnız doğrulama (uygulamadan). */
+export async function validateOnly(itemId, ai) {
+  return validate(ai, await buildContext(itemId), await vocabulary(), await loadConfig())
 }
 
 async function apply(itemId, v, cfg, actor) {

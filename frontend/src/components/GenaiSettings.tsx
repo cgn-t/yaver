@@ -167,6 +167,7 @@ export function GenaiTab() {
           <Button onClick={queueOpen} disabled={!cfg.enabled}>Yorumu olmayan açık işleri yorumlat</Button>
         </Stack>
       </Box>
+      <GenaiTestCard />
       <DemoFlowCard />
       <DraftDemoCard />
     </Stack>
@@ -230,6 +231,95 @@ function DemoFlowCard() {
           </Table>
         </TableContainer>
       )}
+    </Paper>
+  )
+}
+
+type TestRow = { key: string; group: 'akis' | 'hata'; title: string; expect: string; status: 'bekliyor' | 'calisiyor' | 'gecti' | 'kaldi' | 'atlandi'; actual: string | null; detail: string | null; duration_ms: number | null }
+type TestRun = { id?: string; status: 'idle' | 'running' | 'done'; started_at?: string; finished_at?: string | null; mode?: string; results: TestRow[]; summary?: Record<string, number> }
+const TEST_CHIP: Record<string, { label: string; color: 'success' | 'error' | 'default' | 'info' | 'warning' }> = {
+  gecti: { label: 'Geçti', color: 'success' }, kaldi: { label: 'Kaldı', color: 'error' }, atlandi: { label: 'Atlandı', color: 'default' },
+  calisiyor: { label: 'Çalışıyor', color: 'info' }, bekliyor: { label: 'Bekliyor', color: 'default' },
+}
+const csvCell = (v: unknown) => { const t = v === null || v === undefined ? '' : String(v); return /[",\n;]/.test(t) ? `"${t.replace(/"/g, '""')}"` : t }
+
+/** GenAI test seti: akış dalları (canlı) + hata senaryoları (Yaver hatayı yakalarsa geçer). */
+function GenaiTestCard() {
+  const { enqueueSnackbar } = useSnackbar()
+  const [run, setRun] = useState<TestRun | null>(null)
+  const load = useCallback(async () => { try { setRun((await apiFetch<{ run: TestRun }>('/genai/test-suite')).run) } catch { /* yetki yok */ } }, [])
+  useEffect(() => { void load() }, [load])
+  useEffect(() => { if (run?.status !== 'running') return; const t = setInterval(() => void load(), 2000); return () => clearInterval(t) }, [run?.status, load])
+  const start = async () => {
+    try { setRun(await apiFetch<TestRun>('/genai/test-suite', { method: 'POST', body: {} })) }
+    catch (e) { enqueueSnackbar(e instanceof Error ? e.message : String(e), { variant: 'error' }) }
+  }
+  const save = (fmt: 'json' | 'csv') => {
+    if (!run) return
+    const body = fmt === 'json' ? JSON.stringify(run, null, 2)
+      : '﻿' + [['grup', 'senaryo', 'beklenen', 'sonuc', 'gerceklesen', 'not', 'sure_ms'].join(','),
+        ...run.results.map((r) => [r.group === 'akis' ? 'Akış' : 'Hata', r.title, r.expect, TEST_CHIP[r.status]?.label ?? r.status, r.actual, r.detail, r.duration_ms].map(csvCell).join(','))].join('\r\n')
+    const url = URL.createObjectURL(new Blob([body], { type: fmt === 'json' ? 'application/json' : 'text/csv;charset=utf-8' }))
+    const a = document.createElement('a'); a.href = url; a.download = `genai-test-${run.id ?? 'sonuc'}.${fmt}`; a.click()
+    setTimeout(() => URL.revokeObjectURL(url), 1000)
+  }
+  const running = run?.status === 'running'
+  const rows = run?.results ?? []
+  const count = (k: string) => rows.filter((r) => r.status === k).length
+  const groups: { key: 'akis' | 'hata'; title: string; hint: string }[] = [
+    { key: 'akis', title: 'Akış senaryoları', hint: 'GenAI Studio akışının her dalı gerçek çağrıyla denenir.' },
+    { key: 'hata', title: 'Hata senaryoları', hint: 'Başarısız olması beklenen durumlar: Yaver hatayı doğru yakalarsa "Geçti".' },
+  ]
+  return (
+    <Paper variant="outlined" sx={{ p: 2 }}>
+      <Typography variant="subtitle2">GenAI test seti</Typography>
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+        Bağlantı, sohbet (selamlama / genel / wiki / repo), triyaj, taslak ve Failed konulu iş senaryolarını gerçek GenAI Studio ile; yanlış kimlik, geçersiz token,
+        zaman aşımı, geçersiz / boş JSON, eksik alan, geçersiz değer, kural ihlali ve prompt injection gibi hata senaryolarını çalıştırır.
+        Gerçek secret değişmez; geçici test işleri sonunda silinir.
+      </Typography>
+      <Stack direction="row" spacing={1.5} sx={{ mb: rows.length ? 1.5 : 0, alignItems: 'center', flexWrap: 'wrap', rowGap: 1 }}>
+        <Button variant="contained" onClick={start} disabled={running} startIcon={running ? <CircularProgress size={16} color="inherit" /> : undefined}>
+          {running ? 'Test seti çalışıyor…' : 'GenAI test setini çalıştır'}</Button>
+        {rows.length > 0 && <>
+          <Chip size="small" color="success" label={`${count('gecti')} geçti`} />
+          <Chip size="small" color={count('kaldi') ? 'error' : 'default'} label={`${count('kaldi')} kaldı`} />
+          <Chip size="small" label={`${count('atlandi')} atlandı`} />
+          {run?.mode === 'yerel' && <Typography variant="caption" color="text.secondary">GenAI kapalı: canlı senaryolar atlanır</Typography>}
+          <Box sx={{ flex: 1 }} />
+          <Button size="small" onClick={() => save('csv')} disabled={running}>CSV indir</Button>
+          <Button size="small" onClick={() => save('json')} disabled={running}>JSON indir</Button>
+        </>}
+      </Stack>
+      {groups.map((g) => {
+        const list = rows.filter((r) => r.group === g.key)
+        if (!list.length) return null
+        return (
+          <Box key={g.key} sx={{ mb: 1.5 }}>
+            <Typography variant="caption" sx={{ fontWeight: 650 }}>{g.title}</Typography>
+            <Typography variant="caption" color="text.secondary" sx={{ ml: 1 }}>{g.hint}</Typography>
+            <TableContainer>
+              <Table size="small">
+                <TableHead><TableRow><TableCell>Senaryo</TableCell><TableCell>Beklenen</TableCell><TableCell>Sonuç</TableCell><TableCell>Gerçekleşen</TableCell><TableCell align="right">Süre</TableCell></TableRow></TableHead>
+                <TableBody>
+                  {list.map((r) => (
+                    <TableRow key={r.key}>
+                      <TableCell sx={{ minWidth: 200 }}>{r.title}</TableCell>
+                      <TableCell sx={{ minWidth: 180 }}><Typography variant="caption" color="text.secondary">{r.expect}</Typography></TableCell>
+                      <TableCell><Chip size="small" variant={r.status === 'bekliyor' ? 'outlined' : 'filled'} color={TEST_CHIP[r.status]?.color ?? 'default'} label={TEST_CHIP[r.status]?.label ?? r.status} /></TableCell>
+                      <TableCell sx={{ maxWidth: 420 }}>
+                        <Typography variant="caption" sx={{ display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden', wordBreak: 'break-word' }} title={r.actual ?? ''}>{r.actual ?? ''}</Typography>
+                        {r.detail && <Typography variant="caption" color="warning.main" sx={{ display: 'block' }}>{r.detail}</Typography>}
+                      </TableCell>
+                      <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>{r.duration_ms != null ? `${(r.duration_ms / 1000).toFixed(1)} sn` : ''}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          </Box>
+        )
+      })}
     </Paper>
   )
 }
