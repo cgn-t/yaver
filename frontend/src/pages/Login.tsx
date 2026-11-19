@@ -3,6 +3,7 @@ import PersonOutlineIcon from '@mui/icons-material/PersonOutlined'
 import VisibilityIcon from '@mui/icons-material/Visibility'
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff'
 import { Alert, Box, Button, CircularProgress, IconButton, InputAdornment, Stack, TextField, Typography } from '@mui/material'
+import { APP_VERSION } from '../version'
 import { motion } from 'motion/react'
 import { useState } from 'react'
 import { Navigate, useNavigate } from 'react-router-dom'
@@ -138,7 +139,7 @@ export default function Login() {
             </Box>
           </motion.div>
         </Box>
-        <Typography variant="caption" color="text.disabled">© {new Date().getFullYear()} Yaver · v0.2.0</Typography>
+        <Typography variant="caption" color="text.disabled">© {new Date().getFullYear()} Yaver · v{APP_VERSION}</Typography>
       </Box>
 
       {/* Sağ: ürün vitrini */}
