@@ -322,6 +322,15 @@ try {
   assert.equal((await call('POST', '/api/demo/draft', admin, { drafts: [{ from: 'x', text: 'a' }] })).status, 400)
   step('demo akışı 2: mail taslağı AI ile doldurulur, alanlar doğrulanır, eksikler tamamlanır, mail + iş yazılır')
 
+  // 10b2) İstek türü işaretleri: GenAI Studio akışı ilk satıra göre dallanır (docs/GENAI-AKIS.md)
+  const firstLines = chatCalls.map((c) => String(c.body.msg).split('\n')[0])
+  assert.ok(firstLines.includes('[YAVER:TRIYAJ]'), 'triyaj isteği işaretli')
+  assert.ok(firstLines.includes('[YAVER:TASLAK]'), 'taslak isteği işaretli')
+  assert.ok(firstLines.includes('[YAVER:SOHBET]'), 'sohbet isteği işaretli')
+  const sohbet = chatCalls.find((c) => String(c.body.msg).startsWith('[YAVER:SOHBET]')).body.msg.split('\n')
+  assert.match(sohbet[1], /^SORU: /)
+  step('istek türü işaretleri: [YAVER:TRIYAJ] / [YAVER:TASLAK] / [YAVER:SOHBET] ilk satırda')
+
   // 10c) Veritabanı görünümü: yönetici için salt okunur, gizli alanlar maskeli; DB_PUBLIC yoksa girişsiz uç kapalı
   const tb = (await call('GET', '/api/admin/db/tables', admin)).body
   assert.ok(tb.tables.some((t) => t.name === 'work_item' && t.rows > 0))

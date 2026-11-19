@@ -69,6 +69,11 @@ const DEFAULTS = {
 const BOOL = ['active', 'auto_interpret', 'auto_from_mail', 'auto_from_zoom', 'apply_topic', 'apply_changes', 'promote_suggestion', 'fill_missing']
 const NUM = ['timeout_sec', 'min_confidence', 'max_context_chars', 'max_attempts', 'concurrency']
 export const GENAI_LABEL = 'GenAI Studio'
+/**
+ * İstek türü işaretleri (0.9.11): her Chat Block mesajının İLK satırı. GenAI Studio akışındaki
+ * "İstek Türü Kontrolü" düğümü {{query}} contains "[YAVER:TRIYAJ]" gibi koşullarla dallanır (docs/GENAI-AKIS.md).
+ */
+export const MARK = { TRIYAJ: '[YAVER:TRIYAJ]', TASLAK: '[YAVER:TASLAK]', SOHBET: '[YAVER:SOHBET]' }
 const CHANGE_KINDS = ['status', 'priority', 'assign', 'due_date', 'category', 'tags', 'edit']
 const SOURCE_TYPES = ['db', 'wiki', 'mail', 'tfs', 'jira', 'zoom']
 
@@ -256,6 +261,7 @@ export function buildPrompt(ctx, cfg, vocab) {
   const it = ctx.item
   const lvl = ctx.contact?.mgmt_level ?? it.mgmt_level ?? 'diger'
   return [
+    MARK.TRIYAJ,
     `Sen Yaver iş takip uygulamasının IT operasyon triyaj asistanısın. Ekibe yeni bir iş geldi (kaynak: ${SOURCE_LABEL[it.source_type] ?? it.source_type}).`,
     'Görevin: işi geçmişe bakarak yorumlamak, kategorize etmek ve gerekiyorsa durum/öncelik/atama değişikliği önermek.',
     '',
