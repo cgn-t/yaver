@@ -21,7 +21,7 @@ const id = (req) => Number(req.params.id)
 // ---------- Açık uçlar ----------
 app.get('/api/health', h(async (_req, res) => {
   await query('SELECT 1')
-  res.json({ ok: true, mode: 'db' })
+  res.json({ ok: true, mode: 'db', version: process.env.APP_VERSION ?? 'dev' })
 }))
 
 app.post('/api/auth/login', h(async (req, res) => {

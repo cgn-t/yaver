@@ -19,7 +19,9 @@ RUN npm ci --omit=dev --no-audit --no-fund
 
 # ---- 3) Çalışma imajı ----
 FROM node:22-alpine
-ENV NODE_ENV=production PORT=8080 \
+ARG APP_VERSION=dev
+LABEL org.opencontainers.image.title="Yaver" org.opencontainers.image.version="${APP_VERSION}"
+ENV NODE_ENV=production PORT=8080 APP_VERSION=${APP_VERSION} \
     STATIC_DIR=/app/frontend/dist SQL_DIR=/app/db/postgres
 WORKDIR /app
 COPY --from=deps /app/server/node_modules server/node_modules

@@ -11,7 +11,7 @@
 #        kubectl -n yaver create secret docker-registry ghcr-pull --docker-server=ghcr.io \
 #          --docker-username=<github-kullanıcı> --docker-password=<read:packages yetkili PAT>
 #      Paketi GitHub'da "public" yaptıysanız bu adıma ve aşağıdaki imagePullSecrets'a gerek yok.
-#   2) Secret şifrelerini değiştirin. Sürüm sabitlemek için :latest yerine :0.3.0 gibi bir etiket kullanın.
+#   2) Secret şifrelerini değiştirin. Sürümler: github.com/cgn-t/yaver/releases
 #   3) kubectl apply -f deploy/k8s/yaver.yaml
 #   4) kubectl -n yaver port-forward svc/yaver 8080:80   →  http://localhost:8080  (admin / admin)
 # =====================================================================
@@ -91,8 +91,8 @@ spec:
 
         # ---------- 2) Uygulama: arayüz + API ----------
         - name: yaver
-          image: ghcr.io/cgn-t/yaver:latest   # CI'ın ürettiği imaj
-          imagePullPolicy: Always
+          image: ghcr.io/cgn-t/yaver:0.3.0    # CI'ın ürettiği sürümlü imaj; güncellemek için etiketi değiştirip apply
+          imagePullPolicy: IfNotPresent
           env:
             - name: POSTGRES_PASSWORD
               valueFrom: { secretKeyRef: { name: yaver-secrets, key: POSTGRES_PASSWORD } }

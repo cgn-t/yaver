@@ -1,13 +1,16 @@
-# Yaver Docker imajı: her push/PR'da derlenir, main ve v* etiketlerinde ghcr.io'ya gönderilir.
-#   ghcr.io/<owner>/yaver:latest      ← main
-#   ghcr.io/<owner>/yaver:0.3.0       ← v0.3.0 etiketi
+# Yaver Docker imajı: her push/PR'da derlenir, main'de ghcr.io'ya gönderilir.
+# Sürüm kök dizindeki VERSION dosyasından okunur. Yeni sürüm çıkarmak = VERSION'ı artırıp main'e push.
+#   ghcr.io/<owner>/yaver:0.3.0       ← VERSION (bu sürüm ilk kez yayınlanıyorsa)
+#   ghcr.io/<owner>/yaver:0.3         ← aynı sürümün kısa hali
+#   ghcr.io/<owner>/yaver:latest      ← main'in son hali
 #   ghcr.io/<owner>/yaver:sha-abc1234 ← her commit
+# Sürüm yayınlanınca depoya v0.3.0 git etiketi ve GitHub Release otomatik eklenir.
+# Aynı VERSION ile tekrar push edilirse sürüm etiketi EZİLMEZ; yalnız latest ve sha- güncellenir.
 name: Docker image
 
 on:
   push:
     branches: [main]
-    tags: ['v*']
   pull_request:
     branches: [main]
   workflow_dispatch:
@@ -74,10 +77,26 @@ jobs:
     needs: check
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: write     # sürüm etiketi + release
       packages: write
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Sürüm
+        id: ver
+        run: |
+          VERSION=$(tr -d ' \n' < VERSION)
+          echo "$VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$' || { echo "VERSION geçersiz: $VERSION"; exit 1; }
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "minor=${VERSION%.*}" >> "$GITHUB_OUTPUT"
+          # Bu sürüm daha önce yayınlandıysa (v<VERSION> etiketi varsa) sürüm etiketlerini tekrar basma
+          if git rev-parse -q --verify "refs/tags/v$VERSION" >/dev/null; then
+            echo "new=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::v$VERSION zaten yayınlanmış; yalnız latest ve sha- etiketleri güncellenecek. Yeni sürüm için VERSION'ı artırın."
+          else
+            echo "new=true" >> "$GITHUB_OUTPUT"
+          fi
       - uses: docker/setup-buildx-action@v3
       - name: ghcr.io girişi
         if: github.event_name != 'pull_request'
@@ -92,11 +111,13 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
+            type=raw,value=${{ steps.ver.outputs.version }},enable=${{ github.ref == 'refs/heads/main' && steps.ver.outputs.new == 'true' }}
+            type=raw,value=${{ steps.ver.outputs.minor }},enable=${{ github.ref == 'refs/heads/main' && steps.ver.outputs.new == 'true' }}
             type=raw,value=latest,enable={{is_default_branch}}
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
             type=sha,prefix=sha-
             type=ref,event=pr
+          labels: |
+            org.opencontainers.image.version=${{ steps.ver.outputs.version }}
       - name: Derle ve gönder
         uses: docker/build-push-action@v6
         with:
@@ -104,5 +125,16 @@ jobs:
           push: ${{ github.event_name != 'pull_request' }}   # PR'da yalnız derlenir
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            APP_VERSION=${{ steps.ver.outputs.version }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+      - name: Sürüm etiketi ve GitHub Release
+        if: github.ref == 'refs/heads/main' && steps.ver.outputs.new == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          V: ${{ steps.ver.outputs.version }}
+          IMG: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+        run: |
+          gh release create "v$V" --target "$GITHUB_SHA" --title "Yaver $V" \
+            --notes "Docker imajı: \`$IMG:$V\`" --generate-notes

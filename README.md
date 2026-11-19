@@ -18,11 +18,15 @@ oluşturur ve örnek veriyi yükler; veriler PVC'de kalır.
 
 İmaj GitHub Actions ile otomatik derlenir (`.github/workflows/docker-image.yml`):
 
-| Olay | Ne olur | Etiket |
+Sürüm kök dizindeki **`VERSION`** dosyasındadır (şu an `0.3.0`).
+
+| Olay | Ne olur | İmaj etiketi |
 |---|---|---|
-| `main`'e push | test + derleme + ghcr.io'ya gönderme | `ghcr.io/cgn-t/yaver:latest`, `:sha-abc1234` |
-| `v0.3.0` gibi etiket | aynı + sürüm etiketi | `:0.3.0`, `:0.3` |
+| `VERSION` artırılıp `main`'e push (ör. `0.3.1`) | test + derleme + gönderme, `v0.3.1` git etiketi ve GitHub Release otomatik açılır | `:0.3.1`, `:0.3`, `:latest`, `:sha-abc1234` |
+| `VERSION` değişmeden `main`'e push | test + derleme + gönderme; yayınlanmış sürüm etiketi ezilmez | `:latest`, `:sha-abc1234` |
 | Pull request | test + derleme (gönderilmez) | — |
+
+Yeni sürüm: `echo 0.3.1 > VERSION && git commit -am "Sürüm 0.3.1" && git push`. Çalışan sürüm `GET /api/health` cevabında görünür.
 
 CI önce arayüzü derler, şema + örnek veriyi gerçek bir PostgreSQL'e yükler, sunucuyu açıp `admin/admin` girişini dener;
 hepsi geçerse imajı derleyip gönderir. Ek secret gerekmez (`GITHUB_TOKEN` yeterli).
