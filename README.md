@@ -98,6 +98,10 @@ Uçtan uca test (sahte ajan ile): sunucuyu `AGENT_TOKEN`, `AGENT_WEBHOOK_URL=htt
 - **Tek kullanıcı görünümü:** `admin` / `admin` ile girilir ama uygulama **Mehmet Kaya** (`mehmet.kaya`) girmiş gibi davranır:
   Bana atananlar, yorumlar ve karşılama onun adına. Yetki admin kalır. Başka biri için `ADMIN_ACTS_AS=<kullanıcı>`, kapatmak için `ADMIN_ACTS_AS=""`.
 
+## Veritabanını web'den görüntüleme
+
+`/db` sayfası tüm tabloları salt okunur gösterir (arama, sıralama, CSV/JSON); `DB_PUBLIC=true` iken giriş gerekmez, gizli alanlar maskelidir. Yönetici için Ayarlar → Veritabanı. Ayrıntı: [docs/API-KULLANIMI.md](docs/API-KULLANIMI.md#veritabanını-webden-görüntüleme-0910).
+
 ## API'yi dışarıdan çağırma (curl)
 
 Token alma (giriş ya da `AGENT_TOKEN`), `Authorization: Bearer` başlığı, `bulk-send-mail` / `bulk-import` örnekleri ve "Oturum geçersiz" kontrol listesi: **[docs/API-KULLANIMI.md](docs/API-KULLANIMI.md)**.

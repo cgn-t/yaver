@@ -322,6 +322,19 @@ try {
   assert.equal((await call('POST', '/api/demo/draft', admin, { drafts: [{ from: 'x', text: 'a' }] })).status, 400)
   step('demo akışı 2: mail taslağı AI ile doldurulur, alanlar doğrulanır, eksikler tamamlanır, mail + iş yazılır')
 
+  // 10c) Veritabanı görünümü: yönetici için salt okunur, gizli alanlar maskeli; DB_PUBLIC yoksa girişsiz uç kapalı
+  const tb = (await call('GET', '/api/admin/db/tables', admin)).body
+  assert.ok(tb.tables.some((t) => t.name === 'work_item' && t.rows > 0))
+  const au = (await call('GET', '/api/admin/db/tables/app_user?q=admin', admin)).body
+  assert.equal(au.rows.find((r) => r.username === 'admin').password_hash, tb.mask)
+  assert.ok(au.columns.find((c) => c.name === 'password_hash').secret)
+  const wi = (await call('GET', '/api/admin/db/tables/work_item?q=PAYMENT&sort=code&dir=asc&limit=2', admin)).body
+  assert.ok(wi.total >= 1 && wi.rows.length <= 2)
+  assert.equal((await call('GET', '/api/admin/db/tables/olmayan_tablo', admin)).status, 404)
+  assert.equal((await call('GET', '/api/admin/db/tables/work_item')).status, 401, 'girişsiz admin ucu kapalı')
+  assert.equal((await call('GET', '/api/public/db/tables')).status, process.env.DB_PUBLIC === 'true' ? 200 : 403)
+  step('veritabanı görünümü: tablolar, arama/sıralama, gizli alanlar maskeli, girişsiz uç DB_PUBLIC ile')
+
   // 11) Demo işlerini temizle
   const cl = (await call('POST', '/api/demo/clear', admin)).body
   assert.equal(cl.work_items, sc.length)

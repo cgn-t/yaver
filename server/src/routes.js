@@ -2,6 +2,7 @@ import express from 'express'
 import * as G from './genai.js'
 import * as D from './demoflow.js'
 import * as DR from './draftflow.js'
+import * as DB from './dbview.js'
 import { BOOT_ID, SUGGESTIONS, askYaver } from './ai-ask.js'
 import { adminOnly, createApiToken, humanOnly, ldapTest, loadLdapSettings, requireAuth, scope } from './auth.js'
 import { resetDemoData, query } from './db.js'
@@ -175,6 +176,16 @@ export function apiRouter() {
   }))
   api.get('/demo/draft/status', scope('items:read'), h(async (_req, res) => res.json(await DR.draftStatus())))
   api.post('/demo/draft/clear', scope('items:write'), h(async (_req, res) => res.json(await DR.clearDrafts())))
+  // =================== Veritabanı görüntüleyici (0.9.10): yalnız yönetici, salt okunur ===================
+  api.get('/admin/db/tables', adminOnly, h(async (_req, res) => res.json(await DB.listTables())))
+  api.get('/admin/db/tables/:name', adminOnly, h(async (req, res) => res.json(await DB.tableRows(req.params.name, req.query))))
+  api.get('/admin/db/tables/:name/export', adminOnly, h(async (req, res) => {
+    const f = await DB.exportTable(req.params.name, req.query)
+    res.setHeader('Content-Type', f.type)
+    res.setHeader('Content-Disposition', `attachment; filename="${f.name}"`)
+    res.send(f.body)
+  }))
+
   api.post('/demo/reset-all', adminOnly, h(async (_req, res) => res.json(await D.resetAll())))
 
   // =================== Yaver AI sohbet (0.9) ===================

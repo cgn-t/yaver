@@ -1,4 +1,5 @@
 import fs from 'node:fs'
+import { publicDbRouter } from './dbview.js'
 import path from 'node:path'
 import express from 'express'
 import { migrateAndSeed, query, waitForDb } from './db.js'
@@ -68,6 +69,8 @@ if (DEMO_FEEDS) {
 }
 
 // ---------- Oturum / ajan token'ı gerektiren uçlar (routes.js) ----------
+// Veritabanı görünümü: DB_PUBLIC=true ise girişsiz, salt okunur (gizli alanlar maskeli)
+app.use('/api/public/db', publicDbRouter())
 app.use('/api', apiRouter())
 app.use('/api', (_req, res) => res.status(404).json({ detail: 'Bulunamadı', code: 'not_found' }))
 

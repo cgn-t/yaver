@@ -121,6 +121,33 @@ curl -s -X POST "$URL/api/bulk-import" \
 
 ---
 
+## Veritabanını web'den görüntüleme (0.9.10)
+
+Tüm tablolar ve satırlar **salt okunur** olarak görüntülenir: tablo listesi ve satır sayıları, sayfalama, tüm kolonlarda arama,
+kolon başlığına tıklayarak sıralama, satır detayı, CSV / JSON dışa aktarma. Yazma, silme ya da serbest SQL yoktur.
+
+| Erişim | Adres | Koşul |
+|---|---|---|
+| **Girişsiz (token gerekmez)** | `https://<yaver-adresi>/db` | Pod'da `DB_PUBLIC=true` (`deploy/k8s/yaver.yaml`'da açık) |
+| Yönetici | Ayarlar → Sistem → **Veritabanı** | admin girişi |
+
+Gizli alanlar her iki yolda da **maskelenir** (`••••••••`) ve aramaya katılmaz: `password_hash`, `token_hash`, API servislerinin
+`auth_secret` / `auth_header` / `headers_json` değerleri, `is_secret` ayarlar (ör. LDAP `bind_password`).
+GenAI Studio bağlantı bilgileri zaten DB'de değil, yalnız ortam değişkenindedir.
+
+Girişsiz API (DB_PUBLIC=true):
+
+```bash
+curl -s "$URL/api/public/db/tables"                                            # tablolar + satır sayıları + kolonlar
+curl -s "$URL/api/public/db/tables/work_item?limit=50&offset=0&q=MQ&sort=created_at&dir=desc"
+curl -s -o work_item.csv "$URL/api/public/db/tables/work_item/export?format=csv"  # format=json da olur
+```
+
+Yönetici API'si aynı biçimdedir: `/api/admin/db/tables…` + `Authorization: Bearer $TOKEN`.
+`DB_PUBLIC=false` (ya da tanımsız) iken girişsiz uçlar `403` döner.
+
+> Not: girişsiz görünüm adresi bilen herkese açıktır. Gerçek veriyle kullanıma geçerken `DB_PUBLIC=false` yapın.
+
 ## "Oturum geçersiz" alıyorum: kontrol listesi
 
 1. **Başlık var mı?** `-H "Authorization: Bearer $TOKEN"`: `Bearer` ve bir boşluk şart. `echo "$TOKEN"` boşsa giriş adımı başarısızdır.
