@@ -244,7 +244,7 @@ export default function AppLayout() {
 
       <CommandPalette open={palette} onClose={() => setPalette(false)} onNewItem={() => openNew()} onToggleTheme={toggle} />
       <NewWorkItemDialog open={newOpen} initial={newInit} onClose={() => setNewOpen(false)} />
-      <YaverAi left={{ xs: 16, md: NAV_W + 16 }} />
+      <YaverAi />
     </UiContext.Provider>
   )
 }
