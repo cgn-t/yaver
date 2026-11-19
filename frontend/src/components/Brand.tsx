@@ -1,11 +1,12 @@
 import { Box, useTheme } from '@mui/material'
 
 /** Yaver amblemi (Düğüm): satır içi SVG, temaya uyar. mono → currentColor. */
-export function YaverMark({ size = 18, mono = false }: { size?: number; mono?: boolean }) {
+export function YaverMark({ size = 18, mono = false, onBrand = false }: { size?: number; mono?: boolean; onBrand?: boolean }) {
   const t = useTheme()
-  const c1 = mono ? 'currentColor' : t.palette.primary.main
+  // onBrand: indigo zemin üzerinde (favicon ile aynı renkler: beyaz + kordon sarısı)
+  const c1 = mono ? 'currentColor' : onBrand ? '#FFFFFF' : t.palette.primary.main
   const c2 = mono ? 'currentColor' : '#F5A524'
-  const c3 = mono ? 'currentColor' : t.palette.text.primary
+  const c3 = mono ? 'currentColor' : onBrand ? '#FFFFFF' : t.palette.text.primary
   return (
     <Box component="svg" viewBox="0 0 48 48" aria-hidden sx={{ width: size, height: size, display: 'block', flexShrink: 0 }}>
       <path d="M9 6 L19.5 19" fill="none" stroke={c1} strokeWidth={6.5} strokeLinecap="round" />
@@ -23,9 +24,14 @@ export function BrandLogo({ height = 24, variant }: { height?: number; variant?:
   return <Box component="img" src={src} alt="Yaver" sx={{ height, width: 'auto', display: 'block' }} />
 }
 
+/** Uygulama ikonu (indigo kare içinde Düğüm amblemi). Satır içi SVG: tarayıcının eski favicon önbelleğinden etkilenmez. */
 export function BrandMark({ size = 28 }: { size?: number }) {
-  return <Box component="img" src="/favicon.svg" alt="" sx={{ width: size, height: size, display: 'block', borderRadius: `${Math.round(size * 0.23)}px`,
-                                                              boxShadow: '0 2px 8px rgba(81,72,229,0.30)' }} />
+  return (
+    <Box aria-hidden sx={{ width: size, height: size, flexShrink: 0, display: 'grid', placeItems: 'center', bgcolor: '#5148E5',
+                           borderRadius: `${Math.round(size * 0.23)}px`, boxShadow: '0 2px 8px rgba(81,72,229,0.30)' }}>
+      <YaverMark size={Math.round(size * 0.8)} onBrand />
+    </Box>
+  )
 }
 
 /** Klavye kısayolu rozeti (⌘K gibi) */
