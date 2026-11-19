@@ -98,6 +98,13 @@ Uçtan uca test (sahte ajan ile): sunucuyu `AGENT_TOKEN`, `AGENT_WEBHOOK_URL=htt
 - **Tek kullanıcı görünümü:** `admin` / `admin` ile girilir ama uygulama **Mehmet Kaya** (`mehmet.kaya`) girmiş gibi davranır:
   Bana atananlar, yorumlar ve karşılama onun adına. Yetki admin kalır. Başka biri için `ADMIN_ACTS_AS=<kullanıcı>`, kapatmak için `ADMIN_ACTS_AS=""`.
 
+## GenAI Studio Chat Block (v0.8)
+
+Gelen her iş (Mail, Zoom, TFS, Jira, manuel) kurum içi GenAI Studio **Chat Block** API'sine gönderilir; cevapla iş yorumlanır,
+konu ve kategori atanır, durum / öncelik / atama önerileri onaya düşer. Bağlantı bilgileri **yalnız OpenShift Secret**
+(`yaver-genai`, `GENAI_*` değişkenleri) ile verilir; repoda ve ekranda değer yoktur.
+Kurulum, istek/cevap biçimi ve sorun giderme: **[docs/GENAI-STUDIO.md](docs/GENAI-STUDIO.md)**.
+
 ## Yalnız arayüz (geliştirme)
 
 ```bash
