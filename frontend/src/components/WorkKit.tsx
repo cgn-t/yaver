@@ -89,7 +89,7 @@ const SOURCE_ICON: Record<SourceType, ReactNode> = {
   tfs: <ViewKanbanOutlinedIcon sx={{ fontSize: 14 }} />, jira: <ConfirmationNumberOutlinedIcon sx={{ fontSize: 14 }} />,
   manual: <EditNoteIcon sx={{ fontSize: 15 }} />, api: <ApiIcon sx={{ fontSize: 14 }} />,
 }
-export const SOURCE_HEX: Record<SourceType, string> = { mail: '#2E90FA', zoom: '#7A5AF8', tfs: '#F79009', jira: '#0C66E4', manual: '#5B5F6B', api: '#15B79E' }
+export const SOURCE_HEX: Record<SourceType, string> = { mail: '#2E90FA', zoom: '#9E1B32', tfs: '#F79009', jira: '#0C66E4', manual: '#5B5F6B', api: '#15B79E' }
 export function SourceChip({ source, iconOnly }: { source: SourceType; iconOnly?: boolean }) {
   const c = SOURCE_HEX[source]
   const el = (

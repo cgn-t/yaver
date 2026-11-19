@@ -1,6 +1,6 @@
 # GenAI Studio akışı: Yaver istekleri nasıl dallanır?
 
-> Sürüm **0.9.11**. Bağlantı ayarları: [`GENAI-ENV.md`](GENAI-ENV.md) · istek/yanıt biçimi: [`GENAI-STUDIO.md`](GENAI-STUDIO.md) · demo akışları: [`DEMO-AKISI.md`](DEMO-AKISI.md)
+> Sürüm **0.9.12**. Bağlantı ayarları: [`GENAI-ENV.md`](GENAI-ENV.md) · istek/yanıt biçimi: [`GENAI-STUDIO.md`](GENAI-STUDIO.md) · demo akışları: [`DEMO-AKISI.md`](DEMO-AKISI.md)
 
 Yaver, GenAI Studio uygulamasına (Chat Block) **üç tür** istek gönderir. Hepsi aynı uca gider (`POST …/chat/block`, gövde `{thread_id, msg, request_context}`);
 akış hangi dala gideceğine **`msg` metninin ilk satırındaki işarete** bakarak karar verir. Akışta bu metin `{{query}}` olarak görünür.
