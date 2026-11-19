@@ -94,7 +94,7 @@ export default function Dashboard() {
       <Stagger>
         <Grid container spacing={2} sx={{ mb: 2 }}>
           {[
-            { icon: <TaskAltIcon />, label: 'Açık işler', value: open.length, color: '#5148E5', trend: stats.openAt, delta: stats.openAt[13] - stats.openAt[6], goodWhenUp: false, caption: 'geçen haftaya göre', to: '/work-items' },
+            { icon: <TaskAltIcon />, label: 'Açık işler', value: open.length, color: '#DC0005', trend: stats.openAt, delta: stats.openAt[13] - stats.openAt[6], goodWhenUp: false, caption: 'geçen haftaya göre', to: '/work-items' },
             { icon: <CheckCircleOutlineIcon />, label: 'Bu hafta kapanan', value: stats.closedWeek, color: SEMANTIC.success, trend: stats.closed, delta: stats.closedWeek - stats.closedPrev, caption: 'önceki 7 güne göre', to: '/work-items' },
             { icon: <ReportGmailerrorredIcon />, label: 'Termini geçen', value: overdue.length, color: SEMANTIC.error, trend: stats.overdueAt, delta: stats.overdueAt[13] - stats.overdueAt[6], goodWhenUp: false, caption: 'geçen haftaya göre', to: '/work-items?view=overdue' },
             { icon: <AlternateEmailIcon />, label: 'Okunmamış mail', value: unread.length, color: SEMANTIC.info, trend: stats.mails, caption: `${db.emails.filter((e) => !e.work_item_id).length} mail işe dönüşmedi`, to: '/emails' },

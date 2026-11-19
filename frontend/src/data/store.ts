@@ -220,7 +220,7 @@ export const STATUS_COLOR: Record<WorkStatus, 'info' | 'primary' | 'warning' | '
 }
 export const PRIORITY_LABEL: Record<Priority, string> = { low: 'Düşük', normal: 'Normal', high: 'Yüksek', critical: 'Kritik' }
 export const PRIORITY_COLOR: Record<Priority, string> = { low: '#9A9EA8', normal: '#2E90FA', high: '#F79009', critical: '#F04438' }
-export const STATUS_HEX: Record<WorkStatus, string> = { new: '#2E90FA', in_progress: '#5148E5', waiting: '#F79009', done: '#12B76A', cancelled: '#9A9EA8' }
+export const STATUS_HEX: Record<WorkStatus, string> = { new: '#2E90FA', in_progress: '#DC0005', waiting: '#F79009', done: '#12B76A', cancelled: '#9A9EA8' }
 export const STATUS_ORDER: WorkStatus[] = ['new', 'in_progress', 'waiting', 'done', 'cancelled']
 export const SOURCE_LABEL: Record<SourceType, string> = { mail: 'E-posta', zoom: 'Zoom', tfs: 'TFS Kanban', jira: 'Jira', manual: 'Manuel', api: 'API' }
 

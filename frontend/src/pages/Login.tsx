@@ -27,7 +27,7 @@ function Float({ children, delay = 0, y = 10, style }: { children: React.ReactNo
 const glass = { background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.12)', backdropFilter: 'blur(16px)', borderRadius: '16px',
                 boxShadow: '0 24px 48px -16px rgba(0,0,0,0.5)', color: '#fff' } as const
 function Av({ n }: { n: string }) {
-  return <Box sx={{ width: 22, height: 22, borderRadius: '50%', bgcolor: avatarColor(n), fontSize: 9.5, fontWeight: 700, display: 'grid', placeItems: 'center', border: '2px solid #1A1846', ml: -0.75 }}>{initials(n)}</Box>
+  return <Box sx={{ width: 22, height: 22, borderRadius: '50%', bgcolor: avatarColor(n), fontSize: 9.5, fontWeight: 700, display: 'grid', placeItems: 'center', border: '2px solid #3A0A0C', ml: -0.75 }}>{initials(n)}</Box>
 }
 
 function Showcase() {
@@ -38,7 +38,7 @@ function Showcase() {
           <Typography sx={{ fontSize: 12.5, opacity: 0.7 }}>Açık işler</Typography>
           <Box sx={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between' }}>
             <Typography sx={{ fontSize: 34, fontWeight: 700, letterSpacing: '-0.03em' }}>24</Typography>
-            <Sparkline data={[8, 10, 9, 13, 12, 16, 15, 19, 18, 24]} color="#A5A0FF" width={110} height={38} />
+            <Sparkline data={[8, 10, 9, 13, 12, 16, 15, 19, 18, 24]} color="#FF8A80" width={110} height={38} />
           </Box>
           <Typography sx={{ fontSize: 12, color: '#6CE9A6', fontWeight: 600 }}>↘ geçen haftadan 3 az gecikme</Typography>
         </Box>
@@ -48,7 +48,7 @@ function Showcase() {
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1, opacity: 0.75, fontSize: 12 }}><Box component="span">YVR-1042</Box><Box sx={{ flexGrow: 1 }} /><Av n="Zeynep Demir" /></Box>
           <Typography sx={{ fontSize: 14.5, fontWeight: 600, lineHeight: 1.35 }}>Prod rapor servisi yavaşlığı</Typography>
           <Box sx={{ display: 'flex', gap: 1, mt: 1.25, alignItems: 'center' }}>
-            <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.75, px: 1, height: 24, borderRadius: '7px', bgcolor: 'rgba(139,133,255,0.2)', color: '#C4C1FF', fontSize: 12, fontWeight: 600 }}>
+            <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.75, px: 1, height: 24, borderRadius: '7px', bgcolor: 'rgba(255,82,87,0.2)', color: '#FFB4AE', fontSize: 12, fontWeight: 600 }}>
               <StatusIcon status="in_progress" />Devam ediyor
             </Box>
             <PriorityIcon priority="high" />
@@ -145,7 +145,7 @@ export default function Login() {
       {/* Sağ: ürün vitrini */}
       <Box sx={{ display: { xs: 'none', md: 'flex' }, m: 1.5, borderRadius: 5, position: 'relative', overflow: 'hidden', color: '#fff',
                  flexDirection: 'column', justifyContent: 'center', alignItems: 'center', p: 6,
-                 background: 'radial-gradient(1200px 600px at 0% 0%, #3B2FC9 0%, transparent 55%), radial-gradient(900px 500px at 100% 100%, #7A5AF8 0%, transparent 50%), #0F0E2A' }}>
+                 background: 'radial-gradient(1200px 600px at 0% 0%, #DC0005 0%, transparent 55%), radial-gradient(900px 500px at 100% 100%, #FF5A36 0%, transparent 50%), #1C0507' }}>
         <Box sx={{ position: 'absolute', inset: 0, opacity: 0.35, pointerEvents: 'none',
                    backgroundImage: 'linear-gradient(rgba(255,255,255,0.06) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.06) 1px, transparent 1px)',
                    backgroundSize: '44px 44px', maskImage: 'radial-gradient(ellipse at center, #000 30%, transparent 75%)' }} />

@@ -1,9 +1,10 @@
 import { Box, useTheme } from '@mui/material'
+import { BRAND_GRADIENT } from '../theme'
 
 /** Yaver amblemi (Düğüm): satır içi SVG, temaya uyar. mono → currentColor. */
 export function YaverMark({ size = 18, mono = false, onBrand = false }: { size?: number; mono?: boolean; onBrand?: boolean }) {
   const t = useTheme()
-  // onBrand: indigo zemin üzerinde (favicon ile aynı renkler: beyaz + kordon sarısı)
+  // onBrand: kırmızı geçişli zemin üzerinde (favicon ile aynı renkler: beyaz + kordon sarısı)
   const c1 = mono ? 'currentColor' : onBrand ? '#FFFFFF' : t.palette.primary.main
   const c2 = mono ? 'currentColor' : '#F5A524'
   const c3 = mono ? 'currentColor' : onBrand ? '#FFFFFF' : t.palette.text.primary
@@ -24,11 +25,11 @@ export function BrandLogo({ height = 24, variant }: { height?: number; variant?:
   return <Box component="img" src={src} alt="Yaver" sx={{ height, width: 'auto', display: 'block' }} />
 }
 
-/** Uygulama ikonu (indigo kare içinde Düğüm amblemi). Satır içi SVG: tarayıcının eski favicon önbelleğinden etkilenmez. */
+/** Uygulama ikonu (kırmızı geçişli kare içinde Düğüm amblemi). Satır içi SVG: tarayıcının eski favicon önbelleğinden etkilenmez. */
 export function BrandMark({ size = 28 }: { size?: number }) {
   return (
-    <Box aria-hidden sx={{ width: size, height: size, flexShrink: 0, display: 'grid', placeItems: 'center', bgcolor: '#5148E5',
-                           borderRadius: `${Math.round(size * 0.23)}px`, boxShadow: '0 2px 8px rgba(81,72,229,0.30)' }}>
+    <Box aria-hidden sx={{ width: size, height: size, flexShrink: 0, display: 'grid', placeItems: 'center', backgroundImage: BRAND_GRADIENT,
+                           borderRadius: `${Math.round(size * 0.23)}px`, boxShadow: '0 2px 8px rgba(220,0,5,0.30)' }}>
       <YaverMark size={Math.round(size * 0.8)} onBrand />
     </Box>
   )

@@ -12,11 +12,14 @@ export type ThemeMode = 'dark' | 'light'
 export const FONT_STACK = '"Inter Variable","Inter","Segoe UI",system-ui,-apple-system,sans-serif'
 export const MONO_FONT = '"JetBrains Mono","SFMono-Regular","Menlo","Consolas",monospace'
 
-export const ACCENT = '#5148E5'
-export const ACCENT_DARK = '#8B85FF'
+export const ACCENT = '#DC0005'
+export const ACCENT_DARK = '#FF5257'
+/** Marka renk geçişi: sıcak kırmızı → #DC0005 → bordo */
+export const BRAND_GRADIENT = 'linear-gradient(135deg, #FF4B3A 0%, #DC0005 50%, #8E0003 100%)'
+export const BRAND_GRADIENT_DARK = 'linear-gradient(135deg, #FF6A5C 0%, #F0262B 50%, #B30006 100%)'
 
 export const SEMANTIC = {
-  success: '#12B76A', warning: '#F79009', error: '#F04438', info: '#2E90FA', violet: '#7A5AF8', pink: '#EE46BC', teal: '#15B79E',
+  success: '#12B76A', warning: '#F79009', error: '#F04438', info: '#2E90FA', violet: '#9E1B32', pink: '#EE46BC', teal: '#15B79E',
 }
 
 const LIGHT = { canvas: '#F6F6F8', surface: '#FFFFFF', subtle: '#FAFAFB', border: '#E8E8EC', text: '#101218', text2: '#5B5F6B', text3: '#9A9EA8' }
@@ -83,8 +86,10 @@ export function createAppTheme(mode: ThemeMode) {
           root: { borderRadius: 10, minHeight: 36, paddingInline: 14, transition: 'transform .12s ease, background-color .15s ease, box-shadow .15s ease, border-color .15s ease',
                   '&:active': { transform: 'scale(0.97)' }, '&.Mui-focusVisible': { boxShadow: ring } },
           sizeSmall: { minHeight: 30, paddingInline: 10, fontSize: 13, borderRadius: 8 },
-          contained: { '&.MuiButton-colorPrimary': { boxShadow: `inset 0 1px 0 ${alpha('#fff', 0.18)}, 0 1px 2px ${alpha(accent, 0.4)}`,
-                                                      '&:hover': { boxShadow: `inset 0 1px 0 ${alpha('#fff', 0.18)}, 0 4px 12px ${alpha(accent, 0.35)}` } } },
+          contained: { '&.MuiButton-colorPrimary': { backgroundImage: mode === 'dark' ? BRAND_GRADIENT_DARK : BRAND_GRADIENT, color: '#fff',
+                                                      boxShadow: `inset 0 1px 0 ${alpha('#fff', 0.18)}, 0 1px 2px ${alpha(accent, 0.4)}`,
+                                                      '&.Mui-disabled': { backgroundImage: 'none' },
+                                                      '&:hover': { filter: 'brightness(1.06)', boxShadow: `inset 0 1px 0 ${alpha('#fff', 0.18)}, 0 4px 12px ${alpha(accent, 0.35)}` } } },
           outlined: { borderColor: c.border, color: c.text, backgroundColor: c.surface, boxShadow: shadowSm,
                       '&:hover': { borderColor: mode === 'dark' ? '#3A3D47' : '#D3D4DA', backgroundColor: c.subtle } },
           text: { color: c.text2, '&:hover': { color: c.text, backgroundColor: mode === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(16,18,24,0.045)' } },
@@ -150,7 +155,7 @@ export function createAppTheme(mode: ThemeMode) {
 }
 
 /** Kişi adından tutarlı avatar rengi */
-const AVATAR_COLORS = ['#5148E5', '#12B76A', '#F79009', '#EE46BC', '#2E90FA', '#7A5AF8', '#15B79E', '#F04438']
+const AVATAR_COLORS = ['#DC0005', '#12B76A', '#F79009', '#EE46BC', '#2E90FA', '#9E1B32', '#15B79E', '#F04438']
 export function avatarColor(name: string) {
   let h = 0
   for (const ch of name) h = (h * 31 + ch.charCodeAt(0)) >>> 0

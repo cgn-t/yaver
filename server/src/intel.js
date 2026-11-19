@@ -308,7 +308,7 @@ export async function saveKeywordRules(list) {
         `INSERT INTO keyword_rule (key, label, terms, color, sort_order, enabled) VALUES ($1,$2,$3,$4,$5,$6)
          ON CONFLICT (key) DO UPDATE SET label = EXCLUDED.label, terms = EXCLUDED.terms, color = EXCLUDED.color,
            sort_order = EXCLUDED.sort_order, enabled = EXCLUDED.enabled`,
-        [String(r.key).slice(0, 50), String(r.label).slice(0, 100), r.terms.map((t) => lower(t)), r.color ?? '#5148E5', r.sort_order ?? (i + 1) * 10, r.enabled !== false])
+        [String(r.key).slice(0, 50), String(r.label).slice(0, 100), r.terms.map((t) => lower(t)), r.color ?? '#DC0005', r.sort_order ?? (i + 1) * 10, r.enabled !== false])
     }
     const keys = list.map((r) => String(r.key))
     await c.query('UPDATE keyword_rule SET enabled = FALSE WHERE NOT (key = ANY($1))', [keys])
