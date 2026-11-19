@@ -1,16 +1,18 @@
 {
   "name": "yaver-server",
-  "version": "0.3.1",
+  "version": "0.4.0",
   "private": true,
   "type": "module",
   "description": "Yaver API + statik arayüz sunucusu (tek pod)",
   "scripts": {
     "start": "node src/index.js"
   },
-  "engines": { "node": ">=20" },
+  "engines": {
+    "node": ">=20"
+  },
   "dependencies": {
+    "@electric-sql/pglite": "0.5.15",
     "express": "4.22.3",
-    "ldapts": "9.3.1",
-    "pg": "8.23.1"
+    "ldapts": "9.3.1"
   }
 }

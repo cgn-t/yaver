@@ -1,6 +1,6 @@
 # =====================================================================
-# Yaver — tek imaj: React arayüz + Node API (+ SQL şema/örnek veri dosyaları)
-# Veritabanı aynı pod'da ayrı konteyner (postgres:16-alpine) olarak çalışır; bkz. deploy/k8s/yaver.yaml
+# Yaver — tek imaj, tek konteyner: React arayüz + Node API + gömülü veritabanı (PGlite)
+# Ayrı veritabanı sunucusu yok; veriler /data klasöründe dosya olarak durur (k8s'te PVC). Bkz. deploy/k8s/yaver.yaml
 # =====================================================================
 
 # ---- 1) Arayüz derleme ----
@@ -22,13 +22,15 @@ FROM node:22-alpine
 ARG APP_VERSION=dev
 LABEL org.opencontainers.image.title="Yaver" org.opencontainers.image.version="${APP_VERSION}"
 ENV NODE_ENV=production PORT=8080 APP_VERSION=${APP_VERSION} \
-    STATIC_DIR=/app/frontend/dist SQL_DIR=/app/db/postgres
+    STATIC_DIR=/app/frontend/dist SQL_DIR=/app/db/postgres DATA_DIR=/data
 WORKDIR /app
 COPY --from=deps /app/server/node_modules server/node_modules
 COPY server/package.json server/
 COPY server/src server/src
 COPY db/postgres db/postgres
 COPY --from=web /src/frontend/dist frontend/dist
+RUN mkdir -p /data && chown node:node /data
+VOLUME /data
 USER node
 EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=5s --start-period=60s CMD wget -qO- http://127.0.0.1:8080/api/health || exit 1

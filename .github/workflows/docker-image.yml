@@ -24,19 +24,9 @@ env:
   IMAGE_NAME: ${{ github.repository_owner }}/yaver
 
 jobs:
-  # Hızlı kontroller: tip kontrolü + arayüz derlemesi, SQL şema/örnek veri gerçek PostgreSQL'de
+  # Hızlı kontroller: arayüz derlemesi, sunucu gömülü DB ile açılıyor, örnek veri yükleniyor, giriş çalışıyor
   check:
     runs-on: ubuntu-latest
-    services:
-      postgres:
-        image: postgres:16-alpine
-        env:
-          POSTGRES_DB: yaver
-          POSTGRES_USER: yaver
-          POSTGRES_PASSWORD: yaver
-        ports: ['5432:5432']
-        options: >-
-          --health-cmd "pg_isready -U yaver" --health-interval 5s --health-timeout 5s --health-retries 20
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -52,25 +42,21 @@ jobs:
       - name: Sunucu bağımlılıkları
         working-directory: server
         run: npm ci --omit=dev
-      - name: Şema + örnek veri PostgreSQL'e yüklenebiliyor mu
+      - name: Sunucu açılıyor mu (gömülü DB + şema + örnek veri + giriş testi)
         env:
-          PGPASSWORD: yaver
-        run: |
-          psql -v ON_ERROR_STOP=1 -h localhost -U yaver -d yaver -f db/postgres/01-schema.sql -f db/postgres/02-seed.sql
-          psql -h localhost -U yaver -d yaver -tAc "SELECT count(*) FROM work_item" | grep -qv '^0$'
-      - name: Sunucu açılıyor mu (giriş testi)
-        env:
-          DATABASE_URL: postgres://yaver:yaver@localhost:5432/yaver
+          DATA_DIR: ${{ runner.temp }}/yaver-data
           PORT: 8080
           STATIC_DIR: ${{ github.workspace }}/frontend/dist
         run: |
           node server/src/index.js > server.log 2>&1 &
-          for i in $(seq 1 30); do curl -sf localhost:8080/api/health && break; sleep 1; done
-          curl -sf -X POST localhost:8080/api/auth/login -H 'Content-Type: application/json' \
-               -d '{"username":"admin","password":"admin"}' | grep -q token
+          for i in $(seq 1 40); do curl -sf localhost:8080/api/health && break; sleep 1; done
+          TOKEN=$(curl -sf -X POST localhost:8080/api/auth/login -H 'Content-Type: application/json' \
+                  -d '{"username":"admin","password":"admin"}' | node -pe 'JSON.parse(require("fs").readFileSync(0)).token')
+          ITEMS=$(curl -sf localhost:8080/api/state -H "Authorization: Bearer $TOKEN" | node -pe 'JSON.parse(require("fs").readFileSync(0)).items.length')
+          echo "örnek iş sayısı: $ITEMS"; test "$ITEMS" -gt 0
           curl -sf localhost:8080/ | grep -q '<div id="root">'
       - name: Sunucu logu
-        if: failure()
+        if: always()
         run: cat server.log || true
 
   image:

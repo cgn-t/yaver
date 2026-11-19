@@ -1,94 +1,88 @@
 import fs from 'node:fs/promises'
 import path from 'node:path'
-import pg from 'pg'
+import { PGlite, types } from '@electric-sql/pglite'
 
-// DATE kolonları 'YYYY-MM-DD' metni olarak dönsün (saat dilimi kayması olmasın)
-pg.types.setTypeParser(1082, (v) => v)
-// BIGINT (id'ler) JS number olarak dönsün — değerler 2^53'ün çok altında
-pg.types.setTypeParser(20, (v) => Number(v))
+/**
+ * Gömülü veritabanı: PGlite (Node süreci içinde çalışan PostgreSQL).
+ * Ayrı bir veritabanı sunucusu/konteyneri YOK — veriler DATA_DIR klasöründe dosya olarak durur
+ * (k8s'te bu klasör PVC'ye bağlanır). SQL'in tamamı (şema, örnek veri) aynen geçerlidir.
+ * Tek bağlantı: sorgular sırayla çalışır; bu ölçekte (bir takım) fazlasıyla yeterli.
+ */
+const DATA_DIR = process.env.DATA_DIR ?? path.resolve(import.meta.dirname, '../../data')
+const PGDATA = path.join(DATA_DIR, 'pgdata')
 
-// Bağlantı: DATABASE_URL verilirse o, yoksa ayrı PGHOST/PGPORT/PGUSER/PGPASSWORD/PGDATABASE değişkenleri.
-// Ayrı değişkenler önerilir: şifrede @ : / # gibi karakterler olsa da URL bozulmaz.
-const env = process.env
-export const pool = new pg.Pool({
-  ...(env.DATABASE_URL
-    ? { connectionString: env.DATABASE_URL }
-    : { host: env.PGHOST ?? '127.0.0.1', port: Number(env.PGPORT ?? 5432), user: env.PGUSER ?? 'yaver',
-        password: env.PGPASSWORD ?? 'yaver', database: env.PGDATABASE ?? 'yaver' }),
-  max: Number(env.DB_POOL_MAX ?? 10),
-  connectionTimeoutMillis: 5000,
+export const pglite = new PGlite(PGDATA, {
+  parsers: {
+    [types.DATE]: (v) => v,           // DATE → 'YYYY-MM-DD' (saat dilimi kayması olmasın)
+    [types.INT8]: (v) => Number(v),   // BIGINT id'ler → number (2^53'ün çok altında)
+  },
 })
 
-// Postgres konteyneri yeniden başlarsa boştaki bağlantılar düşer; uygulama çökmesin, havuz yeniden bağlansın
-pool.on('error', (e) => console.warn('[db] bağlantı koptu, yeniden bağlanılacak:', e.message))
+const wrap = (r) => ({ rows: r?.rows ?? [], rowCount: r?.affectedRows ?? r?.rows?.length ?? 0, fields: r?.fields })
 
-export const query = (text, params) => pool.query(text, params)
-
-export async function tx(fn) {
-  const c = await pool.connect()
-  try {
-    await c.query('BEGIN')
-    const r = await fn(c)
-    await c.query('COMMIT')
-    return r
-  } catch (e) {
-    await c.query('ROLLBACK').catch(() => {})
-    throw e
-  } finally {
-    c.release()
-  }
+/**
+ * node-postgres ile aynı imza: query(text, params) → { rows, rowCount }.
+ * Parametresiz çağrılar (şema/seed dosyaları gibi çok ifadeli SQL) exec ile çalışır; son ifadenin sonucu döner.
+ */
+async function run(target, text, params) {
+  if (params?.length) return wrap(await target.query(text, params))
+  const results = await target.exec(text)
+  return wrap(results.at(-1))
 }
 
-// Bekleme sırasında hatanın gerçek nedenini ve çözümünü yaz (loglarda "neden bekliyor" görünsün)
-const DB_HINTS = {
-  ECONNREFUSED: 'Postgres henüz dinlemiyor ya da çöktü → postgres konteynerinin loguna bakın (kubectl logs ... -c postgres).',
-  ENOTFOUND: 'DB adresi çözülemedi → PGHOST / DATABASE_URL değerini kontrol edin (tek pod kurulumunda 127.0.0.1).',
-  ETIMEDOUT: 'DB adresine ulaşılamıyor → PGHOST / port değerini kontrol edin.',
-  '28P01': 'ŞİFRE HATALI. Secret\'taki POSTGRES_PASSWORD, veritabanı İLK oluşturulurken kullanılan şifreyle aynı değil. '
-         + 'Postgres şifreyi yalnız ilk açılışta (boş diskte) ayarlar; sonradan Secret\'ı değiştirmek DB\'yi değiştirmez.',
-  '3D000': 'Veritabanı yok → POSTGRES_DB ile PGDATABASE aynı olmalı (yaver).',
-  '57P03': 'Postgres açılıyor (startup/recovery), birkaç saniye içinde düzelir.',
+export const query = (text, params) => run(pglite, text, params)
+
+/** Transaction: fn'e { query } verilir; hata olursa geri alınır. */
+export function tx(fn) {
+  return pglite.transaction((t) => fn({ query: (text, params) => run(t, text, params) }))
 }
 
-/** Aynı pod'daki Postgres konteyneri hazır olana kadar bekler (süresiz; her 15 sn'de bir nedeni loglar). */
+/** LISTEN/NOTIFY: pg_notify(channel, payload) gelince onMessage(payloadString) çağrılır. Dinlemeyi bırakan fonksiyon döner. */
+export function listen(channel, onMessage) {
+  return pglite.listen(channel, (payload) => onMessage(payload))
+}
+
+/** Gömülü DB'nin açılmasını bekler (ilk açılışta klasörü oluşturur). */
 export async function waitForDb() {
+  await fs.mkdir(DATA_DIR, { recursive: true })
   const started = Date.now()
-  let last = ''
-  let lastLog = 0
-  for (;;) {
-    try {
-      await query('SELECT 1')
-      console.log(`[db] bağlantı tamam (${Math.round((Date.now() - started) / 1000)} sn)`)
-      return
-    } catch (e) {
-      const code = e.code ?? (e.message?.includes('timeout') ? 'ETIMEDOUT' : 'HATA')
-      const msg = `[db] veritabanı bekleniyor… ${code}: ${e.message}${DB_HINTS[code] ? `\n     → ${DB_HINTS[code]}` : ''}`
-      if (msg !== last || Date.now() - lastLog > 15000) { console.log(msg); last = msg; lastLog = Date.now() }
-      await new Promise((r) => setTimeout(r, 2000))
-    }
-  }
+  await pglite.waitReady
+  await query('SELECT 1')
+  console.log(`[db] gömülü veritabanı hazır: ${PGDATA} (${Math.round((Date.now() - started) / 1000)} sn)`)
+}
+
+/** Kapanırken (SIGTERM) veritabanını düzgün kapat — dosyalar tutarlı kalsın. */
+export async function closeDb() {
+  try { await pglite.close() } catch { /* zaten kapalı */ }
+}
+for (const sig of ['SIGTERM', 'SIGINT']) {
+  process.once(sig, async () => {
+    console.log(`[db] ${sig}: veritabanı kapatılıyor`)
+    await closeDb()
+    process.exit(0)
+  })
 }
 
 const SQL_DIR = process.env.SQL_DIR ?? path.resolve(import.meta.dirname, '../../db/postgres')
 
 /** Şemayı uygular (IF NOT EXISTS) ve tablo boşsa örnek veriyi yükler. */
 export async function migrateAndSeed({ seed = true } = {}) {
-  // Birden fazla replika aynı anda başlarsa sırayla çalışsın
-  await query('SELECT pg_advisory_lock(424242)')
-  try {
-    await query(await fs.readFile(path.join(SQL_DIR, '01-schema.sql'), 'utf8'))
-    console.log('[db] şema hazır')
-    const { rows } = await query('SELECT count(*)::int AS n FROM app_user')
-    if (rows[0].n === 0) {
-      if (seed) {
-        await query(await fs.readFile(path.join(SQL_DIR, '02-seed.sql'), 'utf8'))
-        console.log('[db] örnek veri yüklendi (02-seed.sql)')
-      } else {
-        await ensureAdmin()
-      }
+  await query(await fs.readFile(path.join(SQL_DIR, '01-schema.sql'), 'utf8'))
+  console.log('[db] şema hazır')
+  const { rows } = await query('SELECT count(*)::int AS n FROM app_user')
+  if (rows[0].n === 0) {
+    if (seed) {
+      await query(await fs.readFile(path.join(SQL_DIR, '02-seed.sql'), 'utf8'))
+      console.log('[db] örnek veri yüklendi (02-seed.sql)')
+    } else {
+      await ensureAdmin()
     }
-  } finally {
-    await query('SELECT pg_advisory_unlock(424242)')
+  }
+  // Ek şema dosyaları (ör. 03-agent.sql) seed kontrolünden SONRA çalışır: kendi kullanıcılarını eklese de seed atlanmaz
+  const extra = (await fs.readdir(SQL_DIR)).filter((f) => /^\d\d-.*\.sql$/.test(f) && !['01-schema.sql', '02-seed.sql'].includes(f)).sort()
+  for (const f of extra) {
+    await query(await fs.readFile(path.join(SQL_DIR, f), 'utf8'))
+    console.log(`[db] ${f} uygulandı`)
   }
 }
 
@@ -105,15 +99,24 @@ async function ensureAdmin() {
 
 /** Ayarlar > Genel > "Demo verisini sıfırla": iş/mail/toplantı verisini silip örnek veriyi yeniden yükler. */
 export async function resetDemoData() {
-  await tx(async (c) => {
-    await c.query(`TRUNCATE work_item, work_item_tag, work_item_activity, email, email_attachment,
-                   meeting, meeting_participant, api_poll_log RESTART IDENTITY CASCADE`)
-    const sql = await fs.readFile(path.join(SQL_DIR, '02-seed.sql'), 'utf8')
-    // Seed dosyası kendi BEGIN/COMMIT'ini içerir; burada dış transaction kullanıldığı için çıkarılır.
-    // Kullanıcı, API servisi ve ayar satırları ON CONFLICT ile atlanır; API servisleri ikilenmesin diye o blok çalıştırılmaz.
-    const body = sql
-      .replace(/^BEGIN;$/m, '').replace(/^COMMIT;$/m, '')
-      .replace(/INSERT INTO api_poll_config[\s\S]*?;\n/, '')
-    await c.query(body)
-  })
+  const sql = await fs.readFile(path.join(SQL_DIR, '02-seed.sql'), 'utf8')
+  // Seed dosyasının BEGIN/COMMIT'i çıkarılıp tek bir BEGIN…COMMIT içinde silme + yükleme yapılır.
+  // Kullanıcı ve ayar satırları ON CONFLICT ile atlanır; API servisleri ikilenmesin diye o blok çalıştırılmaz.
+  const body = sql
+    .replace(/^BEGIN;$/m, '').replace(/^COMMIT;$/m, '')
+    .replace(/INSERT INTO api_poll_config[\s\S]*?;\n/, '')
+  // Ajan tabloları (03-agent.sql) kuruluysa onlar da temizlenir
+  const { rows } = await query(`SELECT string_agg(quote_ident(table_name), ', ') AS t FROM information_schema.tables
+                                WHERE table_schema = 'public' AND table_name IN ('agent_event', 'agent_run')`)
+  const agentTables = rows[0]?.t ? `, ${rows[0].t}` : ''
+  try {
+    await pglite.exec(`BEGIN;
+      TRUNCATE work_item, work_item_tag, work_item_activity, email, email_attachment,
+               meeting, meeting_participant, api_poll_log${agentTables} RESTART IDENTITY CASCADE;
+      ${body}
+      COMMIT;`)
+  } catch (e) {
+    await pglite.exec('ROLLBACK').catch(() => {})
+    throw e
+  }
 }

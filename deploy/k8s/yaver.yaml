@@ -1,19 +1,24 @@
 # =====================================================================
-# Yaver — TEK POD kurulumu
-#   Pod içinde 2 konteyner: postgres (veritabanı) + yaver (arayüz + API + zamanlanmış API servisi)
-#   Konteynerler aynı pod'da olduğu için localhost:5432 üzerinden konuşur; DB dışarı açılmaz.
-#   İlk açılışta yaver konteyneri tabloları oluşturur (01-schema.sql) ve örnek veriyi yükler (02-seed.sql).
-#   Veriler PVC'de kalıcıdır; pod yeniden başlasa da kaybolmaz.
+# Yaver — TEK POD, TEK KONTEYNER
+#   Konteyner: arayüz + API + zamanlanmış API servisi + gömülü veritabanı (PGlite).
+#   Ayrı veritabanı sunucusu/konteyneri YOK. Veriler /data klasöründe dosya olarak durur;
+#   bu klasör PVC'ye bağlı olduğu için pod yeniden başlasa da veriler kalır.
+#   İlk açılışta tablolar oluşturulur (01-schema.sql) ve örnek veri yüklenir (02-seed.sql).
 #
 # Kurulum:
-#   1) İmaj GitHub Actions ile otomatik derlenir: ghcr.io/cgn-t/yaver:latest (.github/workflows/docker-image.yml)
+#   1) İmaj GitHub Actions ile otomatik derlenir: ghcr.io/cgn-t/yaver:<sürüm> (.github/workflows/docker-image.yml)
 #      Paket gizliyse (varsayılan) kümeye çekme izni verin:
+#        kubectl create namespace yaver
 #        kubectl -n yaver create secret docker-registry ghcr-pull --docker-server=ghcr.io \
 #          --docker-username=<github-kullanıcı> --docker-password=<read:packages yetkili PAT>
 #      Paketi GitHub'da "public" yaptıysanız bu adıma ve aşağıdaki imagePullSecrets'a gerek yok.
-#   2) Secret şifrelerini değiştirin. Sürümler: github.com/cgn-t/yaver/releases
+#   2) TOKEN_SECRET değerini değiştirin.
 #   3) kubectl apply -f deploy/k8s/yaver.yaml
 #   4) kubectl -n yaver port-forward svc/yaver 8080:80   →  http://localhost:8080  (admin / admin)
+#
+# Kalıcı disk istemiyorsanız (deneme): en alttaki "volumes" bölümünde PVC yerine emptyDir kullanın;
+# o durumda pod silinince veriler örnek veriye döner.
+# Sürümler: github.com/cgn-t/yaver/releases
 # =====================================================================
 apiVersion: v1
 kind: Namespace
@@ -27,20 +32,19 @@ metadata:
   namespace: yaver
 type: Opaque
 stringData:
-  POSTGRES_PASSWORD: "DEGISTIRIN-db-sifresi"          # veritabanı şifresi
   TOKEN_SECRET: "DEGISTIRIN-uzun-rastgele-bir-deger"  # oturum imzalama anahtarı (openssl rand -hex 32)
 ---
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: yaver-pgdata
+  name: yaver-data
   namespace: yaver
 spec:
   accessModes: [ReadWriteOnce]
   resources:
     requests:
-      storage: 5Gi
-  # storageClassName: standard   # kümenizdeki sınıfa göre açın
+      storage: 2Gi
+  # storageClassName: standard   # PVC "Pending" kalırsa: kubectl get storageclass → adı buraya yazıp açın
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -49,9 +53,9 @@ metadata:
   namespace: yaver
   labels: { app: yaver }
 spec:
-  replicas: 1                     # tek pod: veritabanı pod içinde olduğu için 1'den fazla yapmayın
+  replicas: 1                     # veri dosyası tek pod'a ait: 1'den fazla yapmayın
   strategy:
-    type: Recreate                # aynı diski iki pod aynı anda bağlamasın
+    type: Recreate                # aynı diski iki pod aynı anda açmasın
   selector:
     matchLabels: { app: yaver }
   template:
@@ -61,62 +65,28 @@ spec:
       imagePullSecrets:
         - name: ghcr-pull         # ghcr.io paketi public ise bu iki satırı silin
       securityContext:
-        fsGroup: 70               # postgres (alpine) grubu → PVC yazılabilir
+        runAsUser: 1000           # imajdaki "node" kullanıcısı
+        runAsGroup: 1000
+        fsGroup: 1000             # /data diski bu kullanıcıya yazılabilir olsun
         fsGroupChangePolicy: OnRootMismatch
+      terminationGracePeriodSeconds: 30   # kapanırken veritabanı dosyaları düzgün kapatılır
       containers:
-        # ---------- 1) Veritabanı ----------
-        - name: postgres
-          image: postgres:16-alpine
-          securityContext:          # doğrudan postgres kullanıcısıyla çalış (root yasak kümelerde de açılır)
-            runAsUser: 70
-            runAsGroup: 70
-            allowPrivilegeEscalation: false
-          env:
-            - { name: POSTGRES_DB, value: yaver }
-            - { name: POSTGRES_USER, value: yaver }
-            - name: POSTGRES_PASSWORD
-              valueFrom: { secretKeyRef: { name: yaver-secrets, key: POSTGRES_PASSWORD } }
-            - { name: PGDATA, value: /var/lib/postgresql/data/pgdata }
-            - { name: TZ, value: Europe/Istanbul }
-          ports:
-            - { name: postgres, containerPort: 5432 }
-          readinessProbe:
-            exec: { command: ["pg_isready", "-U", "yaver", "-d", "yaver", "-h", "127.0.0.1"] }
-            initialDelaySeconds: 5
-            periodSeconds: 5
-          livenessProbe:
-            exec: { command: ["pg_isready", "-U", "yaver", "-d", "yaver", "-h", "127.0.0.1"] }
-            initialDelaySeconds: 30
-            periodSeconds: 15
-          resources:
-            requests: { cpu: 100m, memory: 256Mi }
-            limits: { memory: 1Gi }
-          volumeMounts:
-            - { name: pgdata, mountPath: /var/lib/postgresql/data }
-
-        # ---------- 2) Uygulama: arayüz + API ----------
         - name: yaver
-          image: ghcr.io/cgn-t/yaver:0.3.1    # CI'ın ürettiği sürümlü imaj; güncellemek için etiketi değiştirip apply
+          image: ghcr.io/cgn-t/yaver:0.4.0
           imagePullPolicy: IfNotPresent
           env:
-            # DB bağlantısı ayrı değişkenlerle: şifrede @ : / # olsa da bozulmaz
-            - { name: PGHOST, value: "127.0.0.1" }
-            - { name: PGPORT, value: "5432" }
-            - { name: PGUSER, value: yaver }
-            - { name: PGDATABASE, value: yaver }
-            - name: PGPASSWORD
-              valueFrom: { secretKeyRef: { name: yaver-secrets, key: POSTGRES_PASSWORD } }
             - name: TOKEN_SECRET
               valueFrom: { secretKeyRef: { name: yaver-secrets, key: TOKEN_SECRET } }
+            - { name: DATA_DIR, value: /data }
             - { name: SEED, value: "true" }          # ilk açılışta örnek veri; boş kurulum için "false"
             - { name: DEMO_FEEDS, value: "true" }    # örnek mail/zoom kaynakları; gerçek entegrasyonda "false"
             - { name: TZ, value: Europe/Istanbul }
           ports:
             - { name: http, containerPort: 8080 }
-          startupProbe:                              # DB hazır + şema yüklenene kadar bekler (en çok 5 dk)
+          startupProbe:
             httpGet: { path: /api/health, port: http }
             periodSeconds: 3
-            failureThreshold: 100
+            failureThreshold: 40
           readinessProbe:
             httpGet: { path: /api/health, port: http }
             periodSeconds: 10
@@ -125,11 +95,15 @@ spec:
             periodSeconds: 20
             failureThreshold: 3
           resources:
-            requests: { cpu: 50m, memory: 128Mi }
-            limits: { memory: 512Mi }
+            requests: { cpu: 100m, memory: 256Mi }
+            limits: { memory: 768Mi }
+          volumeMounts:
+            - { name: data, mountPath: /data }
       volumes:
-        - name: pgdata
-          persistentVolumeClaim: { claimName: yaver-pgdata }
+        - name: data
+          persistentVolumeClaim: { claimName: yaver-data }
+          # Kalıcı disk yoksa yukarıdaki satırı silip şunu açın:
+          # emptyDir: {}
 ---
 apiVersion: v1
 kind: Service
