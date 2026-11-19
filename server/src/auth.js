@@ -238,5 +238,18 @@ export async function login(username, password) {
     user = r.rows[0]
   }
   await query('UPDATE app_user SET last_login_at = now() WHERE id = $1', [user.id])
+  // Tek kullanıcılı kullanım: lokal admin ile girilir ama ekip üyesi olarak görünülür (ADMIN_ACTS_AS, varsayılan mehmet.kaya).
+  // Oturum o kullanıcının kimliğini taşır (Bana atananlar, yorumlar, karşılama), yetki admin kalır.
+  if (user.auth_source === 'local' && user.role === 'admin' && ADMIN_ACTS_AS && ADMIN_ACTS_AS !== user.username) {
+    const as = (await query('SELECT * FROM app_user WHERE lower(username) = $1 AND is_active AND role <> $2', [ADMIN_ACTS_AS, 'agent'])).rows[0]
+    if (as) {
+      await query('UPDATE app_user SET last_login_at = now() WHERE id = $1', [as.id])
+      return { token: issueToken({ ...as, role: 'admin' }), username: as.username, full_name: as.full_name ?? as.username, role: 'admin',
+               signed_in_as: user.username }
+    }
+  }
   return { token: issueToken(user), username: user.username, full_name: user.full_name, role: user.role }
 }
+
+/** Boş bırakılırsa (ADMIN_ACTS_AS=) admin kendi adıyla görünür. */
+export const ADMIN_ACTS_AS = String(process.env.ADMIN_ACTS_AS ?? 'mehmet.kaya').trim().toLowerCase()

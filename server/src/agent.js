@@ -78,6 +78,7 @@ export const patchKinds = (patch) => [...new Set(Object.keys(patch).filter((k) =
 // =====================================================================
 // Doğrulama
 // =====================================================================
+export const SOURCE_TYPES = ['mail', 'zoom', 'tfs', 'jira', 'manual', 'api']
 export function validateItemPatch(p, { create = false } = {}) {
   if (!p || typeof p !== 'object' || Array.isArray(p)) throw httpError(400, 'invalid', 'Gövde nesne olmalı')
   if (create && !String(p.title ?? '').trim()) throw httpError(400, 'invalid', 'Başlık zorunlu', { field: 'title' })
@@ -87,8 +88,8 @@ export function validateItemPatch(p, { create = false } = {}) {
   if (p.due_date !== undefined && !isDate(p.due_date)) throw httpError(400, 'invalid', 'due_date YYYY-AA-GG olmalı', { field: 'due_date' })
   if (p.tags !== undefined && (!Array.isArray(p.tags) || p.tags.some((t) => typeof t !== 'string' || t.length > 100)))
     throw httpError(400, 'invalid', 'tags metin dizisi olmalı', { field: 'tags' })
-  if (p.source_type !== undefined && !['mail', 'zoom', 'manual', 'api'].includes(p.source_type))
-    throw httpError(400, 'invalid', 'source_type: mail | zoom | manual | api', { field: 'source_type' })
+  if (p.source_type !== undefined && !SOURCE_TYPES.includes(p.source_type))
+    throw httpError(400, 'invalid', `source_type: ${SOURCE_TYPES.join(' | ')}`, { field: 'source_type' })
   if (p.assignee) return assertUser(p.assignee)
 }
 

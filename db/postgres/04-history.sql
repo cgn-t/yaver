@@ -1,6 +1,6 @@
 -- =====================================================================
 -- YAVER — Geçmişe dayalı yorum için ek tablolar  (v0.6)
---   contact      : kişi rehberi (unvan → üst yönetim seviyesi)
+--   contact      : kişi rehberi (unvan → Üst Yönetim / Birim Yöneticisi / PO / Diğer)
 --   keyword_rule : maildeki anahtar kelimeler (pano gruplaması)
 --   wiki_page    : kurum içi bilgi (runbook, süreç) — ajan yorumunda kaynak
 --   work_item    : talep edenin seviyesi, eşleşen anahtar kelimeler, ajan yorumu
@@ -13,8 +13,7 @@ CREATE TABLE IF NOT EXISTS contact (
     full_name       VARCHAR(200)  NOT NULL,
     title           VARCHAR(200),                       -- unvan (ör. Genel Müdür Yardımcısı)
     department      VARCHAR(200),
-    mgmt_level      VARCHAR(10)   NOT NULL DEFAULT 'diger'
-                    CHECK (mgmt_level IN ('gm','gmy','direktor','mudur','diger')),
+    mgmt_level      VARCHAR(10)   NOT NULL DEFAULT 'diger',      -- ust | birim | po | diger (kısıt 05-it-ops.sql'de)
     created_at      TIMESTAMPTZ   NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS ix_contact_name ON contact(lower(full_name));
@@ -29,14 +28,7 @@ CREATE TABLE IF NOT EXISTS keyword_rule (
     enabled         BOOLEAN       NOT NULL DEFAULT TRUE
 );
 
-INSERT INTO keyword_rule (key, label, terms, color, sort_order) VALUES
-  ('acil',    'Acil',             ARRAY['acil','ivedi','hemen','bugün içinde','kritik'],          '#E5484D', 10),
-  ('prod',    'Prod / Kesinti',   ARRAY['prod','canlı','kesinti','erişilemiyor','çöktü','hata veriyor','yavaş'], '#F76B15', 20),
-  ('fatura',  'Fatura / Ödeme',   ARRAY['fatura','ödeme','tahsilat','muhasebe'],                  '#E2A336', 30),
-  ('rapor',   'Rapor',            ARRAY['rapor','dashboard','toplam','sorgu','kapasite'],          '#3E63DD', 40),
-  ('erisim',  'Erişim / Yetki',   ARRAY['erişim','yetki','şifre','vpn','hesap','sso','giriş'],     '#8E4EC6', 50),
-  ('denetim', 'Denetim / Uyum',   ARRAY['denetim','kvkk','audit','uyum','lisans','sertifika'],    '#12A594', 60)
-ON CONFLICT (key) DO NOTHING;
+-- Varsayılan kurallar 05-it-ops.sql'de (takip edilen IT konuları)
 
 CREATE TABLE IF NOT EXISTS wiki_page (
     id              SERIAL PRIMARY KEY,
@@ -59,8 +51,5 @@ ALTER TABLE work_item ADD COLUMN IF NOT EXISTS agent_confidence     NUMERIC(3,2)
 ALTER TABLE work_item ADD COLUMN IF NOT EXISTS agent_suggestion     JSONB;     -- {assignee, priority, eta_days}
 ALTER TABLE work_item ADD COLUMN IF NOT EXISTS agent_comment_by     VARCHAR(100);
 ALTER TABLE work_item ADD COLUMN IF NOT EXISTS agent_comment_at     TIMESTAMPTZ;
-DO $$ BEGIN
-  ALTER TABLE work_item DROP CONSTRAINT IF EXISTS work_item_mgmt_level_check;
-  ALTER TABLE work_item ADD CONSTRAINT work_item_mgmt_level_check CHECK (mgmt_level IN ('gm','gmy','direktor','mudur','diger'));
-END $$;
+-- mgmt_level değer kısıtı 05-it-ops.sql'de (ust | birim | po | diger)
 CREATE INDEX IF NOT EXISTS ix_work_item_mgmt ON work_item(mgmt_level);

@@ -136,6 +136,14 @@ export function apiRouter() {
     if ((req.body ?? {}).create_items !== false) await A.assertDirect(req.user, ['create'])
     res.status(201).json(await I.bulkSendMail(req.body ?? {}, req.user))
   }))
+  /**
+   * TFS Kanban / Jira kalemleri: {items: [{source_type: 'tfs'|'jira', external_ref, title, description?, requester_email?, url?, priority?}]}
+   * ya da örnek üretmek için {count: 4}. Aynı source_type + external_ref ikinci kez eklenmez (skipped).
+   */
+  api.post('/bulk-import', scope('items:write'), h(async (req, res) => {
+    await A.assertDirect(req.user, ['create'])
+    res.status(201).json(await I.bulkImport(req.body ?? {}, req.user))
+  }))
 
   // =================== Wiki ve kişiler ===================
   api.get('/wiki', scope('items:read'), h(async (req, res) => res.json(await I.listWiki(req.query))))
@@ -295,6 +303,7 @@ export function errorHandler(err, _req, res, _next) {
     return res.status(status).json({ detail: message, code: code ?? 'invalid', ...extra })
   }
   if (err.type === 'entity.parse.failed') return res.status(400).json({ detail: 'Gövde geçerli JSON değil', code: 'invalid' })
+  if (err.code === '23505') return res.status(409).json({ detail: 'Kayıt zaten var (ör. aynı external_ref)', code: 'conflict' })
   console.error('[api]', err)
   const pgCheck = err.code === '23514' || err.code === '22P02' || err.code === '23503' || err.code === '22007' || err.code === '22008'
   res.status(pgCheck ? 400 : 500).json({ detail: pgCheck ? 'Geçersiz değer' : 'Sunucu hatası', code: pgCheck ? 'invalid' : 'internal' })

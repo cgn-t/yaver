@@ -75,13 +75,14 @@ spec:
       terminationGracePeriodSeconds: 30   # kapanırken veritabanı dosyaları düzgün kapatılır
       containers:
         - name: yaver
-          image: ghcr.io/cgn-t/yaver:0.6.0
+          image: ghcr.io/cgn-t/yaver:0.7.0
           imagePullPolicy: IfNotPresent
           env:
             - name: TOKEN_SECRET
               valueFrom: { secretKeyRef: { name: yaver-secrets, key: TOKEN_SECRET } }
             - { name: DATA_DIR, value: /data }
             - { name: SEED, value: "true" }          # ilk açılışta örnek veri; boş kurulum için "false"
+            - { name: ADMIN_ACTS_AS, value: "mehmet.kaya" }  # admin/admin ile girilir, ekranda bu kullanıcı olarak görünülür; "" = admin
             - { name: DEMO_FEEDS, value: "true" }    # örnek mail/zoom kaynakları; gerçek entegrasyonda "false"
             - { name: TZ, value: Europe/Istanbul }
             # ---- LangGraph ajanı (docs/AJAN-API.md) ----

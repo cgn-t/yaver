@@ -1,23 +1,25 @@
 import type { KeywordRule, MgmtLevel, WorkItem } from './types'
 
 /**
- * İşlerin pano/liste gruplaması: Üst Yönetim · Anahtar kelime · Süre.
+ * İşlerin pano/liste gruplaması: Talep eden (Üst Yönetim / Birim Yöneticisi / PO) · Konu (anahtar kelime) · Süre.
  * Sunucu modunda mgmt_level ve keywords sunucudan gelir (contact + keyword_rule tabloları);
  * demo (localStorage) modunda anahtar kelimeler aşağıdaki varsayılan kurallarla tarayıcıda hesaplanır.
  */
 
 export type GroupBy = 'mgmt' | 'keyword' | 'age'
-export const GROUP_BY_LABEL: Record<GroupBy, string> = { mgmt: 'Üst Yönetim', keyword: 'Anahtar kelime', age: 'Süre' }
+export const GROUP_BY_LABEL: Record<GroupBy, string> = { mgmt: 'Talep eden', keyword: 'Konu', age: 'Süre' }
 export interface Group { key: string; label: string; color: string; hint?: string }
 
-export const MGMT_LABEL: Record<MgmtLevel, string> = { gm: 'Genel Müdür', gmy: 'Genel Müdür Yrd.', direktor: 'Direktör', mudur: 'Müdür', diger: 'Diğer' }
+export const MGMT_LABEL: Record<MgmtLevel, string> = { ust: 'Üst Yönetim', birim: 'Birim Yöneticisi', po: 'PO', diger: 'Diğer' }
+export const MGMT_COLOR: Record<MgmtLevel, string> = { ust: '#E5484D', birim: '#8E4EC6', po: '#2E90FA', diger: '#9A9EA8' }
 export const MGMT_GROUPS: Group[] = [
-  { key: 'gm', label: 'Genel Müdür', color: '#E5484D', hint: 'SLA 4 saat' },
-  { key: 'gmy', label: 'Genel Müdür Yrd.', color: '#F76B15', hint: 'SLA 4 saat' },
-  { key: 'direktor', label: 'Direktör', color: '#8E4EC6', hint: 'SLA 1 iş günü' },
-  { key: 'diger', label: 'Diğer talepler', color: '#9A9EA8' },
+  { key: 'ust', label: 'Üst Yönetim', color: MGMT_COLOR.ust, hint: 'İlk dönüş 4 saat' },
+  { key: 'birim', label: 'Birim Yöneticisi', color: MGMT_COLOR.birim, hint: 'İlk dönüş 1 iş günü' },
+  { key: 'po', label: 'PO', color: MGMT_COLOR.po, hint: 'Sprint önceliği, 2 iş günü' },
+  { key: 'diger', label: 'Diğer talepler', color: MGMT_COLOR.diger },
 ]
-export const isSenior = (w: WorkItem) => ['gm', 'gmy', 'direktor'].includes(w.mgmt_level ?? 'diger')
+/** Rozet gösterilecek seviyeler (Üst Yönetim, Birim Yöneticisi, PO) */
+export const hasMgmtBadge = (w: WorkItem) => (w.mgmt_level ?? 'diger') !== 'diger'
 
 export const AGE_GROUPS: (Group & { maxDays: number })[] = [
   { key: 'd0', label: 'Son 24 saat', color: '#12B76A', maxDays: 1 },
@@ -27,14 +29,16 @@ export const AGE_GROUPS: (Group & { maxDays: number })[] = [
 ]
 
 export const DEFAULT_KEYWORD_RULES: KeywordRule[] = [
-  { key: 'acil', label: 'Acil', terms: ['acil', 'ivedi', 'hemen', 'bugün içinde', 'kritik'], color: '#E5484D', sort_order: 10 },
-  { key: 'prod', label: 'Prod / Kesinti', terms: ['prod', 'canlı', 'kesinti', 'erişilemiyor', 'çöktü', 'hata veriyor', 'yavaş'], color: '#F76B15', sort_order: 20 },
-  { key: 'fatura', label: 'Fatura / Ödeme', terms: ['fatura', 'ödeme', 'tahsilat', 'muhasebe'], color: '#E2A336', sort_order: 30 },
-  { key: 'rapor', label: 'Rapor', terms: ['rapor', 'dashboard', 'toplam', 'sorgu', 'kapasite'], color: '#3E63DD', sort_order: 40 },
-  { key: 'erisim', label: 'Erişim / Yetki', terms: ['erişim', 'yetki', 'şifre', 'vpn', 'hesap', 'sso', 'giriş'], color: '#8E4EC6', sort_order: 50 },
-  { key: 'denetim', label: 'Denetim / Uyum', terms: ['denetim', 'kvkk', 'audit', 'uyum', 'lisans', 'sertifika'], color: '#12A594', sort_order: 60 },
+  { key: 'mq', label: 'MQ', terms: ['mq', 'ibm mq', 'qmgr', 'kuyruk', 'queue', 'channel', 'dlq', 'mesaj kuyruğu'], color: '#E2A336', sort_order: 10 },
+  { key: 'openshift', label: 'OpenShift Upgrade', terms: ['openshift', 'ocp', 'pod', 'cluster upgrade', 'operator', 'worker node', 'kubernetes', 'k8s'], color: '#E5484D', sort_order: 20 },
+  { key: 'server', label: 'Server Upgrade', terms: ['server upgrade', 'sunucu upgrade', 'os upgrade', 'rhel', 'yama', 'patch', 'firmware', 'windows server', 'sunucu güncelleme'], color: '#3E63DD', sort_order: 30 },
+  { key: 'decom', label: 'Decom', terms: ['decom', 'decommission', 'devreden çıkar', 'kapatılması', 'sunucu kapatma', 'emekliye'], color: '#5B5F6B', sort_order: 40 },
+  { key: 'devops', label: 'DevOps', terms: ['pipeline', 'ci/cd', 'jenkins', 'argocd', 'helm', 'azure devops', 'gitlab', 'build', 'deploy'], color: '#12A594', sort_order: 50 },
+  { key: 'failed', label: 'Failed hataları', terms: ['failed', 'başarısız', 'hata', 'error', 'exception', 'crashloop', 'timeout', 'patladı', 'down'], color: '#F76B15', sort_order: 60 },
+  { key: 'servis', label: 'Servis Yönetimi', terms: ['incident', 'olay kaydı', 'change', 'değişiklik kaydı', 'cab', 'problem kaydı', 'itsm', 'servicenow', 'sla ihlali', 'sla süresi'], color: '#8E4EC6', sort_order: 70 },
+  { key: 'yazilim', label: 'Yazılım', terms: ['yazılım', 'bug ', "bug'", 'bugfix', 'geliştirme', 'release', 'versiyon', 'user story', 'backlog', 'sprint', 'kod'], color: '#2E90FA', sort_order: 80 },
 ]
-const NO_KEYWORD: Group = { key: '_none', label: 'Anahtar kelime yok', color: '#9A9EA8' }
+const NO_KEYWORD: Group = { key: '_none', label: 'Diğer konular', color: '#9A9EA8' }
 
 export function itemKeywords(w: WorkItem, rules: KeywordRule[]): string[] {
   if (w.keywords) return w.keywords
@@ -60,7 +64,7 @@ export function groupsFor(by: GroupBy, rules: KeywordRule[]): Group[] {
 }
 
 export function groupOf(w: WorkItem, by: GroupBy, rules: KeywordRule[]): string {
-  if (by === 'mgmt') { const l = w.mgmt_level ?? 'diger'; return l === 'mudur' ? 'diger' : l }
+  if (by === 'mgmt') { const l = w.mgmt_level ?? 'diger'; return l in MGMT_LABEL ? l : 'diger' }
   if (by === 'age') { const d = ageDays(w); return AGE_GROUPS.find((g) => d < g.maxDays)!.key }
   const order = rules.map((r) => r.key)
   const kw = itemKeywords(w, rules).filter((k) => order.includes(k)).sort((a, b) => order.indexOf(a) - order.indexOf(b))

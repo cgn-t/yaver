@@ -1,6 +1,8 @@
 import AlternateEmailIcon from '@mui/icons-material/AlternateEmail'
 import ApiIcon from '@mui/icons-material/Api'
 import CloseIcon from '@mui/icons-material/Close'
+import ConfirmationNumberOutlinedIcon from '@mui/icons-material/ConfirmationNumberOutlined'
+import ViewKanbanOutlinedIcon from '@mui/icons-material/ViewKanbanOutlined'
 import EditNoteIcon from '@mui/icons-material/EditNote'
 import VideocamOutlinedIcon from '@mui/icons-material/VideocamOutlined'
 import {
@@ -84,9 +86,10 @@ export function PriorityChip({ priority }: { priority: Priority }) {
 
 const SOURCE_ICON: Record<SourceType, ReactNode> = {
   mail: <AlternateEmailIcon sx={{ fontSize: 14 }} />, zoom: <VideocamOutlinedIcon sx={{ fontSize: 14 }} />,
+  tfs: <ViewKanbanOutlinedIcon sx={{ fontSize: 14 }} />, jira: <ConfirmationNumberOutlinedIcon sx={{ fontSize: 14 }} />,
   manual: <EditNoteIcon sx={{ fontSize: 15 }} />, api: <ApiIcon sx={{ fontSize: 14 }} />,
 }
-export const SOURCE_HEX: Record<SourceType, string> = { mail: '#2E90FA', zoom: '#7A5AF8', manual: '#5B5F6B', api: '#15B79E' }
+export const SOURCE_HEX: Record<SourceType, string> = { mail: '#2E90FA', zoom: '#7A5AF8', tfs: '#F79009', jira: '#0C66E4', manual: '#5B5F6B', api: '#15B79E' }
 export function SourceChip({ source, iconOnly }: { source: SourceType; iconOnly?: boolean }) {
   const c = SOURCE_HEX[source]
   const el = (
@@ -211,6 +214,12 @@ export function WorkItemDrawer({ item, onClose, onOpenItem }: { item: WorkItem |
           <Box sx={{ px: 3, py: 1.5, display: 'flex', alignItems: 'center', gap: 1, borderBottom: 1, borderColor: 'divider' }}>
             <SourceChip source={live.source_type} />
             <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 600, fontFamily: 'inherit' }}>{live.code}</Typography>
+            {live.external_ref && (
+              <Typography variant="body2" component={live.external_url ? 'a' : 'span'} href={live.external_url ?? undefined} target="_blank" rel="noopener"
+                          sx={{ fontWeight: 600, color: SOURCE_HEX[live.source_type], textDecoration: 'none', '&:hover': { textDecoration: live.external_url ? 'underline' : 'none' } }}>
+                {live.external_ref}
+              </Typography>
+            )}
             <Box sx={{ flexGrow: 1 }} />
             <IconButton size="small" onClick={onClose} aria-label="Kapat"><CloseIcon fontSize="small" /></IconButton>
           </Box>
@@ -248,7 +257,7 @@ export function WorkItemDrawer({ item, onClose, onOpenItem }: { item: WorkItem |
                   <Typography variant="body2">{live.requester ?? '—'}</Typography><MgmtChip item={live} always={!!live.mgmt_level && live.mgmt_level !== 'diger'} />
                 </Box>
               </Prop>
-              <Prop label="Anahtar kelime"><Box sx={{ display: 'flex', gap: 0.75, flexWrap: 'wrap' }}><KeywordChips item={live} max={6} /></Box></Prop>
+              <Prop label="Konu"><Box sx={{ display: 'flex', gap: 0.75, flexWrap: 'wrap' }}><KeywordChips item={live} max={6} /></Box></Prop>
               <Prop label="Süre"><AgeLabel item={live} /></Prop>
               <Prop label="Oluşturma"><Typography variant="body2" color="text.secondary">{formatDateTime(live.created_at)}</Typography></Prop>
             </Box>

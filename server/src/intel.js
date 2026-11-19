@@ -13,16 +13,21 @@ import { ITEM_SQL, createWorkItem, httpError, toItem } from './state.js'
  *  - bulkSendMail : toplu mail girişi → mail + iş + yorum
  */
 
-export const MGMT_LABEL = { gm: 'Genel Müdür', gmy: 'Genel Müdür Yrd.', direktor: 'Direktör', mudur: 'Müdür', diger: 'Diğer' }
-const MGMT_RANK = { gm: 0, gmy: 1, direktor: 2, mudur: 3, diger: 4 }
-export const isSenior = (lvl) => ['gm', 'gmy', 'direktor'].includes(lvl)
+export const MGMT_LABEL = { ust: 'Üst Yönetim', birim: 'Birim Yöneticisi', po: 'PO', diger: 'Diğer' }
+export const MGMT_LEVELS = Object.keys(MGMT_LABEL)
+export const isSenior = (lvl) => lvl === 'ust'
+/** Talep edenin seviyesine göre ilk dönüş hedefi */
+export const SLA_BY_LEVEL = { ust: '4 saat', birim: '1 iş günü', po: '2 iş günü (sprint önceliği)' }
+export const SOURCE_LABEL = { mail: 'Mail', zoom: 'Zoom', tfs: 'TFS Kanban', jira: 'Jira', manual: 'Manuel', api: 'API' }
 
 const DEMO_ENV = process.env.AGENT_DEMO_INTERPRETER ?? 'auto'
 export const DEMO_INTERPRETER = DEMO_ENV === 'true' || (DEMO_ENV === 'auto' && !process.env.AGENT_WEBHOOK_URL)
 
 const lower = (s) => String(s ?? '').toLocaleLowerCase('tr')
 const STOP = new Set(['acil', 'ivedi', 'hemen', 'kritik', 'için', 'ile', 'olan', 'olarak', 'merhaba', 'rica', 'ederiz', 'ederim', 'teşekkürler', 'kontrol', 'edebilir',
-  'misiniz', 'lütfen', 'yeni', 'talebi', 'talep', 'hakkında', 'gerekiyor', 'bugün', 'yarın', 'olarak', 'ekte', 'ektedir', 'bilgi'])
+  'misiniz', 'lütfen', 'yeni', 'talebi', 'talep', 'hakkında', 'gerekiyor', 'bugün', 'yarın', 'olarak', 'ekte', 'ektedir', 'bilgi',
+  'ortamında', 'ortamı', 'sonra', 'sabah', 'gece', 'tekrar', 'yine', 'durum', 'planı', 'kaydı',
+  'jira', 'kaydından', 'kartından', 'kartı', 'gelen', 'takıma', 'iletilen', 'detaylar', 'aşağıdadır', 'desteğinizi', 'konuyla', 'ilgili'])
 export const tokens = (s) => [...new Set(lower(s).replace(/[^a-zçğıöşü0-9 ]/g, ' ').split(/\s+/).filter((t) => t.length >= 4 && !STOP.has(t)))]
 const stem = (t) => t.slice(0, 5)   // Türkçe ekleri kabaca yutmak için ilk 5 harf
 
@@ -76,6 +81,8 @@ export async function buildContext(id) {
     ? (await query(`SELECT id, from_address, from_name, subject, coalesce(body_text, body_preview, '') AS body, received_at FROM email WHERE id = $1`, [item.source_id])).rows[0]
     : null
   const contact = await findContact(null, item.requester_email || mail?.from_address, item.requester)
+  const external = ['tfs', 'jira'].includes(item.source_type)
+    ? { system: SOURCE_LABEL[item.source_type], ref: item.external_ref, url: item.external_url ?? null } : null
   const myTokens = tokens(`${item.title} ${item.description} ${mail?.subject ?? ''}`)
   const myStems = new Set(myTokens.map(stem))
   const overlap = (text) => tokens(text).filter((t) => myStems.has(stem(t)))
@@ -83,6 +90,7 @@ export async function buildContext(id) {
   // ---- DB: benzer geçmiş işler (anahtar kelime + kelime örtüşmesi) ----
   const cands = (await query(
     `SELECT w.id, w.code, w.title, w.description, w.status, w.keywords, w.created_at, w.closed_at, w.priority, u.username AS assignee,
+            w.source_type, w.external_ref,
             (SELECT a.comment FROM work_item_activity a WHERE a.work_item_id = w.id AND a.action IN ('comment','agent_note')
              ORDER BY a.id DESC LIMIT 1) AS last_note
      FROM work_item w LEFT JOIN app_user u ON u.id = w.assignee_id
@@ -94,6 +102,7 @@ export async function buildContext(id) {
   }).filter((w) => w.score >= 3 && (w.shared_words.length > 0 || w.shared_keywords.length > 1))
     .sort((a, b) => b.score - a.score || (b.status === 'done') - (a.status === 'done')).slice(0, 5)
     .map((w) => ({ id: w.id, code: w.code, title: w.title, status: w.status, priority: w.priority, assignee: w.assignee,
+                   source_type: w.source_type, external_ref: w.external_ref,
                    resolved_in_days: w.closed_at ? round1(days(w.created_at, w.closed_at)) : null, last_note: w.last_note,
                    shared_keywords: w.shared_keywords, shared_words: w.shared_words, score: w.score }))
 
@@ -124,7 +133,7 @@ export async function buildContext(id) {
      WHERE u.is_active AND u.role <> 'agent' AND u.role <> 'admin' GROUP BY u.username ORDER BY 2, 1`)).rows
 
   return {
-    item, mail, contact: contact && { email: contact.email, full_name: contact.full_name, title: contact.title, department: contact.department,
+    item, mail, external, contact: contact && { email: contact.email, full_name: contact.full_name, title: contact.title, department: contact.department,
                                       mgmt_level: contact.mgmt_level, mgmt_label: MGMT_LABEL[contact.mgmt_level] },
     keywords: item.keywords.map((k) => ({ key: k, label: ruleBy[k]?.label ?? k })),
     similar_items: similar, wiki_pages: wiki, sender_mails: senderMails, team_load: load,
@@ -159,21 +168,21 @@ const median = (a) => { if (!a.length) return null; const s = [...a].sort((x, y)
 export async function interpret(id) {
   const ctx = await buildContext(id)
   if (!ctx) return null
-  const { item, contact, keywords, similar_items: sim, wiki_pages: wiki, sender_mails: sm, team_load: load } = ctx
+  const { item, contact, keywords, external, similar_items: sim, wiki_pages: wiki, sender_mails: sm, team_load: load } = ctx
   const lines = []
   const sources = []
 
   // 1) Kim istiyor?
   if (contact) {
     const lvl = contact.mgmt_level
-    lines.push(isSenior(lvl)
-      ? `**Üst yönetim talebi** — ${contact.full_name} (${contact.title ?? MGMT_LABEL[lvl]}${contact.department ? `, ${contact.department}` : ''}).`
-      : `Talep eden: ${contact.full_name}${contact.title ? ` (${contact.title})` : ''}.`)
+    const who = `${contact.full_name} (${contact.title ?? MGMT_LABEL[lvl]}${contact.department ? `, ${contact.department}` : ''})`
+    lines.push(lvl === 'diger' ? `Talep eden: ${who}.` : `**${MGMT_LABEL[lvl]} talebi** — ${who}.`)
   } else if (item.requester) {
     lines.push(`Talep eden: ${item.requester} (kişi rehberinde yok).`)
   }
-  // 2) Mailde ne geçiyor?
-  if (keywords.length) lines.push(`Mailde öne çıkan anahtar kelimeler: ${keywords.map((k) => `«${k.label}»`).join(', ')}.`)
+  // 2) Nereden geldi, konu ne?
+  const src = external ? `${external.system} kaydı${external.ref ? ` ${external.ref}` : ''}` : item.source_type === 'mail' ? 'Mail' : SOURCE_LABEL[item.source_type]
+  lines.push(`Kaynak: ${src}.` + (keywords.length ? ` Konu: ${keywords.map((k) => `«${k.label}»`).join(', ')}.` : ' Takip edilen bir konuyla eşleşmedi.'))
 
   // 3) DB: benzer geçmiş işler
   const solved = sim.filter((s) => s.status === 'done')
@@ -182,7 +191,8 @@ export async function interpret(id) {
     const how = best.status === 'done'
       ? `${best.assignee ?? 'ekip'} ${durTxt(best.resolved_in_days)} çözmüş`
       : `hâlâ açık (${best.assignee ?? 'atanmamış'})`
-    lines.push(`Geçmişte ${sim.length} benzer iş var. En yakını **${best.code}** «${best.title}» — ${how}.` +
+    const bestRef = best.external_ref ? ` (${SOURCE_LABEL[best.source_type]} ${best.external_ref})` : ''
+    lines.push(`Geçmişte ${sim.length} benzer iş var. En yakını **${best.code}**${bestRef} «${best.title}» — ${how}.` +
       (best.last_note ? ` Son not: “${best.last_note.slice(0, 160)}${best.last_note.length > 160 ? '…' : ''}”` : ''))
     const openDup = sim.find((s) => s.status !== 'done' && s.score >= 8)
     if (openDup && openDup !== best) lines.push(`Açık bir benzer kayıt da var: ${openDup.code} — yinelenen talep olabilir.`)
@@ -208,20 +218,23 @@ export async function interpret(id) {
   // 6) Öneri
   const kw = new Set(keywords.map((k) => k.key))
   const lvl = contact?.mgmt_level ?? 'diger'
+  // Failed + (üst yönetim | MQ | OpenShift) → Kritik; Failed, üst yönetim ya da birim yöneticisinden altyapı upgrade'i → Yüksek; Decom → Düşük
+  const infra = kw.has('mq') || kw.has('openshift') || kw.has('server')
   let priority = 'normal'
-  if (kw.has('acil') && (kw.has('prod') || lvl === 'gm')) priority = 'critical'
-  else if (kw.has('acil') || kw.has('prod') || lvl === 'gm' || lvl === 'gmy') priority = 'high'
-  else if (lvl === 'direktor' && (kw.has('rapor') || kw.has('fatura'))) priority = 'high'
+  if (kw.has('failed') && (lvl === 'ust' || kw.has('mq') || kw.has('openshift'))) priority = 'critical'
+  else if (kw.has('failed') || lvl === 'ust' || (lvl === 'birim' && infra)) priority = 'high'
+  else if (kw.has('decom') && keywords.length === 1) priority = 'low'
+  if (/\b(acil|ivedi|kritik)\b/u.test(lower(`${item.title} ${item.description}`)) && priority !== 'critical') priority = priority === 'high' ? 'critical' : 'high'
   const loadOf = Object.fromEntries(load.map((l) => [l.username, l.open_items]))
   const resolvers = solved.map((s) => s.assignee).filter((u) => u && u in loadOf)
   const freq = resolvers.reduce((m, u) => ({ ...m, [u]: (m[u] ?? 0) + 1 }), {})
   const expert = Object.entries(freq).sort((a, b) => b[1] - a[1] || loadOf[a[0]] - loadOf[b[0]])[0]?.[0]
   const assignee = expert ?? load[0]?.username ?? null
   const eta = median(solved.map((s) => s.resolved_in_days).filter((d) => d !== null)) ?? (priority === 'critical' ? 0.5 : 2)
-  const sla = lvl === 'gm' || lvl === 'gmy' ? '4 saat' : lvl === 'direktor' ? '1 iş günü' : null
+  const sla = SLA_BY_LEVEL[lvl] ?? null
   lines.push(`**Öneri:** öncelik ${PRIORITY_TR[priority]}` +
     (assignee ? `, atanan: ${assignee} (${expert ? 'benzer işleri çözmüş' : 'ekipte en az yüklü'}, açık işi ${loadOf[assignee] ?? 0})` : '') +
-    `, tahmini çözüm ~${eta < 1 ? `${Math.max(1, Math.round(eta * 24))} saat` : `${round1(eta)} gün`}` + (sla ? `; üst yönetim SLA'sı ${sla}.` : '.'))
+    `, tahmini çözüm ~${eta < 1 ? `${Math.max(1, Math.round(eta * 24))} saat` : `${round1(eta)} gün`}` + (sla ? `; ${MGMT_LABEL[lvl]} için ilk dönüş ${sla}.` : '.'))
 
   const topScore = sim[0]?.score ?? 0
   const confidence = Math.min(0.9, 0.3 + Math.min(solved.length, 3) * 0.08 + Math.min(topScore, 12) * 0.015 + (wiki.length ? 0.08 : 0) + (contact ? 0.05 : 0))
@@ -264,7 +277,7 @@ export async function upsertWiki(b) {
 
 export async function listContacts() {
   const { rows } = await query(`SELECT id, email, full_name, title, department, mgmt_level FROM contact ORDER BY
-    array_position(ARRAY['gm','gmy','direktor','mudur','diger']::varchar[], mgmt_level), full_name`)
+    array_position(ARRAY['ust','birim','po','diger']::varchar[], mgmt_level), full_name`)
   return { contacts: rows.map((r) => ({ ...r, mgmt_label: MGMT_LABEL[r.mgmt_level] })) }
 }
 
@@ -311,18 +324,31 @@ export async function reclassifyAll() {
 // Toplu mail (bulk-send-mail)
 // =====================================================================
 const DEMO_MAILS = [
-  ['hakan.erdem@firma.com', 'ACİL: Yönetim kurulu raporunda toplamlar tutmuyor', 'Yarınki yönetim kurulu sunumu için aylık rapordaki bölge toplamları ana tabloyla tutmuyor. Bugün içinde kontrol edilip düzeltilmesi gerekiyor.', 'high'],
-  ['selin.koc@firma.com', 'Prod ortamında fatura servisi hata veriyor', 'Sabahtan beri fatura servisi 500 hata veriyor, müşteriler fatura göremiyor. Kesinti süresini ve kök nedeni paylaşır mısınız?', 'high'],
-  ['burak.cetin@firma.com', 'Ödeme ekranı çok yavaş — müşteri şikayetleri arttı', 'Çağrı merkezine ödeme ekranının yavaş açıldığına dair şikayetler geliyor. Muhasebe kapanışı öncesi çözülmesi önemli.', 'high'],
-  ['deniz.arslan@firma.com', 'Kapasite raporu için ek sorgu talebi', 'Çeyrek kapasite raporuna sunucu bazında disk büyüme trendinin eklenmesini rica ederiz.', 'normal'],
-  ['murat.aydin@firma.com', 'Gece batch işi yine gecikti', 'Mutabakat batch işi bu gece de 2 saat geç bitti, sabah raporları eksik geldi.', 'normal'],
-  ['elif.sahin@firma.com', 'Yeni başlayan 2 kişi için VPN ve hesap açılması', 'Pazartesi başlayacak iki arkadaşımız için VPN ve uygulama hesabı açılmasını rica ederiz.', 'normal'],
-  ['gizem.yildiz@firma.com', 'Müşteri portalına giriş yapılamıyor', 'Birkaç kurumsal müşterimiz SSO ile portala giriş yapamadığını bildirdi.', 'high'],
-  ['ece.tan@musteri.com', 'KVKK kapsamında veri silme talebi', 'KVKK madde 11 kapsamında şirketinizde bulunan kişisel verilerimin silinmesini talep ediyorum.', 'normal'],
-  ['selin.koc@firma.com', 'Denetim öncesi lisans ve sertifika listesi', 'Gelecek hafta iç denetim var; kullandığımız yazılım lisanslarının ve SSL sertifikalarının bitiş tarihleriyle listesini rica ederim.', 'normal'],
-  ['hakan.erdem@firma.com', 'Dashboard\'a günlük tahsilat KPI\'ı eklenmesi', 'Yönetim panosunda günlük tahsilat tutarını ve bir önceki günle farkını görmek istiyorum.', 'normal'],
-  ['can.ozturk@firma.com', 'Test ortamına erişim', 'Test ortamındaki rapor ekranına erişimim yok, yetki verebilir misiniz?', 'low'],
-  ['murat.aydin@firma.com', 'API yanıt süreleri yükseldi', 'Monitoring tarafında sipariş API yanıt süresi 2 sn üzerine çıktı, prod kontrol rica ederim.', 'high'],
+  ['hakan.erdem@firma.com', 'ACİL: Ödeme kanalında MQ kuyrukları doluyor', 'Ödeme kanalında işlemler beklemede kalıyor; MQ tarafında PAYMENT.IN kuyruğunun dolduğu söyleniyor. Bugün içinde durum ve kök neden rica ediyorum.', 'high'],
+  ['selin.koc@firma.com', 'OpenShift 4.14 → 4.16 upgrade planı', 'Prod OpenShift cluster upgrade\'i için bakım penceresi ve geri dönüş planını CAB öncesi paylaşır mısınız?', 'normal'],
+  ['murat.aydin@firma.com', 'RHEL 7 sunucuların server upgrade takvimi', 'Destek süresi biten RHEL 7 sunucuları için OS upgrade takvimini birim bazında çıkaralım. Liste ektedir.', 'normal'],
+  ['deniz.arslan@firma.com', 'MQ channel RETRY durumunda kaldı', 'CRM → Çekirdek arasındaki MQ channel sabahtan beri RETRY durumunda, mesajlar DLQ\'ya düşüyor.', 'high'],
+  ['elif.sahin@firma.com', 'Bu gece yapılacak change için CAB onayı', 'Gece yapılacak firewall değişikliği için change kaydı açıldı, CAB onayı ve uygulama ekibinin hazır olması gerekiyor.', 'normal'],
+  ['burak.cetin@firma.com', 'Release pipeline failed — mobil backend', 'Mobil backend release pipeline\'ı build adımında failed oluyor, sprint sonu release riskte.', 'high'],
+  ['gizem.yildiz@firma.com', 'Ödeme platformu sprint release\'i için deploy penceresi', 'Ödeme platformunun yeni versiyonu için prod deploy penceresi talep ediyorum, user story\'ler testten geçti.', 'normal'],
+  ['emre.kurt@firma.com', 'Mobil uygulamada login bug\'ı', 'Yeni versiyonda bazı Android kullanıcılar login olamıyor, bug kaydını önceliklendirebilir misiniz?', 'high'],
+  ['murat.aydin@firma.com', 'Eski rapor sunucularının decom edilmesi', 'RPTSRV01-04 artık kullanılmıyor; decom süreci, yedek ve DNS temizliği için iş açalım.', 'low'],
+  ['noreply@monitor.firma.com', '[ALARM] Batch job FAILED — EOD_MUTABAKAT', 'EOD_MUTABAKAT job\'ı 02:14\'te failed durumuna düştü. Hata: ORA-01555 snapshot too old.', 'high'],
+  ['ece.tan@firma.com', 'Müşteri portalı backlog önceliklendirmesi', 'Portal backlog\'undaki SSO user story\'lerinin geliştirme takvimini konuşmak istiyorum.', 'normal'],
+  ['selin.koc@firma.com', 'Incident: Jenkins agent\'ları down', 'Tüm Jenkins agent\'ları down görünüyor, build kuyruğu 40 işi geçti. Incident kaydı açıldı.', 'high'],
+]
+
+// TFS Kanban ve Jira'dan gelen örnek kalemler (POST /api/bulk-import {count})
+// [kaynak, ref, talep eden, başlık, açıklama, öncelik]
+const DEMO_TICKETS = [
+  ['tfs', 'TFS-48213', 'burak.cetin@firma.com', 'Ödeme servisi deploy pipeline\'ı helm adımında failed', 'Kanban kartı: Dev → Test geçişinde helm upgrade timeout veriyor.', 'high'],
+  ['tfs', 'TFS-48230', 'gizem.yildiz@firma.com', 'Ödeme platformu 3.8 release hazırlığı', 'Sprint 42 release kartı: release notları, versiyon etiketi, prod deploy talebi.', 'normal'],
+  ['tfs', 'TFS-48244', 'murat.aydin@firma.com', 'APPSRV12 Windows Server 2016 → 2022 server upgrade', 'Kanban kartı: uygulama sahibinden test onayı bekleniyor.', 'normal'],
+  ['tfs', 'TFS-48251', 'emre.kurt@firma.com', 'Mobil backend yeni API versiyonu', 'User story: v2 uçlarının prod\'a alınması, backlog önceliği 1.', 'normal'],
+  ['jira', 'OPS-1123', 'deniz.arslan@firma.com', 'MQ QMGR_PROD2 sertifika yenilemesi', 'TLS sertifikası 14 gün içinde bitiyor; channel kesintisi olmadan yenilenmeli.', 'high'],
+  ['jira', 'OPS-1131', 'selin.koc@firma.com', 'OpenShift prod cluster upgrade — worker node drain sorunu', 'Upgrade provasında worker node drain 40 dk sürdü, PDB ayarları gözden geçirilmeli.', 'high'],
+  ['jira', 'OPS-1140', 'murat.aydin@firma.com', 'Legacy FTP sunucusunun decom edilmesi', 'Son 90 günde trafik yok; decom öncesi bağımlılık analizi.', 'low'],
+  ['jira', 'ITSM-3302', 'elif.sahin@firma.com', 'Problem kaydı: tekrarlayan batch failed hataları', 'Son 30 günde 4 kez failed olan EOD batch\'i için kök neden analizi.', 'normal'],
 ]
 
 export async function bulkSendMail(body, actor) {
@@ -375,4 +401,44 @@ export async function bulkSendMail(body, actor) {
     out.work_items.push(runInterpret ? (await interpret(item.id)) ?? item : item)
   }
   return { count: out.emails.length, interpreted: createItems && runInterpret, ...out }
+}
+
+// =====================================================================
+// TFS Kanban / Jira kalemleri (bulk-import)
+// =====================================================================
+export async function bulkImport(body, actor) {
+  const runInterpret = body.interpret !== false && DEMO_INTERPRETER
+  let items = body.items
+  if (items !== undefined && !Array.isArray(items)) throw httpError(400, 'invalid', 'items dizi olmalı', { field: 'items' })
+  if (!items?.length) {
+    const n = Math.min(50, Math.max(1, Number(body.count) || 4))
+    const pool = [...DEMO_TICKETS].sort(() => Math.random() - 0.5)
+    const sfx = crypto.randomBytes(2).toString('hex')
+    items = Array.from({ length: n }, (_, i) => {
+      const [source_type, ref, from, title, description, priority] = pool[i % pool.length]
+      return { source_type, external_ref: `${ref}-${sfx}${i >= pool.length ? i : ''}`, requester_email: from, title, description, priority }
+    })
+  }
+  if (items.length > 200) throw httpError(400, 'invalid', 'Tek seferde en fazla 200 kalem')
+  for (const [i, t] of items.entries()) {
+    if (!['tfs', 'jira'].includes(t?.source_type)) throw httpError(400, 'invalid', `items[${i}].source_type: tfs | jira`)
+    if (!String(t.external_ref ?? '').trim()) throw httpError(400, 'invalid', `items[${i}].external_ref zorunlu (ör. TFS-48213, OPS-1123)`)
+    if (!String(t.title ?? '').trim()) throw httpError(400, 'invalid', `items[${i}].title zorunlu`)
+    if (t.priority !== undefined && !['low', 'normal', 'high', 'critical'].includes(t.priority)) throw httpError(400, 'invalid', `items[${i}].priority geçersiz`)
+  }
+  const out = { work_items: [], skipped: [] }
+  for (const t of items) {
+    const ref = String(t.external_ref).trim().slice(0, 200)
+    const dup = (await query('SELECT id FROM work_item WHERE source_type = $1 AND external_ref = $2', [t.source_type, ref])).rows[0]
+    if (dup) { out.skipped.push({ external_ref: ref, work_item_id: dup.id }); continue }
+    const contact = t.requester_email ? await findContact(null, t.requester_email, null) : null
+    const item = await createWorkItem({
+      title: String(t.title).slice(0, 500), description: String(t.description ?? '').slice(0, 4000), source_type: t.source_type,
+      external_ref: ref, external_url: t.url ?? null, requester: t.requester ?? contact?.full_name ?? t.requester_email ?? SOURCE_LABEL[t.source_type],
+      requester_email: t.requester_email ? String(t.requester_email).toLowerCase() : null, priority: t.priority ?? 'normal',
+      category: t.category ?? (t.source_type === 'tfs' ? 'Kanban' : 'Jira'), tags: Array.isArray(t.tags) ? t.tags.map(String) : [],
+    }, actor)
+    out.work_items.push(runInterpret ? (await interpret(item.id)) ?? item : item)
+  }
+  return { count: out.work_items.length, interpreted: runInterpret, ...out }
 }

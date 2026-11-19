@@ -38,6 +38,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await new Promise((r) => setTimeout(r, 300))
       if (user.trim().toLowerCase() !== LOCAL_USER || password !== LOCAL_PASS)
         throw new Error('Kullanıcı adı veya şifre hatalı')
+      // Sunucudaki ADMIN_ACTS_AS ile aynı: admin ile girilir, ekip üyesi olarak görünülür
+      uname = 'mehmet.kaya'
+      name = 'Mehmet Kaya'
     }
     localStorage.setItem('yaver_username', uname)
     localStorage.setItem('yaver_fullname', name)
