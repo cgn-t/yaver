@@ -92,7 +92,7 @@ LLM ──► AiYorumYaniti (bu belgedeki şema)
 | `work_item_version` | int | ✔ | Bağlam okunurken işin `version`'ı. Arada kullanıcı değiştirdiyse değişiklikler uygulanmaz (bölüm 5). | `If-Match` kontrolü |
 | `summary` | string ≤ 200 | ✔ | Tek cümle özet. Bildirim / liste satırı için. | `agent_suggestion.summary` |
 | `comment` | string ≤ 2000 (sunucu 8000 keser) | ✔ | Türkçe, en fazla ~6 satır, `**kalın**` destekli. Satır başına bir bilgi. Son satır `**Öneri:** …` | `agent_comment` |
-| `classification.topic_keys` | string[] | – | LLM'in gördüğü konu anahtarları (`keyword_rule.key`: `mq`, `openshift`, `server`, `decom`, `devops`, `failed`, `servis`, `yazilim` — `GET /api/settings/keywords`). **Yalnız bilgi**: konu metinden otomatik hesaplanır, LLM değiştiremez (bkz. 7.1). | `agent_suggestion.topic_keys` |
+| `classification.topic_keys` | string[] | – | LLM'in gördüğü konu anahtarları (`keyword_rule.key`: `mq`, `openshift`, `server`, `decom`, `devops`, `failed`, `servis`, `yazilim` — `GET /api/settings/keywords`). **Yalnız bilgi**: konu metinden otomatik hesaplanır, LLM değiştiremez (bkz. 8.1). | `agent_suggestion.topic_keys` |
 | `classification.mgmt_level` | `ust\|birim\|po\|diger` | – | LLM'in talep eden seviyesi tahmini. Kişi rehberindekiyle farklıysa `warnings`'e yazılır, otomatik değiştirilmez. | `agent_suggestion.mgmt_level` |
 | `classification.is_duplicate_of` | int \| null | – | Aynı işin açık bir kopyası varsa onun `id`'si. Doluysa genelde `changes` içinde `status: cancelled` + `link` önerisi olur. | `agent_suggestion.duplicate_of` |
 | `classification.is_actionable` | bool | – | `false` = bilgi maili / teşekkür / otomatik bildirim; iş açılmamalıydı. | `agent_suggestion.actionable` |
@@ -478,7 +478,7 @@ Varsayılan politikada sonuç: `tags` hemen uygulanır (200); `assign` onaya dü
 
 > Kopya işin maili asıl işe bağlamak için `link` türü bugün yalnız **bu** işe bağlar (`work_item_id` = hedef iş).
 > Maili YVR-1058'e taşımak istiyorsanız `link` önerisini `work_item_id: 58` ile göndermek gerekir; şemada bunun için
-> 7.3'teki ek önerilir.
+> 8.3'teki ek önerilir.
 
 ### 7.3 Bilgi eksik → bekliyor
 
@@ -519,11 +519,11 @@ tam karşılamak için gerekecek küçük eklemeler:
 
 | # | Eksik | Bugün | Önerilen ekleme |
 |---|---|---|---|
-| 7.1 | **Konu (anahtar kelime grubu) değiştirme** | `keywords` başlık/açıklama/mailden otomatik hesaplanıyor; ne ajan ne kullanıcı elle değiştirebiliyor. LLM yanlış grupta olduğunu görse de öneremiyor. | Yeni öneri türü `topic` → `{ "topic_keys": ["mq"] }`; `work_item.keywords_override TEXT[]` sütunu; doluysa otomatik eşleşmenin yerine geçer. Politika varsayılanı `propose`. |
-| 7.2 | **Talep eden seviyesini düzeltme** | `edit` yalnız `requester` (ad) alıyor. Seviye `requester_email` → kişi rehberinden bulunuyor; e-posta doluysa adı değiştirmek seviyeyi değiştirmiyor. | `edit` payload'ına `requester_email` eklenmesi (seviye yeniden hesaplanır). Kişinin kendisi yanlış seviyedeyse bu iş değil, `PUT /api/contacts` (insan) işidir; LLM bunu `warnings`'e yazar. |
-| 7.3 | Kopya işte maili asıl işe taşıma | `link` önerisi `work_item_id`'ye bağlar; tek yanıtta iki farklı iş hedeflenemiyor. | `changes[].work_item_id` (opsiyonel, varsayılan yanıtın işi) — adaptör hedefi buna göre seçer. Sunucuda değişiklik gerekmez. |
-| 7.4 | Durum değişikliği gerekçesi | Onaylanan `status` önerisinin `reasoning`'i yalnız öneri kaydında; iş tarihçesinde görünmüyor. | Uygulanınca `reasoning` iş tarihçesine `agent_note` olarak da yazılsın. |
-| 7.5 | Arayüzde `summary`, `status` önerisi, `questions` | `AgentKit` yalnız `priority/assignee/eta_days/sla` gösteriyor. | "Öneri" satırına `status` ve `summary`; bekleyen öneri sayısı rozeti. |
-| 7.6 | Şema sürümü | Yok. | `agent_suggestion.schema_version` (bu formatla zaten yazılıyor); ileride sunucu bilmediği sürümü reddedebilir. |
+| 8.1 | **Konu (anahtar kelime grubu) değiştirme** | `keywords` başlık/açıklama/mailden otomatik hesaplanıyor; ne ajan ne kullanıcı elle değiştirebiliyor. LLM yanlış grupta olduğunu görse de öneremiyor. | Yeni öneri türü `topic` → `{ "topic_keys": ["mq"] }`; `work_item.keywords_override TEXT[]` sütunu; doluysa otomatik eşleşmenin yerine geçer. Politika varsayılanı `propose`. |
+| 8.2 | **Talep eden seviyesini düzeltme** | `edit` yalnız `requester` (ad) alıyor. Seviye `requester_email` → kişi rehberinden bulunuyor; e-posta doluysa adı değiştirmek seviyeyi değiştirmiyor. | `edit` payload'ına `requester_email` eklenmesi (seviye yeniden hesaplanır). Kişinin kendisi yanlış seviyedeyse bu iş değil, `PUT /api/contacts` (insan) işidir; LLM bunu `warnings`'e yazar. |
+| 8.3 | Kopya işte maili asıl işe taşıma | `link` önerisi `work_item_id`'ye bağlar; tek yanıtta iki farklı iş hedeflenemiyor. | `changes[].work_item_id` (opsiyonel, varsayılan yanıtın işi) — adaptör hedefi buna göre seçer. Sunucuda değişiklik gerekmez. |
+| 8.4 | Durum değişikliği gerekçesi | Onaylanan `status` önerisinin `reasoning`'i yalnız öneri kaydında; iş tarihçesinde görünmüyor. | Uygulanınca `reasoning` iş tarihçesine `agent_note` olarak da yazılsın. |
+| 8.5 | Arayüzde `summary`, `status` önerisi, `questions` | `AgentKit` yalnız `priority/assignee/eta_days/sla` gösteriyor. | "Öneri" satırına `status` ve `summary`; bekleyen öneri sayısı rozeti. |
+| 8.6 | Şema sürümü | Yok. | `agent_suggestion.schema_version` (bu formatla zaten yazılıyor); ileride sunucu bilmediği sürümü reddedebilir. |
 
-İsterseniz 7.1 ve 7.2'yi 0.8.0 olarak uygulayabilirim; diğerleri yalnız adaptör ve arayüz değişikliği.
+İsterseniz 8.1 ve 8.2'yi 0.8.0 olarak uygulayabilirim; diğerleri yalnız adaptör ve arayüz değişikliği.
