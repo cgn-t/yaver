@@ -9,7 +9,9 @@ import {
 import { useSnackbar } from 'notistack'
 import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
+import { LiveDot } from '../components/Motion'
 import PageHeader from '../components/PageHeader'
+import { AnimatePresence, motion } from 'motion/react'
 import { formatDateTime } from '../components/WorkKit'
 import {
   addApiConfig, clearApiLogs, deleteApiConfig, resetDemoData, saveApiConfig, saveGeneral, saveLdap, SOURCE_LABEL, useDb,
@@ -170,15 +172,23 @@ function ApiServiceTab() {
       </Alert>
 
       <Stack spacing={1}>
+        <AnimatePresence initial={false}>
         {db.apiConfigs.map((c) => {
           const due = nextRunAt(c)
           const left = due === null ? null : Math.max(0, Math.round((due - now) / 1000))
           const busy = running.includes(c.id)
           return (
-            <Paper key={c.id} variant="outlined" onClick={() => setSelId(c.id)}
+            <motion.div key={c.id} layout initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, x: 24 }}
+                        transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}>
+            <Paper variant="outlined" onClick={() => setSelId(c.id)}
                    sx={{ p: 1.5, display: 'flex', alignItems: 'center', gap: 1.5, cursor: 'pointer', flexWrap: 'wrap',
-                         borderColor: selId === c.id ? 'primary.main' : 'divider', borderWidth: selId === c.id ? 2 : 1 }}>
-              <Switch checked={c.enabled} onClick={(e) => e.stopPropagation()} onChange={(e) => toggleEnabled(c, e.target.checked)} />
+                         transition: 'border-color .2s ease, box-shadow .2s ease',
+                         '&:hover': { boxShadow: '0 6px 20px rgba(0,0,0,0.06)' },
+                         borderColor: selId === c.id ? 'primary.main' : 'divider',
+                         boxShadow: selId === c.id ? '0 0 0 1px #e53946' : 'none' }}>
+              <Switch checked={c.enabled} onClick={(e) => e.stopPropagation()} onChange={(e) => toggleEnabled(c, e.target.checked)}
+                      slotProps={{ input: { 'aria-label': `${c.name} etkin` } }} />
+              <LiveDot active={c.enabled} color={c.last_status === 'error' ? '#f44336' : '#4caf50'} />
               <Box sx={{ flexGrow: 1, minWidth: 180 }}>
                 <Typography variant="body2" sx={{ fontWeight: 700 }}>{c.name}</Typography>
                 <Typography variant="caption" color="text.secondary" sx={{ fontFamily: MONO_FONT }} noWrap component="div">{c.method} {c.url || '(URL yok)'}</Typography>
@@ -192,8 +202,10 @@ function ApiServiceTab() {
               <Button size="small" variant="outlined" startIcon={busy ? <CircularProgress size={14} /> : <PlayArrowIcon />} disabled={busy}
                       onClick={(e) => { e.stopPropagation(); void runNow(c.id) }}>Şimdi çalıştır</Button>
             </Paper>
+            </motion.div>
           )
         })}
+        </AnimatePresence>
         <Box><Button startIcon={<AddIcon />} onClick={() => setSelId(addApiConfig().id)}>Servis ekle</Button></Box>
       </Stack>
 

@@ -16,6 +16,15 @@ Giriş: **admin / admin**
 
 Backend hazır olduğunda: `VITE_API_TARGET=http://localhost:8000 npm run dev` (`/api` istekleri oraya yönlenir).
 
+## Tasarım
+
+Jumbo'nun kurumsal görünümü korunup üzerine [freshtechbro/claudedesignskills](https://github.com/freshtechbro/claudedesignskills)
+`modern-web-design` + `motion-framer` ilkeleri uygulandı (`motion` kütüphanesi): sayfa geçişleri, kademeli
+(stagger) girişler, sayarak gelen KPI'lar, buton/kart mikro-etkileşimleri, giriş ekranında akan gradyan ve cam
+(glassmorphism) kartlar, etkin API servisi için canlı nabız göstergesi. İşletim sisteminde "hareketi azalt"
+açıksa animasyonlar kapanır. Repodaki 3D/WebGL (Three.js, Babylon…) ve scroll-hikâye beceri setleri bir iç yönetim
+uygulamasına uymadığı için kullanılmadı.
+
 ## Ekranlar
 
 | Ekran | İçerik |

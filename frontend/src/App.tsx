@@ -1,4 +1,5 @@
 import { CssBaseline, ThemeProvider } from '@mui/material'
+import { MotionConfig } from 'motion/react'
 import { SnackbarProvider } from 'notistack'
 import { createContext, useContext, useMemo, useState } from 'react'
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
@@ -34,6 +35,8 @@ export default function App() {
 
   return (
     <ThemeModeContext.Provider value={{ mode, toggle }}>
+    {/* İşletim sisteminde "hareketi azalt" açıksa tüm animasyonlar kapanır (erişilebilirlik) */}
+    <MotionConfig reducedMotion="user">
       <ThemeProvider theme={theme}>
         <CssBaseline />
         <SnackbarProvider maxSnack={3} autoHideDuration={2500} anchorOrigin={{ vertical: 'top', horizontal: 'center' }}>
@@ -54,6 +57,7 @@ export default function App() {
           </AuthProvider>
         </SnackbarProvider>
       </ThemeProvider>
+    </MotionConfig>
     </ThemeModeContext.Provider>
   )
 }

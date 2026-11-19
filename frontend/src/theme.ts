@@ -38,6 +38,9 @@ export function createAppTheme(mode: ThemeMode) {
       MuiCssBaseline: {
         styleOverrides: {
           html: { scrollbarGutter: 'stable' },
+          '@media (prefers-reduced-motion: reduce)': {
+            '*, *::before, *::after': { animationDuration: '0.01ms !important', transitionDuration: '0.01ms !important' },
+          },
           'input:-webkit-autofill, input:-webkit-autofill:hover, input:-webkit-autofill:focus, input:-webkit-autofill:active': {
             WebkitBoxShadow: `0 0 0 1000px ${mode === 'dark' ? '#101418' : '#f4f6f8'} inset !important`,
             WebkitTextFillColor: `${mode === 'dark' ? '#fff' : 'rgba(0,0,0,0.87)'} !important`,
@@ -47,8 +50,23 @@ export function createAppTheme(mode: ThemeMode) {
       },
       MuiPaper: { styleOverrides: { root: { backgroundImage: 'none' } } },
       MuiInputBase: { styleOverrides: { root: { '& textarea': { resize: 'vertical', overflowY: 'auto' } } } },
-      MuiChip: { styleOverrides: { root: { fontWeight: 600 } } },
-      MuiButton: { styleOverrides: { root: { textTransform: 'none' } } },
+      // Mikro-etkileşim: basınca hafif küçülme, klavyeyle odakta belirgin halka
+      MuiButton: {
+        styleOverrides: {
+          root: {
+            textTransform: 'none',
+            transition: 'transform .12s ease, box-shadow .2s ease, background-color .2s ease, border-color .2s ease',
+            '&:active': { transform: 'scale(0.97)' },
+            '&.Mui-focusVisible': { outline: '2px solid #e53946', outlineOffset: 2 },
+          },
+          contained: { '&.MuiButton-colorPrimary:hover': { boxShadow: '0 6px 18px rgba(229,57,70,0.32)' } },
+        },
+      },
+      MuiIconButton: { styleOverrides: { root: { transition: 'transform .12s ease, background-color .2s ease', '&:active': { transform: 'scale(0.92)' } } } },
+      MuiChip: { styleOverrides: { root: { fontWeight: 600, transition: 'transform .12s ease, background-color .2s ease', '&.MuiChip-clickable:active': { transform: 'scale(0.95)' } } } },
+      MuiSwitch: { styleOverrides: { thumb: { transition: 'transform .2s cubic-bezier(.22,1,.36,1)' } } },
+      MuiDrawer: { styleOverrides: { paper: { boxShadow: '0 16px 48px rgba(0,0,0,0.18)' } } },
+      MuiDialog: { styleOverrides: { paper: { boxShadow: '0 24px 64px rgba(0,0,0,0.22)' } } },
       MuiTableCell: {
         styleOverrides: {
           head: {

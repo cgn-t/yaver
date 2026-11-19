@@ -5,6 +5,7 @@ import WarningAmberIcon from '@mui/icons-material/WarningAmber'
 import { Box, Button, Chip, Grid, LinearProgress, Paper, Stack, Typography } from '@mui/material'
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { Stagger, StaggerItem } from '../components/Motion'
 import PageHeader from '../components/PageHeader'
 import StatCard from '../components/StatCard'
 import { NewWorkItemDialog, PriorityChip, SourceChip, StatusChip, WorkItemDrawer, formatDateTime, timeAgo } from '../components/WorkKit'
@@ -49,19 +50,32 @@ export default function Dashboard() {
     <Box>
       <PageHeader title="Genel Bakış" subtitle="Takıma gelen işler, mailler ve toplantıların anlık özeti"
                   actions={<Button variant="contained" disableElevation onClick={() => setNewOpen(true)}>Yeni İş</Button>} />
-      <Grid container spacing={2} sx={{ mb: 2 }}>
-        <Grid size={{ xs: 12, sm: 6, lg: 3 }}><StatCard icon={<AssignmentIcon />} label="Açık iş" value={open.length} color="#e53946" onClick={() => navigate('/work-items')} /></Grid>
-        <Grid size={{ xs: 12, sm: 6, lg: 3 }}><StatCard icon={<WarningAmberIcon />} label="Termini geçen" value={overdue.length} color="#ff9800" onClick={() => navigate('/work-items?overdue=1')} /></Grid>
-        <Grid size={{ xs: 12, sm: 6, lg: 3 }}><StatCard icon={<MailIcon />} label="Okunmamış mail" value={unread.length} color="#42a5f5" onClick={() => navigate('/emails')} /></Grid>
-        <Grid size={{ xs: 12, sm: 6, lg: 3 }}><StatCard icon={<VideocamIcon />} label="Bugünkü toplantı" value={todayMeetings.length} color="#7c4dff" onClick={() => navigate('/meetings')} /></Grid>
-      </Grid>
+      <Stagger>
+        <Grid container spacing={2} sx={{ mb: 2 }}>
+          {[
+            { icon: <AssignmentIcon />, label: 'Açık iş', value: open.length, color: '#e53946', to: '/work-items', hint: `${db.items.filter((w) => w.status === 'new').length} yeni` },
+            { icon: <WarningAmberIcon />, label: 'Termini geçen', value: overdue.length, color: '#ff9800', to: '/work-items?overdue=1', hint: overdue.length ? 'Öncelikli bakılmalı' : 'Her şey yolunda' },
+            { icon: <MailIcon />, label: 'Okunmamış mail', value: unread.length, color: '#42a5f5', to: '/emails', hint: `${db.emails.filter((e) => !e.work_item_id).length} mail işe dönüşmedi` },
+            { icon: <VideocamIcon />, label: 'Bugünkü toplantı', value: todayMeetings.length, color: '#7c4dff', to: '/meetings', hint: upcoming[0] ? `Sıradaki: ${timeAgo(upcoming[0].start_time)}` : 'Planlı toplantı yok' },
+          ].map((c) => (
+            <Grid key={c.label} size={{ xs: 12, sm: 6, lg: 3 }}>
+              <StaggerItem style={{ height: '100%' }}>
+                <StatCard icon={c.icon} label={c.label} value={c.value} color={c.color} hint={c.hint} onClick={() => navigate(c.to)} />
+              </StaggerItem>
+            </Grid>
+          ))}
+        </Grid>
+      </Stagger>
       <Grid container spacing={2}>
         <Grid size={{ xs: 12, lg: 8 }}>
           <Section title="Son hareket gören işler" action={<Button size="small" onClick={() => navigate('/work-items')}>Tümü</Button>}>
-            <Stack divider={<Box sx={{ borderTop: 1, borderColor: 'divider' }} />}>
-              {recent.map((w) => (
-                <Box key={w.id} onClick={() => setSelected(w)}
-                     sx={{ display: 'flex', alignItems: 'center', gap: 1.5, py: 1.25, cursor: 'pointer', '&:hover': { bgcolor: 'action.hover' }, px: 1, mx: -1, borderRadius: 1 }}>
+            <Stagger>
+              {recent.map((w, i) => (
+                <StaggerItem key={w.id}>
+                <Box onClick={() => setSelected(w)}
+                     sx={{ display: 'flex', alignItems: 'center', gap: 1.5, py: 1.25, cursor: 'pointer', px: 1, mx: -1, borderRadius: 1.5,
+                           transition: 'background-color .15s ease, transform .2s cubic-bezier(.22,1,.36,1)',
+                           '&:hover': { bgcolor: 'action.hover', transform: 'translateX(3px)' } }}>
                   <Typography variant="caption" color="text.secondary" sx={{ width: 72, flexShrink: 0, fontWeight: 700 }}>{w.code}</Typography>
                   <Box sx={{ flexGrow: 1, minWidth: 0 }}>
                     <Typography variant="body2" noWrap sx={{ fontWeight: 600 }}>{w.title}</Typography>
@@ -70,8 +84,10 @@ export default function Dashboard() {
                   <Box sx={{ display: { xs: 'none', sm: 'flex' }, gap: 0.75 }}><SourceChip source={w.source_type} /><PriorityChip priority={w.priority} /></Box>
                   <StatusChip status={w.status} />
                 </Box>
+                {i < recent.length - 1 && <Box sx={{ borderTop: 1, borderColor: 'divider' }} />}
+                </StaggerItem>
               ))}
-            </Stack>
+            </Stagger>
           </Section>
         </Grid>
         <Grid size={{ xs: 12, lg: 4 }}>
@@ -121,7 +137,8 @@ export default function Dashboard() {
                   <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
                     <Typography variant="body2">{u}</Typography><Typography variant="body2" sx={{ fontWeight: 700 }}>{n}</Typography>
                   </Box>
-                  <LinearProgress variant="determinate" value={(n / max) * 100} sx={{ height: 6, borderRadius: 3, mt: 0.5 }}
+                  <LinearProgress variant="determinate" value={(n / max) * 100}
+                                  sx={{ height: 6, borderRadius: 3, mt: 0.5, '& .MuiLinearProgress-bar': { borderRadius: 3, transition: 'transform .8s cubic-bezier(.22,1,.36,1)' } }}
                                   color={u === 'Atanmadı' ? 'warning' : 'primary'} />
                 </Box>
               ))}

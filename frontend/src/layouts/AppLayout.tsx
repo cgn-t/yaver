@@ -19,6 +19,7 @@ import { useState, type ComponentType } from 'react'
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useThemeMode } from '../App'
 import { useAuth } from '../auth/AuthContext'
+import { PageTransition } from '../components/Motion'
 import { useDb } from '../data/store'
 import { useApiPoller } from '../services/apiPoller'
 import { BRAND_GRADIENT } from '../theme'
@@ -199,7 +200,7 @@ export default function AppLayout() {
           <Box sx={{ width: NAV_W, height: '100%' }} role="presentation">{navContent(false)}</Box>
         </Drawer>
         <Container maxWidth={false} sx={{ py: 3 }}>
-          <Outlet />
+          <PageTransition id={location.pathname}><Outlet /></PageTransition>
         </Container>
       </Box>
     </Box>
