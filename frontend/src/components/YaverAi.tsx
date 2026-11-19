@@ -1,4 +1,3 @@
-import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome'
 import ChevronRightIcon from '@mui/icons-material/ChevronRight'
 import CloseIcon from '@mui/icons-material/Close'
 import DescriptionOutlinedIcon from '@mui/icons-material/DescriptionOutlined'
@@ -11,6 +10,7 @@ import { alpha } from '@mui/material/styles'
 import { useCallback, useEffect, useRef, useState, type PointerEvent as RPointerEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { apiFetch, backend } from '../data/store'
+import { BrandMark, YaverMark } from './Brand'
 
 /**
  * Yaver AI asistanı (0.9.1): sağ kenara yapışık sekme + sağda açılan panel.
@@ -179,7 +179,7 @@ export default function YaverAi() {
                              borderRadius: '10px 0 0 10px', boxShadow: t.shadows[4], borderLeft: `3px solid ${t.palette.primary.main}`,
                              transition: 'width .15s, box-shadow .15s', '&:hover': { width: 44, boxShadow: t.shadows[8] }, '&:active': { cursor: 'grabbing' },
                              '&:focus-visible': { outline: `2px solid ${t.palette.primary.main}`, outlineOffset: 2 } })}>
-            <AutoAwesomeIcon sx={{ fontSize: 18, color: 'primary.main' }} />
+            <YaverMark size={20} />
             <Typography sx={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)', fontSize: 12.5, fontWeight: 650, letterSpacing: 0.4 }}>Yaver AI</Typography>
             <DragIndicatorIcon sx={{ fontSize: 14, color: 'text.disabled' }} />
           </Box>
@@ -193,9 +193,7 @@ export default function YaverAi() {
                              borderRadius: 0, borderLeft: 1, borderColor: 'divider', boxShadow: t.shadows[16] })}>
           {/* Başlık: sağ kenarda tam boy panel */}
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, px: 2, height: 56, flexShrink: 0, borderBottom: 1, borderColor: 'divider', bgcolor: 'background.paper' }}>
-            <Box sx={(t) => ({ width: 30, height: 30, borderRadius: 1.5, display: 'grid', placeItems: 'center', bgcolor: alpha(t.palette.primary.main, 0.1), color: 'primary.main' })}>
-              <AutoAwesomeIcon sx={{ fontSize: 17 }} />
-            </Box>
+            <BrandMark size={30} />
             <Box sx={{ flexGrow: 1, minWidth: 0 }}>
               <Typography sx={{ fontSize: 14, fontWeight: 650, lineHeight: 1.25 }}>Yaver AI Asistan</Typography>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
@@ -248,7 +246,7 @@ export default function YaverAi() {
                   <Box key={i} sx={{ display: 'flex', gap: 1.25, alignItems: 'flex-start' }}>
                     <Box sx={(t) => ({ width: 24, height: 24, borderRadius: 1, flexShrink: 0, display: 'grid', placeItems: 'center', mt: 0.25,
                                        bgcolor: m.error ? alpha(t.palette.error.main, 0.1) : alpha(t.palette.primary.main, 0.1), color: m.error ? 'error.main' : 'primary.main' })}>
-                      <AutoAwesomeIcon sx={{ fontSize: 14 }} />
+                      {m.error ? <YaverMark size={15} mono /> : <YaverMark size={15} />}
                     </Box>
                     <Box sx={{ minWidth: 0, flexGrow: 1 }}>
                       <Paper variant="outlined" sx={{ px: 1.5, py: 1.25, borderRadius: 1.5, fontSize: 13.5, lineHeight: 1.55, wordBreak: 'break-word',
