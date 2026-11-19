@@ -1,6 +1,6 @@
 # GenAI Studio (Chat Block) Entegrasyonu
 
-> Sürüm **0.8.1**. Yaver'e gelen her iş (Mail, Zoom, TFS Kanban, Jira, manuel, API) arka planda kurum içi
+> Sürüm **0.8.2**. Yaver'e gelen her iş (Mail, Zoom, TFS Kanban, Jira, manuel, API) arka planda kurum içi
 > GenAI Studio **Chat Block** API'sine gönderilir. Dönen cevapla iş **yorumlanır**, **kategorize edilir**
 > (konu, kategori) ve gerekiyorsa **durum / öncelik / atama / son tarih** değişikliği önerilir.
 >
@@ -73,6 +73,8 @@ oc -n yaver rsh deploy/yaver node server/scripts/genai-ping.mjs "Merhaba"
 | `GENAI_SSO_TOKEN_PATH` | – | | varsayılan `/auth/realms/{realm}/protocol/openid-connect/token` (`{realm}` yerine `GENAI_SSO_REALM` konur) |
 | `GENAI_SSO_SCOPE` | – | | varsayılan `openid`; `none` verilirse scope gönderilmez |
 | `GENAI_SSO_TOKEN_FORMAT` | – | | token isteğinin gövdesi: `form` (varsayılan, `application/x-www-form-urlencoded`) ya da `json` |
+| `GENAI_CA_CERT` | – | | kurum içi CA (PEM metni), yalnız GenAI çağrılarında |
+| `GENAI_TLS_INSECURE` | – | | `true` → GenAI çağrılarında sertifika doğrulanmaz (yalnız demo) |
 | `NODE_EXTRA_CA_CERTS` | – | | kurum içi CA ile imzalı HTTPS için CA dosyasının yolu |
 
 Akış: **önce token, sonra sorgu.**

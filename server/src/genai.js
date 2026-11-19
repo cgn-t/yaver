@@ -2,6 +2,7 @@ import { listen, query, tx } from './db.js'
 import { activity, addComment, createWorkItem, httpError, saveSettings, settings } from './state.js'
 import { buildContext, keywordRules, setAgentComment, setGenaiProbe, MGMT_LABEL, SLA_BY_LEVEL, SOURCE_LABEL } from './intel.js'
 import { PRIORITIES, STATUSES, getWorkItem, proposeAction } from './agent.js'
+import { chatUrl, httpRequest, tlsMode, tokenUrl } from './genai-http.js'
 
 /**
  * GenAI Studio "Chat Block" entegrasyonu (v0.8).
@@ -27,7 +28,7 @@ import { PRIORITIES, STATUSES, getWorkItem, proposeAction } from './agent.js'
  */
 export const ENV = {
   backend_url: 'GENAI_APPLICATION_BACKEND_URL',   // {{application_backend_url}}
-  sso_url: 'GENAI_SSO_URL',                       // {{sso_url}} (kök adres, yol yok)
+  sso_url: 'GENAI_SSO_URL',                       // {{sso_url}} (kök ya da tam token adresi)
   client_id: 'GENAI_CHAT_CLIENT_ID',              // {{chat_client_id}}
   client_secret: 'GENAI_CHAT_CLIENT_SECRET',      // {{chat_client_secret}}
   app_id: 'GENAI_APP_ID',                         // {{app_id}}  → app-id başlığı
@@ -35,6 +36,8 @@ export const ENV = {
 }
 const ENV_OPTIONAL = {
   enabled: 'GENAI_ENABLED',                       // false → tamamen kapalı
+  ca_cert: 'GENAI_CA_CERT',                       // kurum içi CA (PEM metni); yalnız GenAI çağrılarında kullanılır
+  tls_insecure: 'GENAI_TLS_INSECURE',             // true → sertifika doğrulanmaz (YALNIZ demo, yalnız GenAI çağrıları)
   chat_path: 'GENAI_CHAT_PATH',                   // varsayılan /chat/block
   sso_realm: 'GENAI_SSO_REALM',                   // varsayılan genai-studio
   sso_token_path: 'GENAI_SSO_TOKEN_PATH',         // varsayılan /auth/realms/{realm}/protocol/openid-connect/token
@@ -123,7 +126,7 @@ export async function saveConfig(body, actor) {
 const tokenCache = new Map()   // key → {token, exp}
 
 async function getToken(cfg, { force = false } = {}) {
-  const url = cfg.sso_url.replace(/\/$/, '') + (cfg.sso_token_path.startsWith('/') ? cfg.sso_token_path : `/${cfg.sso_token_path}`)
+  const url = tokenUrl(cfg.sso_url, cfg.sso_token_path)
   const key = `${url}|${cfg.client_id}`
   const hit = tokenCache.get(key)
   if (!force && hit && hit.exp > Date.now()) return { token: hit.token, source: 'cache', expires_at: new Date(hit.exp).toISOString() }
@@ -146,17 +149,11 @@ async function getToken(cfg, { force = false } = {}) {
   return { token, source: 'sso', expires_at: new Date(exp).toISOString() }
 }
 
-async function fetchT(url, opts, ms) {
-  const ctrl = new AbortController()
-  const t = setTimeout(() => ctrl.abort(), ms)
-  try { return await fetch(url, { ...opts, signal: ctrl.signal }) } catch (e) {
-    throw new Error(e.name === 'AbortError' ? `zaman aşımı (${Math.round(ms / 1000)} sn): ${url}` : `${url}: ${e.cause?.code ?? e.message}`)
-  } finally { clearTimeout(t) }
-}
+const fetchT = (url, opts, ms) => httpRequest(url, opts, ms)
 
 /** Chat Block çağrısı. 401'de token yenilenip bir kez tekrar denenir. */
 export async function chatBlock(cfg, { msg, thread_id = '', request_context = {} }) {
-  const url = cfg.backend_url + (cfg.chat_path.startsWith('/') ? cfg.chat_path : `/${cfg.chat_path}`)
+  const url = chatUrl(cfg.backend_url, cfg.chat_path)
   const started = Date.now()
   let tok = await getToken(cfg)
   for (let attempt = 0; attempt < 2; attempt++) {
@@ -665,6 +662,7 @@ async function runJob(j, cfg) {
 export async function startGenai() {
   await query(`UPDATE genai_job SET status = 'pending' WHERE status = 'running'`)   // yarıda kalanlar
   const cfg = await loadConfig()
+  if (tlsMode() === 'insecure') console.warn('[genai] UYARI: GENAI_TLS_INSECURE=true — GenAI çağrılarında sertifika doğrulanmıyor (yalnız demo)')
   console.log(cfg.enabled ? `[genai] Chat Block etkin (${cfg.chat_path})` : `[genai] kapalı${cfg.missing.length ? ` — eksik ortam değişkenleri: ${cfg.missing.join(', ')}` : ''}`)
   await listen('yaver_events', async (payload) => {
     let evt
@@ -723,6 +721,8 @@ export async function testConnection(form = {}) {
   const cfg = await loadConfig()
   const out = { ok: false, steps: [] }
   if (cfg.missing.length) { out.steps.push({ step: 'env', ok: false, detail: `Eksik ortam değişkenleri: ${cfg.missing.join(', ')}` }); return out }
+  const mode = tlsMode()
+  out.steps.push({ step: 'tls', ok: true, detail: { default: 'TLS: sistem sertifikaları', 'ca-cert': 'TLS: GENAI_CA_CERT ile kurum içi CA', 'node-extra-ca': 'TLS: NODE_EXTRA_CA_CERTS', insecure: 'TLS: DOĞRULAMA KAPALI (GENAI_TLS_INSECURE=true, yalnız demo)' }[mode] })
   try {
     const t = await getToken(cfg, { force: true })
     out.steps.push({ step: 'token', ok: true, detail: `SSO token alındı, geçerlilik ${t.expires_at}` })

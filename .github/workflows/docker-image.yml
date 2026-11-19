@@ -73,6 +73,8 @@ jobs:
           node server/src/index.js > agent-server.log 2>&1 &
           for i in $(seq 1 40); do curl -sf localhost:8081/api/health && break; sleep 1; done
           node server/test/agent-e2e.mjs
+      - name: GenAI HTTP testi (adres birleştirme, kurum içi sertifika)
+        run: node server/test/genai-http.mjs
       - name: GenAI Studio Chat Block uçtan uca testi (sahte SSO + Chat Block ile)
         env:
           DATA_DIR: ${{ runner.temp }}/yaver-genai-data
@@ -81,8 +83,8 @@ jobs:
           DEMO_FEEDS: "false"
           ADMIN_ACTS_AS: ""
           # yalnız test değerleri; gerçek değerler OpenShift Secret'ındadır
-          GENAI_APPLICATION_BACKEND_URL: http://127.0.0.1:9199
-          GENAI_SSO_URL: http://127.0.0.1:9199
+          GENAI_APPLICATION_BACKEND_URL: http://127.0.0.1:9199/chat/block
+          GENAI_SSO_URL: http://127.0.0.1:9199/auth/realms/genai-studio/protocol/openid-connect/token
           GENAI_CHAT_CLIENT_ID: test-client
           GENAI_CHAT_CLIENT_SECRET: test-secret
           GENAI_APP_ID: "1"
