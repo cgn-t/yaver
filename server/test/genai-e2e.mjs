@@ -75,7 +75,7 @@ function fakeAnswer(msg) {
 const mock = http.createServer((req, res) => {
   let raw = ''
   req.on('data', (c) => { raw += c })
-  req.on('end', () => {
+  req.on('end', async () => {
     if (req.url === '/auth/realms/genai-studio/protocol/openid-connect/token' && req.method === 'POST') {
       const f = Object.fromEntries(new URLSearchParams(raw))
       tokenCalls.push(f)
@@ -106,9 +106,10 @@ const mock = http.createServer((req, res) => {
           : top ? `${top.code} ${top.title}: ${top.assignee} ${top.resolved_in_days} günde çözdü.` : 'Bağlamda kayıt yok.'
         return res.writeHead(200, { 'Content-Type': 'application/json' }).end(JSON.stringify({ thread_id: body.thread_id || 'thr-ask', msg: answer }))
       }
+      if (body.request_context?.scenario === 'zaman-asimi') await new Promise((r) => setTimeout(r, 400))   // gerçek LLM gibi yavaş
       if (body.request_context?.test) return res.writeHead(200, { 'Content-Type': 'application/json' }).end(JSON.stringify({ thread_id: 'thr-test', msg: 'Merhaba! Size nasıl yardımcı olabilirim?' }))
       const real = /GERCEK-FORMAT/.test(body.msg)
-      return res.writeHead(200, { 'Content-Type': 'application/json' }).end(JSON.stringify(real ? realFormatAnswer(body.msg) : fakeAnswer(body.msg)))
+      return res.writeHead(200, { 'Content-Type': 'application/json' }).end(JSON.stringify(real ? (() => { try { return realFormatAnswer(body.msg) } catch { return fakeAnswer(body.msg) } })() : fakeAnswer(body.msg)))
     }
     res.writeHead(404).end()
   })
@@ -330,6 +331,20 @@ try {
   const sohbet = chatCalls.find((c) => String(c.body.msg).startsWith('[YAVER:SOHBET]')).body.msg.split('\n')
   assert.match(sohbet[1], /^SORU: /)
   step('istek türü işaretleri: [YAVER:TRIYAJ] / [YAVER:TASLAK] / [YAVER:SOHBET] ilk satırda')
+
+  // 10d) GenAI test seti (UI düğmesi): arka planda çalışır, hata senaryoları Yaver'in hatayı yakalamasıyla geçer
+  const ts0 = await call('POST', '/api/genai/test-suite', admin, {})
+  assert.equal(ts0.status, 202, ts0.text)
+  let ts
+  for (let i = 0; i < 120; i++) { ts = (await call('GET', '/api/genai/test-suite', admin)).body.run; if (ts.status === 'done') break; await new Promise((r) => setTimeout(r, 500)) }
+  assert.equal(ts.status, 'done')
+  console.log(ts.results.map((r) => `   ${r.status.padEnd(8)} ${r.key}: ${r.actual}`).join('\n'))
+  const byKey = Object.fromEntries(ts.results.map((r) => [r.key, r]))
+  for (const k of ['yanlis-kimlik', 'gecersiz-token', 'zaman-asimi', 'gecersiz-json', 'bos-cevap', 'eksik-alan-triyaj', 'eksik-alan-taslak', 'gecersiz-deger', 'baska-ise-ait', 'kural-ihlali', 'prompt-injection',
+                   'baglanti', 'sohbet-selamlama', 'triyaj', 'taslak'])
+    assert.equal(byKey[k].status, 'gecti', `${k}: ${byKey[k].actual}`)
+  assert.equal((await call('GET', '/api/work-items?tag=yaver-test-gecici', admin)).body.filter?.((w) => (w.tags ?? []).includes('yaver-test-gecici')).length ?? 0, 0, 'geçici test işleri silinir')
+  step(`GenAI test seti: ${ts.summary.gecti} geçti, ${ts.summary.kaldi} kaldı, ${ts.summary.atlandi} atlandı`)
 
   // 10c) Veritabanı görünümü: yönetici için salt okunur, gizli alanlar maskeli; DB_PUBLIC yoksa girişsiz uç kapalı
   const tb = (await call('GET', '/api/admin/db/tables', admin)).body

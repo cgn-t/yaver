@@ -182,3 +182,35 @@ Ek kurallar:
    AI tüm alanları doldurmuştur; doluysa o alanlar AI'dan gelmemiştir (dal yanlış ya da çıktı JSON değil).
 
 Hangi dala gidildiğini kontrol etmek için GenAI Studio'daki çalışma geçmişinde (run history) `istek_turu_kontrol` düğümünün seçtiği çıkışa bakın.
+
+## GenAI test seti (0.9.12)
+
+Ayarlar → GenAI Studio → **"GenAI test setini çalıştır"**. 19 senaryo arka planda sırayla çalışır, sonuç tablosu canlı güncellenir
+ve **CSV / JSON** olarak indirilebilir. Uç: `POST /api/genai/test-suite` (başlat), `GET /api/genai/test-suite` (durum + sonuçlar).
+
+- **Akış senaryoları** gerçek GenAI Studio akışına gider ve her dalın beklenen çıktıyı verdiğini kontrol eder.
+- **Hata senaryoları** bilerek bozuk girdi verir. Bu senaryolar Yaver hatayı **yakaladığında "geçti"** sayılır;
+  "kaldı" görürseniz Yaver hatalı cevabı kabul etmiş demektir.
+- GenAI kapalıysa (env eksik) GenAI gerektiren senaryolar **"atlandı"** olur; yerel doğrulama senaryoları yine çalışır.
+- Yanlış kimlik senaryosu gerçek secret'a dokunmaz: ayrı, bilerek yanlış bir istek atar. Token önbelleği bozulmaz.
+- Testin açtığı geçici işler (`yaver-test-gecici` etiketi) çalışma bitince silinir; mevcut kayıtlara dokunulmaz.
+
+| Grup | Senaryo | Beklenen |
+|---|---|---|
+| Akış | Bağlantı: SSO token + Chat Block | Token alınır, HTTP 2xx |
+| Akış | Sohbet → selamlama / genel / wiki / repo | `[YAVER:SOHBET]` isteğine düz metin cevap |
+| Akış | Triyaj dalı | `[YAVER:TRIYAJ]` → JSON, işe yorum yazılır |
+| Akış | Taslak dalı | `[YAVER:TASLAK]` → subject, body, priority, category AI'dan gelir |
+| Akış | Failed konulu iş | Konu `failed`, yüksek/kritik öncelik önerisi |
+| Hata | Yanlış client secret | SSO hatası yakalanır |
+| Hata | Geçersiz Bearer token | HTTP 401/403 |
+| Hata | Zaman aşımı (1 ms) | Zaman aşımı hatası yakalanır |
+| Hata | JSON olmayan / boş cevap | Yanıt reddedilir |
+| Hata | Zorunlu alan eksik (triyaj / taslak) | Reddedilir ya da eksikler yerel doldurulup işaretlenir |
+| Hata | Geçersiz değerler (kişi, konu, öncelik, kategori) | Uyarıyla yok sayılır |
+| Hata | Başka işe ait yanıt | `work_item_id` uyuşmazlığı reddedilir |
+| Hata | Kural ihlali (AI "Tamamlandı" der) | İş kapanmaz, öneri onaya düşer |
+| Hata | Prompt injection (mail içinde talimat) | Talimat uygulanmaz, iş durumu değişmez |
+
+"Failed konulu iş" senaryosu akışın sınıflandırma kalitesini ölçer; konu `failed` seçilmezse **kaldı** olur ve prompt'ta
+konu listesinin / örneklerin gözden geçirilmesi gerekir.

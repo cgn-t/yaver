@@ -59,7 +59,7 @@ export function listDrafts() {
 }
 
 /** Taslak için bağlam: talep eden (kişi rehberi), konu, benzer işler, wiki, ekip yükü. */
-async function draftContext(from, text) {
+export async function draftContext(from, text) {
   const contact = (await query(`SELECT email, full_name, title, mgmt_level FROM contact WHERE lower(email) = lower($1)`, [from])).rows[0] ?? null
   const rules = await keywordRules()
   const topicKeys = matchKeywords(text, rules)
@@ -160,7 +160,7 @@ export function normalizeDraft(ai, local, dc) {
   const take = (key, val, ok = true, why = null) => {
     if (!blank(val) && ok) out[key] = val
     else {
-      if (!blank(val) && why) warnings.push(why)
+      if (why) warnings.push(why)
       out[key] = local[key]; filled.push(key)
     }
   }
@@ -172,15 +172,15 @@ export function normalizeDraft(ai, local, dc) {
   take('summary', typeof summary === 'string' ? summary.trim().slice(0, 200) : null)
   const cat = pickV('category', 'kategori')
   const catN = CATS.includes(cat) ? cat : CAT_ALIAS[String(cat ?? '').toLocaleLowerCase('tr')]
-  take('category', catN ?? cat, !!catN, `Geçersiz kategori "${cat}" yok sayıldı`)
+  take('category', catN ?? cat, !!catN, !blank(cat) && !catN ? `Geçersiz kategori "${cat}" yok sayıldı` : null)
   const tk = pickV('topic_keys', 'topics', 'konu_anahtarlari')
   const tkN = Array.isArray(tk) ? tk.map(String).filter((k) => topics.has(k)).slice(0, 3) : null
-  take('topic_keys', tkN, !!tkN?.length, tk ? 'Listede olmayan konu anahtarları yok sayıldı' : null)
+  take('topic_keys', tkN, !!tkN?.length, Array.isArray(tk) && tk.length > (tkN?.length ?? 0) ? 'Listede olmayan konu anahtarları yok sayıldı' : null)
   const pr = pickV('priority', 'oncelik')
   const prN = PRIO[String(pr ?? '').toLocaleLowerCase('tr')]
-  take('priority', prN, !!prN, `Geçersiz öncelik "${pr}" yok sayıldı`)
+  take('priority', prN, !!prN, !blank(pr) && !prN ? `Geçersiz öncelik "${pr}" yok sayıldı` : null)
   const asg = pickV('assignee', 'atanan')
-  take('assignee', asg, users.has(asg), `Ekipte olmayan atanan "${asg}" yok sayıldı`)
+  take('assignee', asg, users.has(asg), !blank(asg) && !users.has(asg) ? `Ekipte olmayan atanan "${asg}" yok sayıldı` : null)
   const eta = Number(pickV('eta_days', 'sure_gun'))
   take('eta_days', Number.isFinite(eta) && eta > 0 ? Math.min(60, Math.round(eta * 10) / 10) : null)
   const due = pickV('due_date', 'son_tarih')
@@ -189,7 +189,7 @@ export function normalizeDraft(ai, local, dc) {
   else { out.due_date = filled.includes('eta_days') ? local.due_date : addDays(out.eta_days); filled.push('due_date'); if (due) warnings.push(`Geçersiz son tarih "${due}" yok sayıldı`) }
   const st = pickV('status', 'durum')
   const stN = STAT[String(st ?? '').toLocaleLowerCase('tr')]
-  take('status', stN, !!stN, st ? `Geçersiz durum "${st}" yok sayıldı` : null)
+  take('status', stN, !!stN, !blank(st) && !stN ? `Geçersiz durum "${st}" yok sayıldı` : null)
   if (out.status === 'in_progress' && !out.assignee) out.status = 'new'
   const cm = pickV('comment', 'yorum')
   take('comment', typeof cm === 'string' ? cm.trim().slice(0, 2000) : null)
