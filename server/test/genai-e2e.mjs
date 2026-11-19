@@ -91,7 +91,11 @@ const mock = http.createServer((req, res) => {
       if (body.request_context?.source === 'yaver-ai-sohbet') {
         const ctx = JSON.parse(body.msg.slice(body.msg.lastIndexOf('<baglam>') + 8, body.msg.lastIndexOf('</baglam>')))
         const top = ctx.items.find((i) => i.status === 'done') ?? ctx.items[0]
-        const answer = top ? `${top.code} ${top.title}: ${top.assignee} ${top.resolved_in_days} günde çözdü.` : 'Bağlamda kayıt yok.'
+        const answer = /JSON-CEVAP/.test(body.msg)
+          ? '```json\n' + JSON.stringify({ schema_version: '1.0', work_item_id: 0, summary: 'Kuyruk doluluğu', comment: `${top.code} ile ${top.assignee} çözmüştü.`,
+              suggestion: { priority: 'high', assignee: top.assignee, status: 'in_progress' }, sources: [{ type: 'db', ref: top.code, title: top.title }],
+              confidence: 0.8, questions: [], warnings: [] }) + '\n```'
+          : top ? `${top.code} ${top.title}: ${top.assignee} ${top.resolved_in_days} günde çözdü.` : 'Bağlamda kayıt yok.'
         return res.writeHead(200, { 'Content-Type': 'application/json' }).end(JSON.stringify({ thread_id: body.thread_id || 'thr-ask', msg: answer }))
       }
       if (body.request_context?.test) return res.writeHead(200, { 'Content-Type': 'application/json' }).end(JSON.stringify({ thread_id: 'thr-test', msg: 'Merhaba! Size nasıl yardımcı olabilirim?' }))
@@ -269,7 +273,14 @@ try {
   assert.equal(a2.status, 200, a2.text)
   assert.equal(chatCalls.at(-1).body.thread_id, 'thr-ask', 'konuşma aynı thread ile sürmeli')
   assert.equal((await call('POST', '/api/ai/ask', admin, { message: '' })).status, 400)
-  step('Yaver AI sohbet: benzer iş + wiki bağlamı, Chat Block cevabı, thread devamı')
+  // Model JSON döndürürse okunur metne çevrilir
+  const aj = await call('POST', '/api/ai/ask', admin, { message: 'JSON-CEVAP PAYMENT.IN kuyruğu doldu, kim çözdü?' })
+  assert.equal(aj.status, 200, aj.text)
+  assert.ok(!aj.body.answer.includes('{') && !aj.body.answer.includes('schema_version'), aj.body.answer)
+  assert.match(aj.body.answer, /\*\*Özet:\*\* Kuyruk doluluğu/)
+  assert.match(aj.body.answer, /### Öneri\n- \*\*Öncelik:\*\* Yüksek/)
+  assert.ok(aj.body.boot_id && aj.body.boot_id === sg.boot_id, 'boot_id sabit olmalı (aynı pod)')
+  step('Yaver AI sohbet: benzer iş + wiki bağlamı, Chat Block cevabı, thread devamı, JSON cevap → okunur metin')
 
   // 11) Demo işlerini temizle
   const cl = (await call('POST', '/api/demo/clear', admin)).body

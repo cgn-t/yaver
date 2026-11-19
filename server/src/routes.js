@@ -1,7 +1,7 @@
 import express from 'express'
 import * as G from './genai.js'
 import * as D from './demoflow.js'
-import { SUGGESTIONS, askYaver } from './ai-ask.js'
+import { BOOT_ID, SUGGESTIONS, askYaver } from './ai-ask.js'
 import { adminOnly, createApiToken, humanOnly, ldapTest, loadLdapSettings, requireAuth, scope } from './auth.js'
 import { resetDemoData, query } from './db.js'
 import * as S from './state.js'
@@ -163,7 +163,7 @@ export function apiRouter() {
   api.post('/demo/reset-all', adminOnly, h(async (_req, res) => res.json(await D.resetAll())))
 
   // =================== Yaver AI sohbet (0.9) ===================
-  api.get('/ai/suggestions', humanOnly, h(async (_req, res) => res.json({ suggestions: SUGGESTIONS, mode: G.isActive() ? 'genai' : 'yerel' })))
+  api.get('/ai/suggestions', humanOnly, h(async (_req, res) => res.json({ suggestions: SUGGESTIONS, mode: G.isActive() ? 'genai' : 'yerel', boot_id: BOOT_ID })))
   api.post('/ai/ask', humanOnly, h(async (req, res) => res.json(await askYaver(req.body ?? {}, req.user))))
 
   // =================== Wiki ve kişiler ===================

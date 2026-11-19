@@ -2,6 +2,11 @@ import { query } from './db.js'
 import { MGMT_LABEL, keywordRules, lower, matchKeywords, stem, tokens } from './intel.js'
 import { httpError } from './state.js'
 import * as G from './genai.js'
+import { readableAnswer } from './ai-format.js'
+import crypto from 'node:crypto'
+
+/** Pod (süreç) kimliği: her açılışta (rollout) değişir; arayüz farklı görürse sohbet geçmişini siler. */
+export const BOOT_ID = crypto.randomBytes(6).toString('hex')
 
 /**
  * Yaver AI sohbeti (0.9): kullanıcı serbest soru sorar; Yaver sorunun konusuna göre DB'deki benzer işleri
@@ -76,7 +81,7 @@ function buildAskPrompt(text, ctx, history) {
     'Yalnız <baglam> içindeki kayıtlara dayan; bilmediğini uydurma. Geçmiş işleri kodlarıyla (YVR-xxxx) ve çözen kişiyle an,',
     'çözüm süresini ve çözüm notunu kullan, ilgili wiki sayfasını slug ile belirt. Gerekirse kime atanmasını önerdiğini ve',
     'talep edenin seviyesine göre SLA\'yı (Üst Yönetim 4 saat, Birim Yöneticisi 1 iş günü, PO 2 iş günü) söyle.',
-    'Cevabı düz metin olarak yaz (JSON değil); en fazla 8 madde.',
+    'Cevabı JSON OLARAK DEĞİL, okunur Türkçe metin olarak yaz: önce 1-2 cümlelik doğrudan cevap, sonra gerekirse "### Başlık" ve "- madde" satırları; önemli kodları **kalın** yaz; en fazla 8 madde.',
     hist ? `\nÖnceki konuşma:\n${hist}` : '',
     `\nSoru: ${text}`,
     `<baglam>${JSON.stringify(ctx)}</baglam>`,
@@ -88,24 +93,24 @@ function localAnswer(text, ctx) {
   const L = []
   const done = ctx.items.filter((i) => i.status === 'done')
   const open = ctx.items.filter((i) => i.status !== 'done')
-  if (ctx.topics.length) L.push(`Konu: ${ctx.topics.join(', ')}.`)
+  if (ctx.topics.length) L.push(`**Konu:** ${ctx.topics.join(', ')}.`)
   if (done.length) {
-    L.push('', 'Benzer geçmiş işler:')
+    L.push('', '### Benzer geçmiş işler')
     for (const i of done.slice(0, 4))
-      L.push(`• ${i.code} ${i.title} — ${i.assignee ?? 'atanmamış'} ${i.resolved_in_days ?? '?'} günde çözdü.${i.resolution_note ? ` Çözüm: ${i.resolution_note}` : ''}`)
+      L.push(`- **${i.code}** ${i.title} — ${i.assignee ?? 'atanmamış'} ${i.resolved_in_days ?? '?'} günde çözdü.${i.resolution_note ? ` Çözüm: ${i.resolution_note}` : ''}`)
     const who = Object.entries(done.reduce((m, i) => ((m[i.assignee] = (m[i.assignee] ?? 0) + 1), m), {})).sort((a, b) => b[1] - a[1])[0]
     if (who) {
       const load = ctx.team.find((t) => t.username === who[0])
-      L.push('', `Öneri: bu konuyu en çok ${who[0]} çözmüş (${who[1]} iş)${load ? `, şu an ${load.open_items} açık işi var` : ''}; atama için ilk aday.`)
+      L.push('', `**Öneri:** bu konuyu en çok ${who[0]} çözmüş (${who[1]} iş)${load ? `, şu an ${load.open_items} açık işi var` : ''}; atama için ilk aday.`)
       const avg = round1(done.reduce((s, i) => s + (i.resolved_in_days ?? 0), 0) / done.length)
       L.push(`Benzer işlerin ortalama çözüm süresi ${avg} gün.`)
     }
   }
   if (open.length) {
-    L.push('', 'İlgili açık işler:')
-    for (const i of open.slice(0, 4)) L.push(`• ${i.code} ${i.title} — ${i.requester} (${i.requester_level}), ${i.assignee ? `atanan ${i.assignee}` : 'atanmamış'}`)
+    L.push('', '### İlgili açık işler')
+    for (const i of open.slice(0, 4)) L.push(`- **${i.code}** ${i.title} — ${i.requester} (${i.requester_level}), ${i.assignee ? `atanan ${i.assignee}` : 'atanmamış'}`)
   }
-  if (ctx.wiki.length) L.push('', `İlgili wiki: ${ctx.wiki.map((w) => `${w.title} (${w.slug})`).join(', ')}`)
+  if (ctx.wiki.length) L.push('', `**İlgili wiki:** ${ctx.wiki.map((w) => `${w.title} (${w.slug})`).join(', ')}`)
   if (!L.length) L.push('Bu soruyla eşleşen geçmiş iş ya da wiki sayfası bulamadım. Konuyu (ör. MQ, decom, pipeline failed) ya da iş kodunu (YVR-1033) yazarak tekrar dener misiniz?')
   return L.join('\n')
 }
@@ -123,7 +128,7 @@ export async function askYaver(body = {}, user) {
   ]
   const cfg = await G.loadConfig()
   if (!cfg.enabled) {
-    return { mode: 'yerel', answer: localAnswer(text, ctx), thread_id: null, sources, duration_ms: Date.now() - started }
+    return { mode: 'yerel', answer: localAnswer(text, ctx), thread_id: null, sources, duration_ms: Date.now() - started, boot_id: BOOT_ID }
   }
   const msg = buildAskPrompt(text, ctx, body.history)
   let r
@@ -134,8 +139,7 @@ export async function askYaver(body = {}, user) {
   }
   if (!r.ok) throw httpError(502, 'genai_error', `GenAI Studio HTTP ${r.status}: ${r.text.slice(0, 300)}`)
   const ans = G.extractAnswer(r.text)
-  let answer = ans.text.trim()
-  // Model JSON döndürdüyse okunur alanı al
-  if (answer.startsWith('{')) { try { const j = JSON.parse(answer); answer = j.answer ?? j.comment ?? j.msg ?? j.message ?? answer } catch { /* düz metin */ } }
-  return { mode: 'genai', answer: String(answer), thread_id: ans.thread_id ?? (body.thread_id || null), sources, duration_ms: Date.now() - started }
+  // Model JSON döndürdüyse (Studio talimatı şemaya zorluyorsa) okunur metne çevrilir
+  const answer = readableAnswer(ans.direct ? JSON.stringify(ans.direct) : ans.text)
+  return { mode: 'genai', answer, thread_id: ans.thread_id ?? (body.thread_id || null), sources, duration_ms: Date.now() - started, boot_id: BOOT_ID }
 }
