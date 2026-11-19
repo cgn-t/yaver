@@ -98,6 +98,10 @@ Uçtan uca test (sahte ajan ile): sunucuyu `AGENT_TOKEN`, `AGENT_WEBHOOK_URL=htt
 - **Tek kullanıcı görünümü:** `admin` / `admin` ile girilir ama uygulama **Mehmet Kaya** (`mehmet.kaya`) girmiş gibi davranır:
   Bana atananlar, yorumlar ve karşılama onun adına. Yetki admin kalır. Başka biri için `ADMIN_ACTS_AS=<kullanıcı>`, kapatmak için `ADMIN_ACTS_AS=""`.
 
+## API'yi dışarıdan çağırma (curl)
+
+Token alma (giriş ya da `AGENT_TOKEN`), `Authorization: Bearer` başlığı, `bulk-send-mail` / `bulk-import` örnekleri ve "Oturum geçersiz" kontrol listesi: **[docs/API-KULLANIMI.md](docs/API-KULLANIMI.md)**.
+
 ## Demo iş akışı ve Yaver AI sohbet (v0.9)
 
 - `POST /api/demo/run`: Jira, TFS, mail ve Zoom'dan gelmiş gibi 9 demo iş oluşturur, AI'a yorumlatıp DB'ye yazar; tekrar çağrılınca önceki demo işleri silinir.
