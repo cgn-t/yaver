@@ -1,28 +1,14 @@
-# Yerel deneme: pod'daki iki konteynerin aynısı.  docker compose up --build  →  http://localhost:8080  (admin / admin)
+# Yerel deneme: pod'daki konteynerin aynısı.  docker compose up --build  →  http://localhost:8080  (admin / admin)
 services:
-  postgres:
-    image: postgres:16-alpine
-    environment:
-      POSTGRES_DB: yaver
-      POSTGRES_USER: yaver
-      POSTGRES_PASSWORD: yaver
-      TZ: Europe/Istanbul
-    volumes: [pgdata:/var/lib/postgresql/data]
-    healthcheck:
-      test: ["CMD", "pg_isready", "-U", "yaver", "-d", "yaver"]
-      interval: 5s
-      retries: 20
   yaver:
     build: .
-    image: yaver:0.3.0
-    depends_on:
-      postgres: { condition: service_healthy }
+    image: yaver:local
     environment:
-      DATABASE_URL: postgres://yaver:yaver@postgres:5432/yaver
       TOKEN_SECRET: yerel-deneme-anahtari
       SEED: "true"
       DEMO_FEEDS: "true"
       TZ: Europe/Istanbul
+    volumes: [yaverdata:/data]
     ports: ["8080:8080"]
 volumes:
-  pgdata:
+  yaverdata:
