@@ -1,8 +1,15 @@
-import { Box } from '@mui/material'
+import { Box, useTheme } from '@mui/material'
+
+/** Yaver logosu: Düğüm amblemi "Y" harfi olarak + "aver". variant="white" koyu/renkli zemin içindir. */
+export function BrandLogo({ height = 24, variant }: { height?: number; variant?: 'auto' | 'white' }) {
+  const mode = useTheme().palette.mode
+  const src = variant === 'white' ? '/yaver-logo-white.svg' : mode === 'dark' ? '/yaver-logo-dark.svg' : '/yaver-logo.svg'
+  return <Box component="img" src={src} alt="Yaver" sx={{ height, width: 'auto', display: 'block' }} />
+}
 
 export function BrandMark({ size = 28 }: { size?: number }) {
-  return <Box component="img" src="/favicon.svg" alt="" sx={{ width: size, height: size, display: 'block', borderRadius: `${Math.round(size * 0.25)}px`,
-                                                              boxShadow: '0 2px 8px rgba(81,72,229,0.35)' }} />
+  return <Box component="img" src="/favicon.svg" alt="" sx={{ width: size, height: size, display: 'block', borderRadius: `${Math.round(size * 0.23)}px`,
+                                                              boxShadow: '0 2px 8px rgba(81,72,229,0.30)' }} />
 }
 
 /** Klavye kısayolu rozeti (⌘K gibi) */

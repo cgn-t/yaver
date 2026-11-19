@@ -8,7 +8,7 @@ import { motion } from 'motion/react'
 import { useState } from 'react'
 import { Navigate, useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
-import { BrandMark } from '../components/Brand'
+import { BrandLogo } from '../components/Brand'
 import { Sparkline } from '../components/Charts'
 import { PriorityIcon, StatusIcon } from '../components/WorkKit'
 import { avatarColor, initials } from '../theme'
@@ -95,7 +95,7 @@ export default function Login() {
       {/* Sol: form */}
       <Box sx={{ display: 'flex', flexDirection: 'column', p: { xs: 3, sm: 5 } }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25 }}>
-          <BrandMark size={30} /><Typography sx={{ fontWeight: 700, fontSize: 17, letterSpacing: '-0.02em' }}>Yaver</Typography>
+          <BrandLogo height={30} />
         </Box>
         <Box sx={{ flexGrow: 1, display: 'grid', placeItems: 'center', py: 6 }}>
           <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, ease }} style={{ width: '100%', maxWidth: 380 }}>

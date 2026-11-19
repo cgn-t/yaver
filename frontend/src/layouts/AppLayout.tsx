@@ -23,7 +23,7 @@ import { useCallback, useEffect, useState, type ComponentType } from 'react'
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useThemeMode } from '../App'
 import { useAuth } from '../auth/AuthContext'
-import { BrandMark, Kbd } from '../components/Brand'
+import { BrandLogo, BrandMark, Kbd } from '../components/Brand'
 import CommandPalette from '../components/CommandPalette'
 import YaverAi from '../components/YaverAi'
 import { LiveDot, PageTransition } from '../components/Motion'
@@ -112,12 +112,19 @@ export default function AppLayout() {
 
   const sidebar = (
     <Box sx={{ width: NAV_W, height: '100%', display: 'flex', flexDirection: 'column', px: 1.5, py: 1.5, bgcolor: 'background.default' }}>
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, px: 0.75, height: 40, mb: 1 }}>
-        <BrandMark size={28} />
-        <Box sx={{ flexGrow: 1, minWidth: 0 }}>
-          <Typography sx={{ fontWeight: 700, fontSize: 15, letterSpacing: '-0.02em', lineHeight: 1.1 }}>{db.general.app_title || 'Yaver'}</Typography>
-          <Typography variant="caption" color="text.secondary" sx={{ lineHeight: 1.2 }}>Takım iş takibi</Typography>
-        </Box>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, px: 0.75, minHeight: 44, mb: 1 }}>
+        {!db.general.app_title || /^yaver$/i.test(db.general.app_title.trim()) ? (
+          <Box sx={{ flexGrow: 1, minWidth: 0 }}>
+            <BrandLogo height={24} />
+            <Typography variant="caption" color="text.secondary" sx={{ lineHeight: 1.2, display: 'block', mt: 0.5 }}>Takım iş takibi</Typography>
+          </Box>
+        ) : (<>
+          <BrandMark size={28} />
+          <Box sx={{ flexGrow: 1, minWidth: 0 }}>
+            <Typography sx={{ fontWeight: 700, fontSize: 15, letterSpacing: '-0.02em', lineHeight: 1.1 }}>{db.general.app_title}</Typography>
+            <Typography variant="caption" color="text.secondary" sx={{ lineHeight: 1.2 }}>Takım iş takibi</Typography>
+          </Box>
+        </>)}
         <IconButton size="small" sx={{ display: { md: 'none' } }} onClick={() => setMobileOpen(false)} aria-label="Menüyü kapat"><KeyboardDoubleArrowLeftIcon fontSize="small" /></IconButton>
       </Box>
 
@@ -173,7 +180,7 @@ export default function AppLayout() {
                                           borderBottom: 1, borderColor: 'divider', bgcolor: (t) => alpha(t.palette.background.paper, 0.82), backdropFilter: 'blur(12px)',
                                           borderTopLeftRadius: { md: 14 }, borderTopRightRadius: { md: 14 } }}>
               <IconButton sx={{ display: { md: 'none' } }} onClick={() => setMobileOpen(true)} aria-label="Menüyü aç"><MenuIcon /></IconButton>
-              <Box sx={{ display: { xs: 'flex', md: 'none' }, alignItems: 'center', gap: 1 }}><BrandMark size={22} /><Typography sx={{ fontWeight: 700 }}>Yaver</Typography></Box>
+              <Box sx={{ display: { xs: 'flex', md: 'none' }, alignItems: 'center', gap: 1 }}><BrandLogo height={20} /></Box>
               <Box sx={{ display: { xs: 'none', md: 'flex' }, alignItems: 'center', gap: 1, fontSize: 13.5, color: 'text.secondary' }}>
                 <span>{db.general.app_title || 'Yaver'}</span><Box component="span" sx={{ color: 'text.disabled' }}>/</Box>
                 <Box component="span" sx={{ color: 'text.primary', fontWeight: 600 }}>{crumb}</Box>
