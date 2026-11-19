@@ -1,6 +1,6 @@
 # Demo iş akışı ve Yaver GenAI sohbet
 
-> Sürüm **0.9.12**. GenAI Studio bağlantısı: [`GENAI-ENV.md`](GENAI-ENV.md) · ayrıntı: [`GENAI-STUDIO.md`](GENAI-STUDIO.md)
+> Sürüm **0.9.13**. GenAI Studio bağlantısı: [`GENAI-ENV.md`](GENAI-ENV.md) · ayrıntı: [`GENAI-STUDIO.md`](GENAI-STUDIO.md)
 
 ## 1. Demo iş akışı
 
