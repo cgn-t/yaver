@@ -102,11 +102,12 @@ Uçtan uca test (sahte ajan ile): sunucuyu `AGENT_TOKEN`, `AGENT_WEBHOOK_URL=htt
 
 Token alma (giriş ya da `AGENT_TOKEN`), `Authorization: Bearer` başlığı, `bulk-send-mail` / `bulk-import` örnekleri ve "Oturum geçersiz" kontrol listesi: **[docs/API-KULLANIMI.md](docs/API-KULLANIMI.md)**.
 
-## Demo iş akışı ve Yaver AI sohbet (v0.9)
+## Demo iş akışı ve Yaver GenAI sohbet (v0.9)
 
 - `POST /api/demo/run`: Jira, TFS, mail ve Zoom'dan gelmiş gibi 9 demo iş oluşturur, AI'a yorumlatıp DB'ye yazar; tekrar çağrılınca önceki demo işleri silinir.
 - `DEMO_RESET_ON_BOOT=true` ile her pod rollout'unda veri örnek hâline döner; `DEMO_AUTORUN=true` ile açılışta demo akışı kendiliğinden çalışır.
-- Sağ kenardaki **Yaver AI** asistanı (sekme dikey taşınır, panel sağda tam boy açılır): geçmiş işler ve wiki bağlamıyla soru-cevap (`POST /api/ai/ask`), hazır demo soruları.
+- **Demo akışı 2:** tek cümlelik mail taslağını AI doldurur (konu, metin, kategori, öncelik, atanan, son tarih, durum) → mail + iş (`POST /api/demo/draft`).
+- Sağ kenardaki **Yaver GenAI** asistanı (sekme dikey taşınır, panel sağda tam boy açılır): geçmiş işler ve wiki bağlamıyla soru-cevap (`POST /api/ai/ask`), hazır demo soruları.
 
 Ayrıntı: [`docs/DEMO-AKISI.md`](docs/DEMO-AKISI.md)
 

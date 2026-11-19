@@ -1,6 +1,6 @@
-# Demo iş akışı ve Yaver AI sohbet
+# Demo iş akışı ve Yaver GenAI sohbet
 
-> Sürüm **0.9.7**. GenAI Studio bağlantısı: [`GENAI-ENV.md`](GENAI-ENV.md) · ayrıntı: [`GENAI-STUDIO.md`](GENAI-STUDIO.md)
+> Sürüm **0.9.8**. GenAI Studio bağlantısı: [`GENAI-ENV.md`](GENAI-ENV.md) · ayrıntı: [`GENAI-STUDIO.md`](GENAI-STUDIO.md)
 
 ## 1. Demo iş akışı
 
@@ -52,9 +52,97 @@ Ajan token'ı (`yvr_…`, `items:write` yetkili) ile de çağrılabilir.
 
 Rollout sonrası demoyu yeniden başlatmak için `POST /api/demo/run` (ya da ekrandaki düğme) yeterlidir.
 
-## 2. Yaver AI sohbet
+## 2. Demo akışı 2: mail taslağını AI doldursun
 
-Her sayfanın sağ kenarında **Yaver AI** sekmesi. Sekme yalnız yukarı-aşağı sürüklenebilir (konum tarayıcıda hatırlanır). Tıklanınca asistan sağ kenarda tam boy panel olarak açılır; Esc ile kapanır. Selam verilince kendini "takımınızın iş takip asistanı" olarak tanıtır.
+Çok basit bir mail taslağı gelir: **yalnız gönderen ve tek cümle** (konu yok, öncelik yok, kime gideceği belli değil).
+Yaver taslağın konusuna göre geçmiş işleri, wiki sayfalarını ve ekip yükünü toplar, GenAI Studio'dan (Chat Block) taslağı doldurmasını ister.
+Dönen alanlar doğrulanır; eksik ya da geçersiz olanlar geçmişe dayalı kurallarla tamamlanır ve cevapta `filled` olarak listelenir.
+Sonuç **mail + iş** olarak DB'ye yazılır: AI yorumu işin "ajan yorumu"na, taslağın ilk hâli işin yorumlarına eklenir.
+GenAI kapalıysa aynı alanlar yerel (kural tabanlı) doldurucu ile üretilir.
+
+Ekrandan: **Ayarlar → GenAI Studio → "Demo akışı 2"** kartı (örnek taslaklar ya da kendi taslağınız).
+
+### AI'dan dönmesi gereken alanlar
+
+| Alan | Zorunlu | Değer | Açıklama |
+|---|---|---|---|
+| `subject` | **evet** | metin | Mail konusu = iş başlığı (en fazla 120 karakter) |
+| `body` | **evet** | metin | Düzenlenmiş mail metni: selamlama, 2-4 cümle net talep, imza |
+| `priority` | **evet** | `low` · `normal` · `high` · `critical` | Öncelik (Türkçe "yüksek", "kritik" de kabul edilir) |
+| `category` | **evet** | `Olay` · `Talep` · `Değişiklik` | İş kategorisi |
+| `summary` | hayır | metin | Tek cümle özet |
+| `topic_keys` | hayır | dizi | Konu anahtarları (0-3), yalnız verilen listeden (`mq`, `decom`, `failed` …) |
+| `assignee` | hayır | kullanıcı adı | Atanacak kişi, yalnız ekip listesinden |
+| `eta_days` | hayır | sayı | Tahmini çözüm süresi (gün) |
+| `due_date` | hayır | `YYYY-AA-GG` | Son tarih (yoksa bugün + `eta_days`) |
+| `status` | hayır | `new` · `in_progress` · `waiting` | Başlangıç durumu (atanan yoksa `new`) |
+| `comment` | hayır | metin | Geçmişe dayalı kısa yorum (en fazla 4 satır, son satır `**Öneri:** …`) |
+| `confidence` | hayır | 0-1 | Güven |
+| `sources` | hayır | dizi | `[{type: db\|wiki, ref, title}]` |
+
+Kurallar: listede olmayan konu anahtarı atılır, ekipte olmayan kişi atanmaz (yerel öneri kullanılır ve `warnings`'e yazılır),
+geçersiz tarih yerine `eta_days`'ten tarih hesaplanır. Cevap `{status, last_message}` zarfıyla ya da ```` ```json ```` bloğu içinde gelebilir.
+
+### Örnek AI yanıtı
+
+```json
+{
+  "subject": "PAYMENT.OUT kuyruğu doldu, EFT çıkışları gecikiyor",
+  "body": "Merhaba ekip,\n\nÖdeme kanalındaki kuyruk yine doldu, EFT çıkışları gecikiyor. Kök nedeni ve aksiyonu bugün paylaşabilir misiniz?\n\nTeşekkürler,\nDeniz Arslan",
+  "summary": "Ödeme kuyruğu doldu, EFT'ler gecikiyor",
+  "category": "Olay",
+  "topic_keys": ["mq"],
+  "priority": "high",
+  "assignee": "mehmet.kaya",
+  "eta_days": 1,
+  "due_date": "2026-11-20",
+  "status": "in_progress",
+  "comment": "**Birim Yöneticisi** talebi, ilk dönüş SLA'sı 1 iş günü.\nBenzer iş **YVR-1033** mehmet.kaya tarafından 1 günde çözüldü.\n**Öneri:** mehmet.kaya üzerine atanması.",
+  "confidence": 0.82,
+  "sources": [{ "type": "db", "ref": "YVR-1033", "title": "MQ PAYMENT.IN kuyruğu doldu" }]
+}
+```
+
+### API
+
+```bash
+# örnek taslaklar ve alan listesi
+curl -s "$URL/api/demo/drafts" -H "Authorization: Bearer $TOKEN"
+
+# örnek taslakların hepsini AI ile doldur (önceki taslak işleri silinir)
+curl -s -X POST "$URL/api/demo/draft" -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' -d '{}'
+
+# kendi taslağınız
+curl -s -X POST "$URL/api/demo/draft" -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
+  -d '{"drafts":[{"from":"deniz.arslan@firma.com","text":"kuyruk yine doldu eftler gecikiyor bakabilir misiniz"}]}'
+
+# aynısı demo/run ile: {"scenario":"taslak", ...}
+curl -s "$URL/api/demo/draft/status" -H "Authorization: Bearer $TOKEN"    # oluşan işler
+curl -s -X POST "$URL/api/demo/draft/clear" -H "Authorization: Bearer $TOKEN"
+```
+
+Cevap (kısaltılmış):
+
+```json
+{
+  "mode": "genai", "count": 1,
+  "results": [{
+    "key": "ozel-1",
+    "input": { "from": "deniz.arslan@firma.com", "text": "kuyruk yine doldu eftler gecikiyor bakabilir misiniz" },
+    "fields": { "subject": "PAYMENT.OUT kuyruğu doldu, EFT çıkışları gecikiyor", "priority": "high", "category": "Olay", "topic_keys": ["mq"],
+                "assignee": "mehmet.kaya", "due_date": "2026-11-20", "status": "in_progress", "...": "..." },
+    "filled": [], "warnings": [],
+    "ai": { "...": "AI'ın ham yanıtı" },
+    "email_id": 25, "item": { "id": 56, "code": "YVR-1056", "title": "PAYMENT.OUT kuyruğu doldu, EFT çıkışları gecikiyor" }
+  }]
+}
+```
+
+Kayıtlar `demo-taslak` etiketiyle işaretlenir; `POST /api/demo/clear` ikisini de siler, pod rollout'unda (`DEMO_RESET_ON_BOOT=true`) veri örnek hâline döner.
+
+## 3. Yaver GenAI sohbet
+
+Her sayfanın sağ kenarında **Yaver GenAI** sekmesi. Sekme yalnız yukarı-aşağı sürüklenebilir (konum tarayıcıda hatırlanır). Tıklanınca asistan sağ kenarda tam boy ve geniş (560-640 px) panel olarak açılır; Esc ile kapanır. Selam verilince kendini "takımınızın iş takip asistanı" olarak tanıtır.
 Panelde serbest soru sorulur ya da önerilen sorulardan biri seçilir; cevabın altında kaynak işler ve wiki sayfaları listelenir.
 
 - `POST /api/ai/ask` `{"message": "...", "thread_id": "<önceki cevaptaki>", "history": [{"role": "user|assistant", "content": "..."}]}`
