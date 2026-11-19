@@ -68,6 +68,20 @@ kubectl -n yaver describe pod -l app=yaver       # Events: imaj çekme, disk ba�
 | Logda `EACCES` / `permission denied` (`/data`) | Disk node kullanıcısına (1000) yazılabilir değil | Manifestteki `fsGroup: 1000` kalsın; NFS ise sunucuda `no_root_squash` ya da başka storage class |
 | `ImagePullBackOff` | ghcr.io paketi gizli ve çekme secret'ı yok | Manifestteki adım 1 (ghcr-pull) ya da paketi public yapın |
 
+## LangGraph ajanı entegrasyonu (v0.5)
+
+Mail/toplantı/iş olayları ajana **webhook** (HMAC imzalı) ya da **pull** (`GET /api/agent/events`) ile gider; ajan Yaver'e
+**REST** ile bağlanıp okur, iş açar, not yazar, öneri verir. Öncelik/atama/durum gibi riskli değişiklikler **öneri** olarak
+kullanıcı onayına düşer. Chat, ajandan **SSE** ile akıtılır. Akış rehberi ve tüm uçlar: **[docs/AJAN-API.md](docs/AJAN-API.md)**.
+
+```bash
+T=yvr_...   # AGENT_TOKEN
+curl -H "Authorization: Bearer $T" "http://localhost:8080/api/work-items?open=true&sort=priority&limit=5"
+```
+
+Uçtan uca test (sahte ajan ile): sunucuyu `AGENT_TOKEN`, `AGENT_WEBHOOK_URL=http://127.0.0.1:9099/hook`,
+`AGENT_WEBHOOK_SECRET=s3cret`, `AGENT_CHAT_URL=http://127.0.0.1:9099/chat` ile açıp `node server/test/agent-e2e.mjs`.
+
 ## Yalnız arayüz (geliştirme)
 
 ```bash

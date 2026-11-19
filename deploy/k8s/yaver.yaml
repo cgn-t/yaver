@@ -33,6 +33,9 @@ metadata:
 type: Opaque
 stringData:
   TOKEN_SECRET: "DEGISTIRIN-uzun-rastgele-bir-deger"  # oturum imzalama anahtarı (openssl rand -hex 32)
+  # LangGraph ajanının Yaver'e bağlanacağı token (yvr_ ile başlasın, en az 24 karakter): echo yvr_$(openssl rand -hex 24)
+  AGENT_TOKEN: "yvr_DEGISTIRIN-ajan-icin-uzun-rastgele-deger"
+  AGENT_WEBHOOK_SECRET: "DEGISTIRIN-webhook-imza-anahtari"   # ajan, gelen olayların imzasını bununla doğrular
 ---
 apiVersion: v1
 kind: PersistentVolumeClaim
@@ -72,7 +75,7 @@ spec:
       terminationGracePeriodSeconds: 30   # kapanırken veritabanı dosyaları düzgün kapatılır
       containers:
         - name: yaver
-          image: ghcr.io/cgn-t/yaver:0.4.0
+          image: ghcr.io/cgn-t/yaver:0.5.0
           imagePullPolicy: IfNotPresent
           env:
             - name: TOKEN_SECRET
@@ -81,6 +84,17 @@ spec:
             - { name: SEED, value: "true" }          # ilk açılışta örnek veri; boş kurulum için "false"
             - { name: DEMO_FEEDS, value: "true" }    # örnek mail/zoom kaynakları; gerçek entegrasyonda "false"
             - { name: TZ, value: Europe/Istanbul }
+            # ---- LangGraph ajanı (docs/AJAN-API.md) ----
+            - name: AGENT_TOKEN
+              valueFrom: { secretKeyRef: { name: yaver-secrets, key: AGENT_TOKEN } }
+            - name: AGENT_WEBHOOK_SECRET
+              valueFrom: { secretKeyRef: { name: yaver-secrets, key: AGENT_WEBHOOK_SECRET } }
+            - { name: PUBLIC_URL, value: "http://yaver.yaver.svc" }      # ajanın Yaver'e ulaştığı adres
+            # Olaylar: AGENT_WEBHOOK_URL verilirse Yaver iter (webhook), verilmezse ajan GET /api/agent/events ile çeker (pull)
+            # - { name: AGENT_WEBHOOK_URL, value: "http://yaver-agent.yaver.svc:8000/events" }
+            # - { name: AGENT_WEBHOOK_FORMAT, value: "plain" }            # LangGraph Server /runs için: langgraph
+            # Chat: AGENT_CHAT_URL verilirse Yaver ajandan SSE ile cevap akıtır; verilmezse chat.message olayı gider
+            # - { name: AGENT_CHAT_URL, value: "http://yaver-agent.yaver.svc:8000/chat" }
           ports:
             - { name: http, containerPort: 8080 }
           startupProbe:
