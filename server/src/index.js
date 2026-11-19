@@ -1,10 +1,11 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import express from 'express'
-import { migrateAndSeed, query, resetDemoData, waitForDb } from './db.js'
-import { ldapTest, loadLdapSettings, login, requireAuth } from './auth.js'
-import * as S from './state.js'
-import { runNow, startPoller } from './poller.js'
+import { migrateAndSeed, query, waitForDb } from './db.js'
+import { bootstrapAgentToken, login } from './auth.js'
+import { startPoller } from './poller.js'
+import { apiRouter, errorHandler } from './routes.js'
+import { startDispatcher, startEventCleanup, startEventListener } from './events.js'
 
 const PORT = Number(process.env.PORT ?? 8080)
 const STATIC_DIR = process.env.STATIC_DIR ?? path.resolve(import.meta.dirname, '../../frontend/dist')
@@ -16,7 +17,6 @@ app.use(express.json({ limit: '1mb' }))
 
 // async route hatalarını tek yerde yakala
 const h = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next)
-const id = (req) => Number(req.params.id)
 
 // ---------- Açık uçlar ----------
 // DB hazır olana kadar sunucu yine açıktır: /api/health 503 + neden döner, arayüz "veritabanı bekleniyor" gösterir.
@@ -64,55 +64,9 @@ if (DEMO_FEEDS) {
   })
 }
 
-// ---------- Oturum gerektiren uçlar ----------
-const api = express.Router()
-api.use(requireAuth)
-
-api.get('/me', (req, res) => res.json(req.user))
-api.get('/state', h(async (_req, res) => res.json(await S.getState())))
-
-api.post('/work-items', h(async (req, res) => {
-  if (!req.body?.title?.trim()) return res.status(400).json({ detail: 'Başlık zorunlu' })
-  res.status(201).json(await S.createWorkItem(req.body, req.user))
-}))
-api.patch('/work-items/:id', h(async (req, res) => {
-  const r = await S.updateWorkItem(id(req), req.body ?? {}, req.user)
-  r ? res.json(r) : res.status(404).json({ detail: 'İş bulunamadı' })
-}))
-api.post('/work-items/:id/comments', h(async (req, res) => {
-  if (!req.body?.text?.trim()) return res.status(400).json({ detail: 'Yorum boş olamaz' })
-  await S.addComment(id(req), req.body.text.trim(), req.user)
-  res.status(201).json({ ok: true })
-}))
-
-api.patch('/emails/:id', h(async (req, res) => { await S.markEmailRead(id(req), req.body?.is_read ?? true); res.json({ ok: true }) }))
-api.patch('/meetings/:id', h(async (req, res) => { await S.updateMeeting(id(req), req.body ?? {}); res.json({ ok: true }) }))
-
-api.get('/settings/ldap', h(async (_req, res) => res.json(await S.getLdap())))
-api.put('/settings/ldap', h(async (req, res) => { await S.saveLdap(req.body ?? {}, req.user); res.json(await S.getLdap()) }))
-api.post('/settings/ldap/test', h(async (req, res) => {
-  // Formdaki (henüz kaydedilmemiş) değerlerle test; şifre maskeliyse kayıtlı şifre kullanılır
-  const saved = await loadLdapSettings()
-  const cfg = { ...saved, ...req.body }
-  if (!req.body?.bind_password || req.body.bind_password === S.MASK) cfg.bind_password = saved.bind_password
-  res.json(await ldapTest(cfg))
-}))
-api.get('/settings/general', h(async (_req, res) => res.json(await S.getGeneral())))
-api.put('/settings/general', h(async (req, res) => { await S.saveGeneral(req.body ?? {}, req.user); res.json(await S.getGeneral()) }))
-
-api.post('/settings/api-services', h(async (req, res) => res.status(201).json(await S.createApiConfig({ name: 'Yeni servis', method: 'GET', auth_type: 'none', target: 'generic', ...req.body }))))
-api.put('/settings/api-services/:id', h(async (req, res) => {
-  const r = await S.updateApiConfig(id(req), req.body ?? {})
-  r ? res.json(r) : res.status(404).json({ detail: 'Servis bulunamadı' })
-}))
-api.delete('/settings/api-services/:id', h(async (req, res) => { await S.deleteApiConfig(id(req)); res.status(204).end() }))
-api.post('/settings/api-services/:id/run', h(async (req, res) => res.json(await runNow(id(req)))))
-api.delete('/settings/api-logs', h(async (_req, res) => { await S.clearApiLogs(); res.status(204).end() }))
-
-api.post('/admin/reset-demo', h(async (_req, res) => { await resetDemoData(); res.json({ ok: true }) }))
-
-app.use('/api', api)
-app.use('/api', (_req, res) => res.status(404).json({ detail: 'Bulunamadı' }))
+// ---------- Oturum / ajan token'ı gerektiren uçlar (routes.js) ----------
+app.use('/api', apiRouter())
+app.use('/api', (_req, res) => res.status(404).json({ detail: 'Bulunamadı', code: 'not_found' }))
 
 // ---------- Arayüz (React build) ----------
 if (fs.existsSync(STATIC_DIR)) {
@@ -122,15 +76,15 @@ if (fs.existsSync(STATIC_DIR)) {
   console.warn(`[web] ${STATIC_DIR} yok — yalnız API sunuluyor`)
 }
 
-app.use((err, _req, res, _next) => {
-  console.error('[api]', err)
-  const pgCheck = err.code === '23514' || err.code === '22P02' || err.code === '23503'
-  res.status(pgCheck ? 400 : 500).json({ detail: pgCheck ? 'Geçersiz değer' : 'Sunucu hatası' })
-})
+app.use(errorHandler)
 
 app.listen(PORT, () => console.log(`[web] Yaver ${process.env.APP_VERSION ?? 'dev'} http://0.0.0.0:${PORT} adresinde`))
 await waitForDb()
 startupError = 'tablolar hazırlanıyor'
 await migrateAndSeed({ seed: process.env.SEED !== 'false' })
+await bootstrapAgentToken()
+await startEventListener()
 ready = true
 startPoller()
+startDispatcher()
+startEventCleanup()

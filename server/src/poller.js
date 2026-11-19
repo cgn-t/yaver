@@ -1,4 +1,5 @@
 import { query, tx } from './db.js'
+import { emit } from './events.js'
 
 /**
  * Sunucu tarafı periyodik API çağrı servisi.
@@ -45,15 +46,19 @@ async function ingest(cfg, records) {
       if (cfg.target === 'mail') {
         const mid = str(o.message_id ?? o.internetMessageId ?? o.id)
         if (!mid) continue
+        const body = o.body_text ?? (typeof o.body === 'object' ? o.body?.content : o.body) ?? o.bodyPreview ?? o.body_preview
         const r = await c.query(
           `INSERT INTO email (message_id, thread_id, mailbox, from_address, from_name, to_addresses, cc_addresses, subject,
-                              body_preview, importance, has_attachments, received_at)
-           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) ON CONFLICT (message_id) DO NOTHING`,
+                              body_preview, importance, has_attachments, received_at, body_text)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) ON CONFLICT (message_id) DO NOTHING RETURNING id, subject, from_address`,
           [mid, o.thread_id ?? o.conversationId ?? null, str(o.mailbox, mailbox), str(o.from_address ?? o.from), str(o.from_name ?? o.from),
            JSON.stringify(arr(o.to_addresses ?? o.to)), JSON.stringify(arr(o.cc_addresses ?? o.cc)), str(o.subject, '(konu yok)'),
-           str(o.body_preview ?? o.bodyPreview ?? o.body).slice(0, 2000), oneOf(o.importance, ['low', 'normal', 'high'], 'normal'),
-           !!(o.has_attachments ?? o.hasAttachments), o.received_at ?? o.receivedDateTime ?? new Date().toISOString()])
+           str(o.body_preview ?? o.bodyPreview ?? body).slice(0, 2000), oneOf(o.importance, ['low', 'normal', 'high'], 'normal'),
+           !!(o.has_attachments ?? o.hasAttachments), o.received_at ?? o.receivedDateTime ?? new Date().toISOString(),
+           body === undefined || body === null ? null : String(body)])
         n += r.rowCount
+        if (r.rowCount) await emit(c, 'email.received', 'email', r.rows[0].id,
+          { subject: r.rows[0].subject, from_address: r.rows[0].from_address, source: cfg.name })
       } else if (cfg.target === 'zoom') {
         const zid = str(o.zoom_meeting_id ?? o.id)
         if (!zid) continue
@@ -66,6 +71,7 @@ async function ingest(cfg, records) {
            oneOf(o.status, ['scheduled', 'live', 'ended', 'cancelled'], 'scheduled')])
         if (r.rowCount) {
           n++
+          await emit(c, 'meeting.created', 'meeting', r.rows[0].id, { topic: str(o.topic, '(başlıksız)'), start_time: o.start_time ?? null, source: cfg.name })
           for (const p of Array.isArray(o.participants) ? o.participants : [])
             await c.query('INSERT INTO meeting_participant (meeting_id, name, email, attended) VALUES ($1,$2,$3,$4)',
               [r.rows[0].id, str(p.name ?? p.user_name), str(p.email ?? p.user_email), !!p.attended])
@@ -82,6 +88,7 @@ async function ingest(cfg, records) {
           n++
           await c.query(`INSERT INTO work_item_activity (work_item_id, action, comment) VALUES ($1, 'created', $2)`,
             [r.rows[0].id, `${cfg.name} servisinden alındı`])
+          await emit(c, 'work_item.created', 'work_item', r.rows[0].id, { title: str(o.title), source_type: 'api', external_ref: ext, source: cfg.name })
         }
       }
     }

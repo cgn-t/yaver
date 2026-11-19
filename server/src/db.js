@@ -24,6 +24,28 @@ pool.on('error', (e) => console.warn('[db] bağlantı koptu, yeniden bağlanıla
 
 export const query = (text, params) => pool.query(text, params)
 
+/**
+ * LISTEN için havuzdan ayrı, kalıcı bağlantı; koparsa 3 sn sonra yeniden bağlanır.
+ * pg_notify, transaction commit olduğunda iletilir → geri alınan değişiklik için bildirim gitmez.
+ */
+export function listen(channel, onMessage) {
+  const connect = async () => {
+    const c = new pg.Client(pool.options)
+    let retried = false
+    const retry = (e) => {
+      if (retried) return
+      retried = true
+      console.warn(`[db] LISTEN ${channel} koptu: ${e.message}`)
+      c.end().catch(() => {})
+      setTimeout(connect, 3000)
+    }
+    c.on('error', retry)
+    c.on('notification', (m) => onMessage(m.payload))
+    try { await c.connect(); await c.query(`LISTEN ${channel}`) } catch (e) { retry(e) }
+  }
+  return connect()
+}
+
 export async function tx(fn) {
   const c = await pool.connect()
   try {
@@ -87,6 +109,9 @@ export async function migrateAndSeed({ seed = true } = {}) {
         await ensureAdmin()
       }
     }
+    // Ajan tabloları seed kontrolünden SONRA: 03 dosyası yaver-ajan kullanıcısını ekler, app_user boş görünmezdi
+    await query(await fs.readFile(path.join(SQL_DIR, '03-agent.sql'), 'utf8'))
+    console.log('[db] ajan tabloları hazır')
   } finally {
     await query('SELECT pg_advisory_unlock(424242)')
   }
@@ -107,7 +132,7 @@ async function ensureAdmin() {
 export async function resetDemoData() {
   await tx(async (c) => {
     await c.query(`TRUNCATE work_item, work_item_tag, work_item_activity, email, email_attachment,
-                   meeting, meeting_participant, api_poll_log RESTART IDENTITY CASCADE`)
+                   meeting, meeting_participant, api_poll_log, agent_event, agent_run RESTART IDENTITY CASCADE`)
     const sql = await fs.readFile(path.join(SQL_DIR, '02-seed.sql'), 'utf8')
     // Seed dosyası kendi BEGIN/COMMIT'ini içerir; burada dış transaction kullanıldığı için çıkarılır.
     // Kullanıcı, API servisi ve ayar satırları ON CONFLICT ile atlanır; API servisleri ikilenmesin diye o blok çalıştırılmaz.

@@ -72,7 +72,7 @@ export interface Activity {
   work_item_id: number
   at: string
   actor: string
-  action: 'created' | 'status' | 'assign' | 'comment' | 'priority' | 'linked'
+  action: 'created' | 'status' | 'assign' | 'comment' | 'priority' | 'linked' | 'edit' | 'agent_note' | 'agent_proposal'
   text: string
 }
 
