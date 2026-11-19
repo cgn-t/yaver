@@ -45,12 +45,14 @@ Değerleri GenAI Studio ortam dosyanızdan (`GENAI_STUDIO.yml`) alın ve **Secre
 oc -n yaver create secret generic yaver-genai \
   --from-literal=GENAI_APPLICATION_BACKEND_URL='<application_backend_url>' \
   --from-literal=GENAI_SSO_URL='<sso_url>' \
-  --from-literal=GENAI_SSO_TOKEN_PATH='<SSO token ucu>' \
   --from-literal=GENAI_CHAT_CLIENT_ID='<chat_client_id>' \
   --from-literal=GENAI_CHAT_CLIENT_SECRET='<chat_client_secret>' \
   --from-literal=GENAI_APP_ID='<app_id>' \
   --from-literal=GENAI_APP_IDENTIFIER='<app_identifier>'
 oc -n yaver rollout restart deploy/yaver
+
+# bağlantı denemesi (önce token, sonra Chat Block; token ekrana yazılmaz)
+oc -n yaver rsh deploy/yaver node server/scripts/genai-ping.mjs "Merhaba"
 ```
 
 `deploy/k8s/yaver.yaml` bu Secret'ı `envFrom: secretRef: yaver-genai (optional)` ile okur. Secret yoksa entegrasyon kapalı kalır.
@@ -58,19 +60,37 @@ oc -n yaver rollout restart deploy/yaver
 | Değişken | Zorunlu | GenAI Studio karşılığı | Açıklama |
 |---|---|---|---|
 | `GENAI_APPLICATION_BACKEND_URL` | ✔ | `application_backend_url` | Chat Block'un adresi (sonuna `/chat/block` eklenir) |
-| `GENAI_SSO_URL` | ✔ | `sso_url` | SSO adresi |
-| `GENAI_SSO_TOKEN_PATH` | ✔ | (token isteği) | `GENAI_SSO_URL`'e eklenen token ucu |
+| `GENAI_SSO_URL` | ✔ | `sso_url` | SSO kök adresi (yol yok) |
 | `GENAI_CHAT_CLIENT_ID` | ✔ | `chat_client_id` | client_credentials |
 | `GENAI_CHAT_CLIENT_SECRET` | ✔ | `chat_client_secret` | client_credentials |
 | `GENAI_APP_ID` | ✔ | `app_id` | `app-id` başlığı |
 | `GENAI_APP_IDENTIFIER` | ✔ | `app_identifier` | `app-identifier` başlığı |
 | `GENAI_ENABLED` | – | | `false` → tamamen kapalı |
 | `GENAI_CHAT_PATH` | – | | varsayılan `/chat/block` |
+| `GENAI_SSO_REALM` | – | | varsayılan `genai-studio` |
+| `GENAI_SSO_TOKEN_PATH` | – | | varsayılan `/auth/realms/{realm}/protocol/openid-connect/token` (`{realm}` yerine `GENAI_SSO_REALM` konur) |
+| `GENAI_SSO_SCOPE` | – | | varsayılan `openid`; `none` verilirse scope gönderilmez |
 | `GENAI_SSO_TOKEN_FORMAT` | – | | token isteğinin gövdesi: `form` (varsayılan, `application/x-www-form-urlencoded`) ya da `json` |
-| `GENAI_SSO_SCOPE` | – | | gerekiyorsa `scope` |
 | `NODE_EXTRA_CA_CERTS` | – | | kurum içi CA ile imzalı HTTPS için CA dosyasının yolu |
 
-Token isteği: `POST {GENAI_SSO_URL}{GENAI_SSO_TOKEN_PATH}` gövdesi `grant_type=client_credentials&client_id=…&client_secret=…`.
+Akış: **önce token, sonra sorgu.**
+
+```http
+POST {GENAI_SSO_URL}/auth/realms/genai-studio/protocol/openid-connect/token
+Content-Type: application/x-www-form-urlencoded
+
+grant_type=client_credentials&client_id={GENAI_CHAT_CLIENT_ID}&client_secret={GENAI_CHAT_CLIENT_SECRET}&scope=openid
+```
+```http
+POST {GENAI_APPLICATION_BACKEND_URL}/chat/block
+app-id: {GENAI_APP_ID}
+app-identifier: {GENAI_APP_IDENTIFIER}
+content-type: application/json
+Authorization: Bearer {access_token}
+
+{"thread_id": "", "msg": "…", "request_context": {}}
+```
+Curl örneklerindeki `Cookie` başlığı yük dengeleyicinin oturum çerezidir; gerekmez, Yaver göndermez.
 Yanıttan `access_token` (ya da `token`) ve `expires_in` okunur; token süresi dolmadan yeniden kullanılır, Chat Block 401 dönerse yenilenip bir kez tekrar denenir.
 
 > `data_client_id` / `data_client_secret` (content manager) bu sürümde kullanılmıyor.
@@ -213,7 +233,7 @@ LangGraph ajanı (AJAN-API.md) ile birlikte de çalışır: ikisi de aynı öner
 | Belirti (GenAI Çağrıları / Bağlantı testi) | Neden |
 |---|---|
 | `Eksik ortam değişkenleri: …` | Secret oluşturulmamış ya da pod yeniden başlatılmamış |
-| `SSO token isteği HTTP 400/401` | token ucu (`GENAI_SSO_TOKEN_PATH`), client id/secret ya da gövde biçimi (`GENAI_SSO_TOKEN_FORMAT=json` deneyin) |
+| `SSO token isteği HTTP 400/401` | realm / token ucu (`GENAI_SSO_REALM`, `GENAI_SSO_TOKEN_PATH`), client id/secret ya da gövde biçimi (`GENAI_SSO_TOKEN_FORMAT=json` deneyin) |
 | `… UNABLE_TO_VERIFY_LEAF_SIGNATURE` / `SELF_SIGNED_CERT_IN_CHAIN` | kurum CA'sı: `NODE_EXTRA_CA_CERTS` |
 | `ENOTFOUND` / `ECONNREFUSED` / zaman aşımı | pod'dan GenAI adresine ağ erişimi (NetworkPolicy / egress) |
 | `Chat Block 403` | `app-id` / `app-identifier` uyuşmuyor ya da uygulamanın yetkisi yok |

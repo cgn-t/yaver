@@ -1,6 +1,6 @@
 // GenAI Studio Chat Block uçtan uca testi (sahte SSO + sahte Chat Block ile).
 // Kullanım: Yaver'i şu ortamla başlatın, sonra bu dosyayı çalıştırın (değerler yalnız test içindir):
-//   GENAI_APPLICATION_BACKEND_URL=http://127.0.0.1:9199 GENAI_SSO_URL=http://127.0.0.1:9199 GENAI_SSO_TOKEN_PATH=/sso/token \
+//   GENAI_APPLICATION_BACKEND_URL=http://127.0.0.1:9199 GENAI_SSO_URL=http://127.0.0.1:9199 \
 //   GENAI_CHAT_CLIENT_ID=test-client GENAI_CHAT_CLIENT_SECRET=test-secret GENAI_APP_ID=1 GENAI_APP_IDENTIFIER=yaver \
 //   DEMO_FEEDS=false ADMIN_ACTS_AS= node server/src/index.js
 //   node server/test/genai-e2e.mjs
@@ -76,10 +76,10 @@ const mock = http.createServer((req, res) => {
   let raw = ''
   req.on('data', (c) => { raw += c })
   req.on('end', () => {
-    if (req.url === '/sso/token' && req.method === 'POST') {
+    if (req.url === '/auth/realms/genai-studio/protocol/openid-connect/token' && req.method === 'POST') {
       const f = Object.fromEntries(new URLSearchParams(raw))
       tokenCalls.push(f)
-      if (f.grant_type !== 'client_credentials' || f.client_id !== CLIENT_ID || f.client_secret !== CLIENT_SECRET) return res.writeHead(401).end('{"error":"invalid_client"}')
+      if (f.grant_type !== 'client_credentials' || f.client_id !== CLIENT_ID || f.client_secret !== CLIENT_SECRET || f.scope !== 'openid' || !String(req.headers['content-type']).startsWith('application/x-www-form-urlencoded')) return res.writeHead(401).end('{"error":"invalid_client"}')
       issued++
       return res.writeHead(200, { 'Content-Type': 'application/json' }).end(JSON.stringify({ access_token: `tok-${issued}`, expires_in: 300, token_type: 'Bearer' }))
     }

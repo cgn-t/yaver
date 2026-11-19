@@ -83,7 +83,6 @@ jobs:
           # yalnız test değerleri; gerçek değerler OpenShift Secret'ındadır
           GENAI_APPLICATION_BACKEND_URL: http://127.0.0.1:9199
           GENAI_SSO_URL: http://127.0.0.1:9199
-          GENAI_SSO_TOKEN_PATH: /sso/token
           GENAI_CHAT_CLIENT_ID: test-client
           GENAI_CHAT_CLIENT_SECRET: test-secret
           GENAI_APP_ID: "1"

@@ -8,7 +8,9 @@ import { PRIORITIES, STATUSES, getWorkItem, proposeAction } from './agent.js'
  *
  * Bir iş geldiğinde (Mail, Zoom, TFS, Jira, manuel, API) iş için genai_job kuyruğa düşer. İşçi:
  *   1. GET bağlam (buildContext: DB benzer işler, Wiki, göndericinin mailleri, talep eden seviyesi, ekip yükü)
- *   2. SSO'dan token (client_credentials) — ya da sabit token
+ *   2. SSO'dan token: POST {sso_url}/auth/realms/{realm}/protocol/openid-connect/token
+ *      (x-www-form-urlencoded: grant_type=client_credentials, client_id, client_secret, scope=openid).
+ *      access_token, expires_in süresince (−60 sn) önbellekte tutulur; Chat Block 401 dönerse yenilenip bir kez tekrar denenir.
  *   3. POST {application_backend_url}/chat/block  {thread_id, msg: <prompt + bağlam>, request_context}
  *      başlıklar: app-id, app-identifier, content-type, Authorization: Bearer <token>
  *   4. Yanıttaki metinden AiYorumYaniti JSON'unu çıkarır (docs/AI-YANIT-FORMATI.md), doğrular
@@ -25,8 +27,7 @@ import { PRIORITIES, STATUSES, getWorkItem, proposeAction } from './agent.js'
  */
 export const ENV = {
   backend_url: 'GENAI_APPLICATION_BACKEND_URL',   // {{application_backend_url}}
-  sso_url: 'GENAI_SSO_URL',                       // {{sso_url}}
-  sso_token_path: 'GENAI_SSO_TOKEN_PATH',         // SSO token ucu (sso_url'e eklenir)
+  sso_url: 'GENAI_SSO_URL',                       // {{sso_url}} (kök adres, yol yok)
   client_id: 'GENAI_CHAT_CLIENT_ID',              // {{chat_client_id}}
   client_secret: 'GENAI_CHAT_CLIENT_SECRET',      // {{chat_client_secret}}
   app_id: 'GENAI_APP_ID',                         // {{app_id}}  → app-id başlığı
@@ -35,9 +36,13 @@ export const ENV = {
 const ENV_OPTIONAL = {
   enabled: 'GENAI_ENABLED',                       // false → tamamen kapalı
   chat_path: 'GENAI_CHAT_PATH',                   // varsayılan /chat/block
-  token_format: 'GENAI_SSO_TOKEN_FORMAT',         // form (varsayılan) | json
-  token_scope: 'GENAI_SSO_SCOPE',
+  sso_realm: 'GENAI_SSO_REALM',                   // varsayılan genai-studio
+  sso_token_path: 'GENAI_SSO_TOKEN_PATH',         // varsayılan /auth/realms/{realm}/protocol/openid-connect/token
+  token_scope: 'GENAI_SSO_SCOPE',                 // varsayılan openid
+  token_format: 'GENAI_SSO_TOKEN_FORMAT',         // form (varsayılan, x-www-form-urlencoded) | json
 }
+// Ortamdan verilmezse kullanılan, sır olmayan varsayılanlar (OpenID Connect / Keycloak client_credentials)
+const SSO_DEFAULTS = { realm: 'genai-studio', token_path: '/auth/realms/{realm}/protocol/openid-connect/token', scope: 'openid' }
 const REQUIRED = Object.keys(ENV)
 
 /** Ekrandan değiştirilebilen davranış ayarları (bağlantı bilgisi içermez). */
@@ -84,7 +89,9 @@ export async function loadConfig() {
   cfg.backend_url = cfg.backend_url.replace(/\/$/, '')
   cfg.chat_path = env(ENV_OPTIONAL.chat_path) || '/chat/block'
   cfg.token_format = env(ENV_OPTIONAL.token_format) || 'form'
-  cfg.token_scope = env(ENV_OPTIONAL.token_scope)
+  cfg.sso_realm = env(ENV_OPTIONAL.sso_realm) || SSO_DEFAULTS.realm
+  cfg.sso_token_path = (env(ENV_OPTIONAL.sso_token_path) || SSO_DEFAULTS.token_path).replace('{realm}', encodeURIComponent(cfg.sso_realm))
+  cfg.token_scope = env(ENV_OPTIONAL.token_scope) || SSO_DEFAULTS.scope   // "none" → scope gönderilmez
   cfg.missing = REQUIRED.filter((k) => !cfg[k]).map((k) => ENV[k])
   cfg.env_enabled = env(ENV_OPTIONAL.enabled) !== 'false'
   cfg.enabled = cfg.env_enabled && cfg.active && cfg.missing.length === 0
@@ -120,7 +127,7 @@ async function getToken(cfg, { force = false } = {}) {
   const key = `${url}|${cfg.client_id}`
   const hit = tokenCache.get(key)
   if (!force && hit && hit.exp > Date.now()) return { token: hit.token, source: 'cache', expires_at: new Date(hit.exp).toISOString() }
-  const fields = { grant_type: 'client_credentials', client_id: cfg.client_id, client_secret: cfg.client_secret, ...(cfg.token_scope ? { scope: cfg.token_scope } : {}) }
+  const fields = { grant_type: 'client_credentials', client_id: cfg.client_id, client_secret: cfg.client_secret, ...(cfg.token_scope && cfg.token_scope !== 'none' ? { scope: cfg.token_scope } : {}) }
   const json = cfg.token_format === 'json'
   const res = await fetchT(url, {
     method: 'POST',

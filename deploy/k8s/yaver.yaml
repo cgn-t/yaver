@@ -42,12 +42,13 @@ stringData:
 #   oc -n yaver create secret generic yaver-genai \
 #     --from-literal=GENAI_APPLICATION_BACKEND_URL=<application_backend_url> \
 #     --from-literal=GENAI_SSO_URL=<sso_url> \
-#     --from-literal=GENAI_SSO_TOKEN_PATH=<SSO token ucu, ör. /.../token> \
 #     --from-literal=GENAI_CHAT_CLIENT_ID=<chat_client_id> \
 #     --from-literal=GENAI_CHAT_CLIENT_SECRET=<chat_client_secret> \
 #     --from-literal=GENAI_APP_ID=<app_id> \
 #     --from-literal=GENAI_APP_IDENTIFIER=<app_identifier>
+# İsteğe bağlı: GENAI_SSO_REALM (varsayılan genai-studio), GENAI_SSO_SCOPE (varsayılan openid), GENAI_SSO_TOKEN_PATH.
 # Secret yoksa entegrasyon kapalı kalır, Yaver normal çalışır.
+# Bağlantı denemesi: oc -n yaver rsh deploy/yaver node server/scripts/genai-ping.mjs "Merhaba"
 # Kurum içi CA ile imzalı HTTPS için: CA'yı ConfigMap olarak bağlayıp NODE_EXTRA_CA_CERTS=/certs/ca.crt verin.
 ---
 apiVersion: v1
