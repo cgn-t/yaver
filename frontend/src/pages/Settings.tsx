@@ -9,6 +9,7 @@ import { alpha } from '@mui/material/styles'
 import { useSnackbar } from 'notistack'
 import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
+import DbBrowser from '../components/DbBrowser'
 import { GenaiLogTab, GenaiTab } from '../components/GenaiSettings'
 import { LiveDot } from '../components/Motion'
 import PageHeader from '../components/PageHeader'
@@ -389,6 +390,7 @@ const NAV_GROUPS: { title: string; items: NavItem[] }[] = [
   ] },
   { title: 'Sistem', items: [
     { key: 'general', label: 'Genel', desc: 'Posta kutusu, takım üyeleri ve varsayılanlar', el: <GeneralTab /> },
+    { key: 'db', label: 'Veritabanı', desc: 'Tüm tablolar ve satırlar (salt okunur, gizli alanlar maskeli). Girişsiz görünüm: /db (DB_PUBLIC=true)', wide: true, el: <DbBrowser /> },
   ] },
 ]
 const ALL_ITEMS = NAV_GROUPS.flatMap((g) => g.items)

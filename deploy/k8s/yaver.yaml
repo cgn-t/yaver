@@ -89,7 +89,7 @@ spec:
       terminationGracePeriodSeconds: 30   # kapanırken veritabanı dosyaları düzgün kapatılır
       containers:
         - name: yaver
-          image: ghcr.io/cgn-t/yaver:0.9.9
+          image: ghcr.io/cgn-t/yaver:0.9.10
           imagePullPolicy: IfNotPresent
           env:
             - name: TOKEN_SECRET
@@ -102,6 +102,8 @@ spec:
             # ---- Demo iş akışı (docs/DEMO-AKISI.md) ----
             - { name: DEMO_RESET_ON_BOOT, value: "true" }   # her açılışta (rollout) veri örnek hâline döner; gerçek kullanımda "false"
             - { name: DEMO_AUTORUN, value: "false" }        # "true": açılıştan sonra demo işler (Jira/Mail/Zoom) AI'a yorumlatılır
+            # ---- Veritabanı görünümü (docs/API-KULLANIMI.md) ----
+            - { name: DB_PUBLIC, value: "true" }            # "true": /db sayfası ve /api/public/db girişsiz, salt okunur (gizli alanlar maskeli); "false" = yalnız admin
             # ---- LangGraph ajanı (docs/AJAN-API.md) ----
             - name: AGENT_TOKEN
               valueFrom: { secretKeyRef: { name: yaver-secrets, key: AGENT_TOKEN } }

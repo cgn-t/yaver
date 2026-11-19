@@ -2,6 +2,7 @@ import { CssBaseline, ThemeProvider } from '@mui/material'
 import { MotionConfig } from 'motion/react'
 import { SnackbarProvider } from 'notistack'
 import { createContext, useContext, useMemo, useState } from 'react'
+import PublicDb from './pages/PublicDb'
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { AuthProvider, useAuth } from './auth/AuthContext'
 import AppLayout from './layouts/AppLayout'
@@ -44,6 +45,7 @@ export default function App() {
             <BrowserRouter>
               <Routes>
                 <Route path="/login" element={<Login />} />
+                <Route path="/db" element={<PublicDb />} />
                 <Route element={<Protected />}>
                   <Route path="/" element={<Dashboard />} />
                   <Route path="/work-items" element={<WorkItems />} />
