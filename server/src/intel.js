@@ -26,13 +26,13 @@ let isGenaiActive = () => false
 export const setGenaiProbe = (fn) => { isGenaiActive = fn }
 export const DEMO_INTERPRETER = DEMO_ENV === 'true' || (DEMO_ENV === 'auto' && !process.env.AGENT_WEBHOOK_URL)
 
-const lower = (s) => String(s ?? '').toLocaleLowerCase('tr')
+export const lower = (s) => String(s ?? '').toLocaleLowerCase('tr')
 const STOP = new Set(['acil', 'ivedi', 'hemen', 'kritik', 'için', 'ile', 'olan', 'olarak', 'merhaba', 'rica', 'ederiz', 'ederim', 'teşekkürler', 'kontrol', 'edebilir',
   'misiniz', 'lütfen', 'yeni', 'talebi', 'talep', 'hakkında', 'gerekiyor', 'bugün', 'yarın', 'olarak', 'ekte', 'ektedir', 'bilgi',
   'ortamında', 'ortamı', 'sonra', 'sabah', 'gece', 'tekrar', 'yine', 'durum', 'planı', 'kaydı',
   'jira', 'kaydından', 'kartından', 'kartı', 'gelen', 'takıma', 'iletilen', 'detaylar', 'aşağıdadır', 'desteğinizi', 'konuyla', 'ilgili'])
 export const tokens = (s) => [...new Set(lower(s).replace(/[^a-zçğıöşü0-9 ]/g, ' ').split(/\s+/).filter((t) => t.length >= 4 && !STOP.has(t)))]
-const stem = (t) => t.slice(0, 5)   // Türkçe ekleri kabaca yutmak için ilk 5 harf
+export const stem = (t) => t.slice(0, 5)   // Türkçe ekleri kabaca yutmak için ilk 5 harf
 
 const db = (c) => c ?? { query }
 
@@ -401,6 +401,7 @@ export async function bulkSendMail(body, actor) {
     const item = await createWorkItem({
       title: String(m.subject).replace(/^(acil|ACİL)\s*:\s*/u, '').slice(0, 500), description: text.slice(0, 4000), source_type: 'mail', source_id: e.id,
       requester: e.from_name, requester_email: from, priority: imp === 'high' ? 'high' : 'normal', category: m.category ?? 'Talep',
+      tags: Array.isArray(m.tags) ? m.tags.map(String) : [],
     }, actor)
     out.work_items.push(runInterpret ? (await interpret(item.id)) ?? item : item)
   }

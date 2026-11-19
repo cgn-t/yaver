@@ -98,6 +98,14 @@ Uçtan uca test (sahte ajan ile): sunucuyu `AGENT_TOKEN`, `AGENT_WEBHOOK_URL=htt
 - **Tek kullanıcı görünümü:** `admin` / `admin` ile girilir ama uygulama **Mehmet Kaya** (`mehmet.kaya`) girmiş gibi davranır:
   Bana atananlar, yorumlar ve karşılama onun adına. Yetki admin kalır. Başka biri için `ADMIN_ACTS_AS=<kullanıcı>`, kapatmak için `ADMIN_ACTS_AS=""`.
 
+## Demo iş akışı ve Yaver AI sohbet (v0.9)
+
+- `POST /api/demo/run`: Jira, TFS, mail ve Zoom'dan gelmiş gibi 9 demo iş oluşturur, AI'a yorumlatıp DB'ye yazar; tekrar çağrılınca önceki demo işleri silinir.
+- `DEMO_RESET_ON_BOOT=true` ile her pod rollout'unda veri örnek hâline döner; `DEMO_AUTORUN=true` ile açılışta demo akışı kendiliğinden çalışır.
+- Sol alt köşedeki **Yaver AI** penceresi: geçmiş işler ve wiki bağlamıyla soru-cevap (`POST /api/ai/ask`), hazır demo soruları.
+
+Ayrıntı: [`docs/DEMO-AKISI.md`](docs/DEMO-AKISI.md)
+
 ## GenAI Studio Chat Block (v0.8)
 
 > Hangi ENV'ler yazılmalı: [`docs/GENAI-ENV.md`](docs/GENAI-ENV.md) · Secret şablonu: [`deploy/k8s/yaver-genai-secret.example.yaml`](deploy/k8s/yaver-genai-secret.example.yaml)

@@ -6,7 +6,8 @@ import { bootstrapAgentToken, login } from './auth.js'
 import { startPoller } from './poller.js'
 import { apiRouter, errorHandler } from './routes.js'
 import { loadDemoHistory } from './demo.js'
-import { startGenai } from './genai.js'
+import { agentActor, startGenai } from './genai.js'
+import { demoAutorun, demoOnBoot } from './demoflow.js'
 import { startDispatcher, startEventCleanup, startEventListener } from './events.js'
 
 const PORT = Number(process.env.PORT ?? 8080)
@@ -85,10 +86,14 @@ await waitForDb()
 startupError = 'tablolar hazırlanıyor'
 await migrateAndSeed({ seed: process.env.SEED !== 'false' })
 await bootstrapAgentToken()
-if (process.env.SEED !== 'false') await loadDemoHistory().catch((e) => console.error('[demo]', e))
+// DEMO_RESET_ON_BOOT=true: her açılışta (pod rollout) veri örnek hâline döner
+const resetDone = await demoOnBoot().catch((e) => { console.error('[demo] açılış sıfırlaması:', e); return false })
+if (!resetDone && process.env.SEED !== 'false') await loadDemoHistory().catch((e) => console.error('[demo]', e))
 await startEventListener()
 ready = true
 startPoller()
 startDispatcher()
 startEventCleanup()
 await startGenai()
+// DEMO_AUTORUN=true: açılıştan sonra demo akışı (Jira/Mail/Zoom → AI yorumu) bir kez çalışır
+demoAutorun(await agentActor().catch(() => null))
