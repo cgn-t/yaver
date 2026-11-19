@@ -1,5 +1,6 @@
 import { query, tx } from './db.js'
 import { emit } from './events.js'
+import { enrichItem } from './intel.js'
 
 /**
  * Sunucu tarafı periyodik API çağrı servisi.
@@ -28,7 +29,7 @@ function buildHeaders(cfg) {
 function extractRecords(json) {
   if (Array.isArray(json)) return json
   if (json && typeof json === 'object')
-    for (const k of ['items', 'data', 'records', 'results', 'value']) if (Array.isArray(json[k])) return json[k]
+    for (const k of ['items', 'data', 'records', 'results', 'value', 'issues', 'workItems']) if (Array.isArray(json[k])) return json[k]
   return []
 }
 
@@ -77,18 +78,27 @@ async function ingest(cfg, records) {
               [r.rows[0].id, str(p.name ?? p.user_name), str(p.email ?? p.user_email), !!p.attended])
         }
       } else {
-        if (!o.title) continue
+        // TFS (fields['System.Title']) ve Jira (fields.summary) yanıtları da doğrudan okunur
+        const f = o.fields && typeof o.fields === 'object' ? o.fields : {}
+        const title = o.title ?? f['System.Title'] ?? f.summary
+        if (!title) continue
+        const srcType = ['tfs', 'jira'].includes(cfg.target) ? cfg.target : 'api'
         const ext = str(o.code ?? o.key ?? o.id) || null
+        const extRef = ext && srcType === 'tfs' && /^\d+$/.test(ext) ? `TFS-${ext}` : ext
+        const requesterEmail = str(o.requester_email ?? f['System.CreatedBy']?.uniqueName ?? f.reporter?.emailAddress) || null
         const r = await c.query(
-          `INSERT INTO work_item (title, description, source_type, external_ref, priority, category, requester, due_date)
-           VALUES ($1,$2,'api',$3,$4,$5,$6,$7) ON CONFLICT (source_type, external_ref) WHERE external_ref IS NOT NULL DO NOTHING RETURNING id`,
-          [str(o.title), str(o.description), ext, oneOf(o.priority, ['low', 'normal', 'high', 'critical'], 'normal'),
-           str(o.category, 'Entegrasyon'), cfg.name, o.due_date ?? null])
+          `INSERT INTO work_item (title, description, source_type, external_ref, external_url, priority, category, requester, requester_email, due_date)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) ON CONFLICT (source_type, external_ref) WHERE external_ref IS NOT NULL DO NOTHING RETURNING id`,
+          [str(title), str(o.description ?? f['System.Description'] ?? f.description), srcType, extRef, str(o.url ?? o._links?.html?.href ?? o.self) || null,
+           oneOf(o.priority, ['low', 'normal', 'high', 'critical'], 'normal'),
+           str(o.category, srcType === 'tfs' ? 'Kanban' : srcType === 'jira' ? 'Jira' : 'Entegrasyon'),
+           str(o.requester ?? f['System.CreatedBy']?.displayName ?? f.reporter?.displayName, cfg.name), requesterEmail, o.due_date ?? null])
         if (r.rowCount) {
           n++
           await c.query(`INSERT INTO work_item_activity (work_item_id, action, comment) VALUES ($1, 'created', $2)`,
             [r.rows[0].id, `${cfg.name} servisinden alındı`])
-          await emit(c, 'work_item.created', 'work_item', r.rows[0].id, { title: str(o.title), source_type: 'api', external_ref: ext, source: cfg.name })
+          await enrichItem(c, r.rows[0].id)
+          await emit(c, 'work_item.created', 'work_item', r.rows[0].id, { title: str(title), source_type: srcType, external_ref: extRef, source: cfg.name })
         }
       }
     }

@@ -4,6 +4,7 @@ import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutlined'
 import ReportGmailerrorredIcon from '@mui/icons-material/ReportGmailerrorred'
 import TaskAltIcon from '@mui/icons-material/TaskAlt'
 import VideocamOutlinedIcon from '@mui/icons-material/VideocamOutlined'
+import ViewKanbanOutlinedIcon from '@mui/icons-material/ViewKanbanOutlined'
 import ForwardToInboxOutlinedIcon from '@mui/icons-material/ForwardToInboxOutlined'
 import { AvatarGroup, Box, Button, ButtonBase, Grid, Paper, ToggleButton, ToggleButtonGroup, Typography } from '@mui/material'
 import { alpha } from '@mui/material/styles'
@@ -13,8 +14,8 @@ import { SegmentBar, StackedBars } from '../components/Charts'
 import { Stagger, StaggerItem } from '../components/Motion'
 import PageHeader from '../components/PageHeader'
 import StatCard from '../components/StatCard'
-import { DueLabel, EmptyState, PriorityIcon, SOURCE_HEX, StatusIcon, UserAvatar, formatTime, timeAgo } from '../components/WorkKit'
-import { bulkSendMail, isOpen, isOverdue, rulesOf, SOURCE_LABEL, useDb } from '../data/store'
+import { DueLabel, EmptyState, PriorityIcon, SOURCE_HEX, SourceChip, StatusIcon, UserAvatar, formatTime, timeAgo } from '../components/WorkKit'
+import { bulkImportTickets, bulkSendMail, isOpen, isOverdue, rulesOf, SOURCE_LABEL, useDb } from '../data/store'
 import { AgeLabel, AgentSnippet, KeywordChips, MgmtChip } from '../components/AgentKit'
 import { GROUP_BY_LABEL, groupOf, groupsFor, type GroupBy } from '../data/groups'
 import type { SourceType } from '../data/types'
@@ -65,7 +66,7 @@ export default function Dashboard() {
     return {
       chart: days.map((d, i) => ({
         label: d.toLocaleDateString('tr-TR', { day: 'numeric' }), full: d.toLocaleDateString('tr-TR', { weekday: 'long', day: 'numeric', month: 'long' }),
-        values: (['mail', 'zoom', 'api', 'manual'] as SourceType[]).map((s) => created[i].filter((w) => w.source_type === s).length),
+        values: (['mail', 'zoom', 'tfs', 'jira', 'api', 'manual'] as SourceType[]).map((s) => created[i].filter((w) => w.source_type === s).length),
       })),
       openAt, closed, mails, overdueAt,
       closedWeek: sum(closed, 7, 14), closedPrev: sum(closed, 0, 7),
@@ -82,7 +83,7 @@ export default function Dashboard() {
   const load = db.general.team_members.map((u) => ({ u, n: open.filter((w) => w.assignee === u).length, late: open.filter((w) => w.assignee === u && isOverdue(w)).length }))
     .sort((a, b) => b.n - a.n)
   const maxLoad = Math.max(1, ...load.map((l) => l.n))
-  const series = (['mail', 'zoom', 'api', 'manual'] as SourceType[]).map((s) => ({ key: s, label: SOURCE_LABEL[s], color: SOURCE_HEX[s] }))
+  const series = (['mail', 'zoom', 'tfs', 'jira', 'api', 'manual'] as SourceType[]).map((s) => ({ key: s, label: SOURCE_LABEL[s], color: SOURCE_HEX[s] }))
   const dateStr = new Date().toLocaleDateString('tr-TR', { weekday: 'long', day: 'numeric', month: 'long' })
 
   return (
@@ -112,10 +113,14 @@ export default function Dashboard() {
         <Grid size={12}>
           <Card title="Gelen işler · ajan yorumu" pad={1.25}
                 action={<Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-                  <Typography variant="caption" color="text.secondary" sx={{ display: { xs: 'none', sm: 'block' } }}>Ajan; geçmiş işlere, wiki ve maillere bakarak yorumlar</Typography>
+                  <Typography variant="caption" color="text.secondary" sx={{ display: { xs: 'none', md: 'block' } }}>Mail, Zoom, TFS Kanban ve Jira'dan gelenler</Typography>
                   <Button size="small" variant="outlined" disabled={sending} startIcon={<ForwardToInboxOutlinedIcon sx={{ fontSize: '16px !important' }} />}
                           onClick={async () => { setSending(true); await bulkSendMail(5); setSending(false) }}>
                     {sending ? 'Gönderiliyor…' : 'Toplu mail gönder (5)'}
+                  </Button>
+                  <Button size="small" variant="outlined" disabled={sending} startIcon={<ViewKanbanOutlinedIcon sx={{ fontSize: '16px !important' }} />}
+                          onClick={async () => { setSending(true); await bulkImportTickets(4); setSending(false) }}>
+                    TFS / Jira al (4)
                   </Button>
                 </Box>}>
             {incoming.length === 0 && <EmptyState icon={<CheckCircleOutlineIcon />} title="Açık iş yok" />}
@@ -127,7 +132,8 @@ export default function Dashboard() {
                                     transition: 'background-color .12s ease', '&:hover': { bgcolor: 'action.hover' } }}>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap' }}>
                       <PriorityIcon priority={w.priority} />
-                      <Typography variant="caption" color="text.disabled" sx={{ fontWeight: 600 }}>{w.code}</Typography>
+                      <SourceChip source={w.source_type} iconOnly />
+                      <Typography variant="caption" color="text.disabled" sx={{ fontWeight: 600 }}>{w.external_ref ?? w.code}</Typography>
                       <MgmtChip item={w} />
                       <KeywordChips item={w} />
                       <Box sx={{ flexGrow: 1 }} />

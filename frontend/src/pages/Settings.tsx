@@ -222,6 +222,8 @@ function ApiServiceTab() {
                          onChange={(e) => setForm({ ...form, target: e.target.value as ApiServiceConfig['target'] })}>
                 <MenuItem value="mail">E-posta (email tablosu)</MenuItem>
                 <MenuItem value="zoom">Zoom toplantısı (meeting tablosu)</MenuItem>
+                <MenuItem value="tfs">TFS Kanban kartı → iş</MenuItem>
+                <MenuItem value="jira">Jira kaydı → iş</MenuItem>
                 <MenuItem value="generic">İş (work_item tablosu)</MenuItem>
               </TextField>
             </Grid>

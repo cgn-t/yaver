@@ -159,10 +159,10 @@ export async function bulkSendMail(count = 5): Promise<BulkResult | undefined> {
     return r
   }
   const SAMPLES: [string, string, string][] = [
-    ['Hakan Erdem', 'Bütçe raporunda toplamlar tutmuyor', 'Acil: yarınki toplantı için rapordaki toplamlar hatalı.'],
-    ['Selin Koç', 'Fatura servisi hata veriyor', 'Prod ortamında fatura servisi 500 hatası veriyor.'],
-    ['Elif Şahin', 'Yeni çalışan için VPN', 'Yeni başlayan arkadaş için VPN ve hesap açılması rica olunur.'],
-    ['Murat Aydın', 'Batch işi gecikti', 'Gece batch işi yine geç bitti.'],
+    ['Hakan Erdem', 'Ödeme kanalında MQ kuyrukları doluyor', 'Acil: PAYMENT.IN kuyruğu dolmuş, işlemler beklemede.'],
+    ['Selin Koç', 'OpenShift prod cluster upgrade planı', 'Upgrade için bakım penceresi ve geri dönüş planı rica ederim.'],
+    ['Murat Aydın', 'RHEL 7 sunucuların server upgrade takvimi', 'Destek süresi biten sunucular için OS upgrade takvimi.'],
+    ['Burak Çetin', 'Release pipeline failed', 'Mobil backend release pipeline build adımında failed oluyor.'],
   ]
   const made: WorkItem[] = []
   for (let i = 0; i < count; i++) {
@@ -171,6 +171,29 @@ export async function bulkSendMail(count = 5): Promise<BulkResult | undefined> {
                                     source_type: 'mail', requester: who }))
   }
   enqueueSnackbar(`${count} örnek mail eklendi (demo modu)`, { variant: 'success' })
+  return { count, interpreted: false, work_items: made }
+}
+
+/** TFS Kanban / Jira kalemlerini içe aktarır (örnek: count adet). */
+export async function bulkImportTickets(count = 4): Promise<BulkResult | undefined> {
+  if (backend === 'api') {
+    const r = await sync(() => apiFetch<BulkResult>('/bulk-import', { method: 'POST', body: { count } }))
+    if (r) enqueueSnackbar(`${r.count} TFS / Jira kalemi eklendi${r.interpreted ? ', ajan yorumları yazıldı' : ''}`, { variant: 'success' })
+    return r
+  }
+  const SAMPLES: [SourceType, string, string, string][] = [
+    ['tfs', 'Burak Çetin', 'Ödeme servisi deploy pipeline\'ı helm adımında failed', 'Kanban kartı: helm upgrade timeout.'],
+    ['jira', 'Deniz Arslan', 'MQ QMGR_PROD2 sertifika yenilemesi', 'TLS sertifikası 14 gün içinde bitiyor.'],
+    ['jira', 'Murat Aydın', 'Legacy FTP sunucusunun decom edilmesi', 'Decom öncesi bağımlılık analizi.'],
+    ['tfs', 'Gizem Yıldız', 'Ödeme platformu 3.8 release hazırlığı', 'Sprint release kartı, deploy penceresi talebi.'],
+  ]
+  const made: WorkItem[] = []
+  for (let i = 0; i < count; i++) {
+    const [src, who, title, desc] = SAMPLES[i % SAMPLES.length]
+    made.push(createWorkItemLocal({ title, description: desc, priority: 'normal', category: src === 'tfs' ? 'Kanban' : 'Jira', assignee: null, due_date: null,
+                                    source_type: src, requester: who }))
+  }
+  enqueueSnackbar(`${count} örnek TFS / Jira kalemi eklendi (demo modu)`, { variant: 'success' })
   return { count, interpreted: false, work_items: made }
 }
 
@@ -199,7 +222,7 @@ export const PRIORITY_LABEL: Record<Priority, string> = { low: 'Düşük', norma
 export const PRIORITY_COLOR: Record<Priority, string> = { low: '#9A9EA8', normal: '#2E90FA', high: '#F79009', critical: '#F04438' }
 export const STATUS_HEX: Record<WorkStatus, string> = { new: '#2E90FA', in_progress: '#5148E5', waiting: '#F79009', done: '#12B76A', cancelled: '#9A9EA8' }
 export const STATUS_ORDER: WorkStatus[] = ['new', 'in_progress', 'waiting', 'done', 'cancelled']
-export const SOURCE_LABEL: Record<SourceType, string> = { mail: 'E-posta', zoom: 'Zoom', manual: 'Manuel', api: 'API' }
+export const SOURCE_LABEL: Record<SourceType, string> = { mail: 'E-posta', zoom: 'Zoom', tfs: 'TFS Kanban', jira: 'Jira', manual: 'Manuel', api: 'API' }
 
 export const isOpen = (w: WorkItem) => w.status !== 'done' && w.status !== 'cancelled'
 export const isOverdue = (w: WorkItem) => isOpen(w) && !!w.due_date && w.due_date < new Date().toISOString().slice(0, 10)

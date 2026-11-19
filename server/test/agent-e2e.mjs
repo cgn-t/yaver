@@ -209,28 +209,30 @@ const oboPr = await call('PATCH', `/api/work-items/${created.json.id}`, { token:
 assert.equal(oboPr.status, 200); ok('kullanıcı adına token: on_behalf_of + chat_direct_apply')
 assert.equal((await call('GET', '/api/settings/agent', { token: obo })).status, 403)
 
-// ---------- v0.6: geçmiş bağlamı, ajan yorumu, toplu mail ----------
+// ---------- v0.6/v0.7: geçmiş bağlamı, ajan yorumu, toplu mail, TFS/Jira ----------
 const wiki = (await call('GET', '/api/wiki', { token: A })).json.pages
 assert.ok(wiki.length >= 10)
 assert.ok((await call('GET', `/api/wiki/${wiki[0].slug}`, { token: A })).json.body.length > 0); ok('wiki okuma')
-assert.ok((await call('GET', '/api/contacts', { token: A })).json.contacts.some((c) => c.mgmt_level === 'gm')); ok('kişi rehberi (unvan/seviye)')
+const contacts = (await call('GET', '/api/contacts', { token: A })).json.contacts
+assert.ok(['ust', 'birim', 'po'].every((l) => contacts.some((c) => c.mgmt_level === l))); ok('kişi rehberi: Üst Yönetim / Birim Yöneticisi / PO')
 const bulk = await call('POST', '/api/bulk-send-mail', { token: ADMIN, body: { mails: [
-  { from_address: 'hakan.erdem@firma.com', subject: 'ACİL: Bütçe raporunda toplamlar tutmuyor', body: 'Bugün içinde düzeltilmeli, rapordaki toplamlar hatalı.' },
-  { from_address: 'yeni.kisi@dis.com', from_name: 'Yeni Kişi', subject: 'Portala giriş yapamıyorum', body: 'Şifre sıfırlama çalışmıyor.' },
+  { from_address: 'hakan.erdem@firma.com', subject: 'ACİL: Ödeme kanalında MQ kuyrukları doluyor', body: 'PAYMENT.IN kuyruğu dolmuş, işlemler failed dönüyor.' },
+  { from_address: 'yeni.kisi@dis.com', from_name: 'Yeni Kişi', subject: 'Eski rapor sunucusunun decom edilmesi', body: 'Sunucu artık kullanılmıyor.' },
 ] } })
 assert.equal(bulk.status, 201)
 assert.equal(bulk.json.count, 2)
-const [gm, other] = bulk.json.work_items
-assert.equal(gm.mgmt_level, 'gm')
-assert.ok(gm.keywords.includes('acil') && gm.keywords.includes('rapor'))
+const [ust, other] = bulk.json.work_items
+assert.equal(ust.mgmt_level, 'ust')
+assert.ok(ust.keywords.includes('mq') && ust.keywords.includes('failed'), ust.keywords.join())
 assert.equal(other.mgmt_level, 'diger')
-assert.ok(other.keywords.includes('erisim')); ok('bulk-send-mail: mail + iş + üst yönetim + anahtar kelime')
-const ctx = (await call('GET', `/api/work-items/${gm.id}/context`, { token: A })).json
-assert.equal(ctx.contact.mgmt_level, 'gm')
+assert.ok(other.keywords.includes('decom')); ok('bulk-send-mail: mail + iş + talep eden seviyesi + konu')
+const ctx = (await call('GET', `/api/work-items/${ust.id}/context`, { token: A })).json
+assert.equal(ctx.contact.mgmt_level, 'ust')
 assert.ok(ctx.similar_items.length > 0 && ctx.wiki_pages.length > 0)
+assert.ok(ctx.wiki_pages.some((w) => w.slug.startsWith('mq-')))
 assert.ok(ctx.similar_items.some((s) => s.status === 'done' && s.resolved_in_days !== null)); ok('bağlam: benzer geçmiş işler + wiki')
-const intr = (await call('POST', `/api/work-items/${gm.id}/interpret`, { token: ADMIN })).json
-assert.match(intr.agent_comment, /Üst yönetim talebi/)
+const intr = (await call('POST', `/api/work-items/${ust.id}/interpret`, { token: ADMIN })).json
+assert.match(intr.agent_comment, /Üst Yönetim talebi/)
 assert.ok(intr.agent_sources.some((s) => s.type === 'wiki') && intr.agent_sources.some((s) => s.type === 'db'))
 assert.equal(intr.agent_suggestion.priority, 'critical'); ok('örnek yorumlayıcı: geçmişe dayalı yorum + kaynaklar')
 const ac = await call('PUT', `/api/work-items/${other.id}/agent-comment`, { token: A,
@@ -240,8 +242,25 @@ assert.equal(ac.json.agent_comment, 'LLM yorumu')
 assert.equal(ac.json.agent_comment_by, 'yaver-ajan'); ok('ajan yorumunu API ile yazar')
 const gen = await call('POST', '/api/bulk-send-mail', { token: A, body: { count: 3 } })
 assert.equal(gen.json.count, 3); ok('bulk-send-mail örnek üretim (ajan token\'ı ile)')
+const imp = await call('POST', '/api/bulk-import', { token: A, body: { items: [
+  { source_type: 'tfs', external_ref: 'TFS-99001', title: 'Release pipeline helm adımında failed', requester_email: 'burak.cetin@firma.com', url: 'https://tfs.example/99001' },
+  { source_type: 'jira', external_ref: 'OPS-9001', title: 'OpenShift prod cluster upgrade planı', requester_email: 'gizem.yildiz@firma.com' },
+] } })
+assert.equal(imp.status, 201, JSON.stringify(imp.json))
+const [tfs, jira] = imp.json.work_items
+assert.equal(tfs.source_type, 'tfs'); assert.equal(tfs.external_ref, 'TFS-99001'); assert.equal(tfs.mgmt_level, 'birim')
+assert.ok(tfs.keywords.includes('devops') && tfs.keywords.includes('failed'))
+assert.equal(jira.source_type, 'jira'); assert.equal(jira.mgmt_level, 'po'); assert.ok(jira.keywords.includes('openshift'))
+ok('bulk-import: TFS Kanban + Jira → iş, seviye (Birim / PO), konu')
+const imp2 = await call('POST', '/api/bulk-import', { token: A, body: { items: [{ source_type: 'tfs', external_ref: 'TFS-99001', title: 'tekrar' }] } })
+assert.equal(imp2.json.count, 0); assert.equal(imp2.json.skipped.length, 1); ok('bulk-import: aynı external_ref ikinci kez eklenmez')
+const dupPost = await call('POST', '/api/work-items', { token: ADMIN, body: { title: 'x', source_type: 'jira', external_ref: 'OPS-9001' } })
+assert.equal(dupPost.status, 409); ok('aynı Jira anahtarıyla POST → 409')
+const ti = (await call('POST', `/api/work-items/${tfs.id}/interpret`, { token: ADMIN })).json
+assert.match(ti.agent_comment, /TFS Kanban kaydı TFS-99001/); assert.match(ti.agent_comment, /Birim Yöneticisi talebi/); ok('TFS işine yorum: kaynak + seviye')
 const st = (await call('GET', '/api/state', { token: ADMIN })).json
-assert.ok(st.keywordRules.length >= 6 && st.items.some((w) => w.mgmt_level === 'gmy')); ok('/state: anahtar kelime kuralları + seviyeler')
+assert.ok(st.keywordRules.some((r) => r.key === 'openshift') && !st.keywordRules.some((r) => r.key === 'fatura'))
+assert.ok(st.items.some((w) => w.source_type === 'jira') && st.items.some((w) => w.mgmt_level === 'po')); ok('/state: IT konuları + kaynaklar + seviyeler')
 
 console.log(`\nTüm testler geçti (${n}).`)
 mock.close()

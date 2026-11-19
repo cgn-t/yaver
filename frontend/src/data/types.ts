@@ -1,7 +1,7 @@
 // Yaver veri modeli — önerilen DB şemasıyla (docs/DB-SEMA.md, db/schema-mssql.sql) birebir.
 // Alan adları DB kolon adlarıyla aynı tutuldu; backend geldiğinde API cevapları doğrudan bu tiplere oturur.
 
-export type SourceType = 'mail' | 'zoom' | 'manual' | 'api'
+export type SourceType = 'mail' | 'zoom' | 'tfs' | 'jira' | 'manual' | 'api'
 export type WorkStatus = 'new' | 'in_progress' | 'waiting' | 'done' | 'cancelled'
 export type Priority = 'low' | 'normal' | 'high' | 'critical'
 
@@ -13,6 +13,8 @@ export interface WorkItem {
   description: string
   source_type: SourceType
   source_id: number | null     // email.id veya meeting.id
+  external_ref?: string | null // TFS / Jira anahtarı (ör. TFS-48213, OPS-1123)
+  external_url?: string | null
   status: WorkStatus
   priority: Priority
   category: string
@@ -36,8 +38,8 @@ export interface WorkItem {
   agent_comment_at?: string | null
 }
 
-export type MgmtLevel = 'gm' | 'gmy' | 'direktor' | 'mudur' | 'diger'
-export interface AgentSource { type: 'db' | 'wiki' | 'mail' | 'meeting'; id: number; ref: string; title: string; url?: string }
+export type MgmtLevel = 'ust' | 'birim' | 'po' | 'diger'
+export interface AgentSource { type: 'db' | 'wiki' | 'mail' | 'meeting' | 'tfs' | 'jira'; id: number; ref: string; title: string; url?: string }
 export interface AgentSuggestion { priority?: Priority; assignee?: string | null; eta_days?: number; sla?: string | null }
 export interface KeywordRule { key: string; label: string; terms: string[]; color: string; sort_order: number }
 

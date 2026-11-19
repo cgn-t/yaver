@@ -135,7 +135,7 @@ export default function WorkItems() {
   return (
     <Box>
       <PageHeader title={VIEW_TITLE[view] ?? 'İşler'}
-                  subtitle={`${rows.filter(isOpen).length} açık · ${rows.filter((w) => !isOpen(w)).length} kapalı · mail, Zoom, API ve manuel kaynaklardan`}
+                  subtitle={`${rows.filter(isOpen).length} açık · ${rows.filter((w) => !isOpen(w)).length} kapalı · Mail, Zoom, TFS Kanban, Jira ve manuel kaynaklardan`}
                   actions={<>
                     <ToggleButtonGroup exclusive size="small" value={groupBy} onChange={(_, v) => v && setGroupSaved(v)} aria-label="Gruplama">
                       {(Object.keys(GROUP_BY_LABEL) as GroupBy[]).map((g) => <ToggleButton key={g} value={g}>{GROUP_BY_LABEL[g]}</ToggleButton>)}

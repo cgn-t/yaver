@@ -1,155 +1,206 @@
-import { query, tx } from './db.js'
+import { query, tx, resetDemoData } from './db.js'
 import { enrichItem, interpret } from './intel.js'
 
 /**
- * Örnek "geçmiş" verisi: kişi rehberi (unvanlar), wiki sayfaları ve son 60 günde kapanmış işler + mailleri.
- * Ajanın "geçmişe bakarak yorum" yapabilmesi için gerekir. SEED=true iken bir kez yüklenir
- * (app_setting demo/history_v1), "Demo verisini sıfırla" ile yeniden yüklenir.
+ * Örnek "geçmiş" verisi (IT operasyon ekibi): kişi rehberi (Üst Yönetim / Birim Yöneticisi / PO),
+ * wiki sayfaları (MQ, OpenShift, server upgrade, decom, pipeline, batch, change…) ve son 60 günde
+ * kapanmış işler (Mail, Zoom, TFS Kanban, Jira). Ajanın "geçmişe bakarak yorum" yapabilmesi için gerekir.
+ * SEED=true iken bir kez yüklenir (app_setting demo/history_v2), "Demo verisini sıfırla" ile yeniden yüklenir.
+ * v0.6'dan (history_v1) gelen kurulumda örnek veri bir kez sıfırlanıp bu veriyle değiştirilir (SEED_UPGRADE=false ile atlanır).
  */
+const VERSION_KEY = 'history_v2'
 
+// [e-posta, ad, unvan, birim, seviye: ust | birim | po | diger]
 const CONTACTS = [
-  ['hakan.erdem@firma.com', 'Hakan Erdem', 'Genel Müdür', 'Genel Müdürlük', 'gm'],
-  ['selin.koc@firma.com', 'Selin Koç', 'Genel Müdür Yardımcısı', 'Bilgi Teknolojileri', 'gmy'],
-  ['burak.cetin@firma.com', 'Burak Çetin', 'Genel Müdür Yardımcısı', 'Finans', 'gmy'],
-  ['deniz.arslan@firma.com', 'Deniz Arslan', 'Raporlama Direktörü', 'İş Zekâsı', 'direktor'],
-  ['murat.aydin@firma.com', 'Murat Aydın', 'Operasyon Direktörü', 'Operasyon', 'direktor'],
-  ['elif.sahin@firma.com', 'Elif Şahin', 'İK Müdürü', 'İnsan Kaynakları', 'mudur'],
-  ['gizem.yildiz@firma.com', 'Gizem Yıldız', 'Satış Müdürü', 'Satış', 'mudur'],
-  ['ayse.yilmaz@firma.com', 'Ayşe Yılmaz', 'Takım Lideri', 'Uygulama Destek', 'diger'],
-  ['mehmet.kaya@firma.com', 'Mehmet Kaya', 'Kıdemli Yazılım Uzmanı', 'Uygulama Destek', 'diger'],
-  ['zeynep.demir@firma.com', 'Zeynep Demir', 'Veritabanı Uzmanı', 'Uygulama Destek', 'diger'],
-  ['can.ozturk@firma.com', 'Can Öztürk', 'Yazılım Uzmanı', 'Uygulama Destek', 'diger'],
-  ['ece.tan@musteri.com', 'Ece Tan', 'Müşteri', 'Dış', 'diger'],
+  ['hakan.erdem@firma.com', 'Hakan Erdem', 'BT Genel Müdür Yardımcısı', 'Bilgi Teknolojileri', 'ust'],
+  ['selin.koc@firma.com', 'Selin Koç', 'Altyapı ve Operasyon Direktörü', 'Bilgi Teknolojileri', 'ust'],
+  ['murat.aydin@firma.com', 'Murat Aydın', 'Sistem Yönetimi Birim Müdürü', 'Sistem Yönetimi', 'birim'],
+  ['deniz.arslan@firma.com', 'Deniz Arslan', 'Middleware ve Entegrasyon Birim Müdürü', 'Middleware', 'birim'],
+  ['elif.sahin@firma.com', 'Elif Şahin', 'Servis Yönetimi Birim Müdürü', 'Servis Yönetimi', 'birim'],
+  ['burak.cetin@firma.com', 'Burak Çetin', 'Uygulama Geliştirme Birim Müdürü', 'Yazılım Geliştirme', 'birim'],
+  ['gizem.yildiz@firma.com', 'Gizem Yıldız', 'Product Owner — Ödeme Platformu', 'Ödeme Sistemleri', 'po'],
+  ['emre.kurt@firma.com', 'Emre Kurt', 'Product Owner — Mobil Kanal', 'Dijital Kanallar', 'po'],
+  ['ece.tan@firma.com', 'Ece Tan', 'Product Owner — Müşteri Portalı', 'Dijital Kanallar', 'po'],
+  ['ayse.yilmaz@firma.com', 'Ayşe Yılmaz', 'Takım Lideri — DevOps ve Operasyon', 'DevOps', 'diger'],
+  ['mehmet.kaya@firma.com', 'Mehmet Kaya', 'Middleware / MQ Uzmanı', 'DevOps', 'diger'],
+  ['zeynep.demir@firma.com', 'Zeynep Demir', 'Sistem ve OpenShift Uzmanı', 'DevOps', 'diger'],
+  ['can.ozturk@firma.com', 'Can Öztürk', 'DevOps Mühendisi (CI/CD)', 'DevOps', 'diger'],
+  ['noreply@monitor.firma.com', 'İzleme Sistemi', 'Otomatik alarm', 'İzleme', 'diger'],
 ]
+
+// v0.6 örnek wiki sayfaları (yükseltmede kaldırılır)
+const OLD_WIKI = ['prod-olay-yonetimi', 'rapor-performans', 'rapor-toplam-tutarsizligi', 'fatura-servisi-hata-kodlari', 'vpn-hesap-acma',
+  'sso-giris-sorunlari', 'batch-gecikme-runbook', 'kvkk-veri-talebi', 'lisans-sertifika-envanteri']
 
 const W = 'https://wiki.firma.local/display'
+// [slug, başlık, alan, etiketler, gövde]
 const WIKI = [
-  ['ust-yonetim-sla', 'Üst yönetim taleplerinde SLA', 'Süreç', ['üst-yönetim', 'sla', 'öncelik'],
-    'Genel Müdür ve GMY taleplerine 4 saat içinde ilk dönüş yapılır, iş en az Yüksek öncelikle açılır.\nDirektör taleplerinde ilk dönüş 1 iş günüdür.\nTalep eden üst yönetimse takım lideri (ayse.yilmaz) bilgilendirilir.'],
-  ['prod-olay-yonetimi', 'Prod olay yönetimi (P1/P2)', 'Operasyon', ['prod', 'kesinti', 'olay', 'p1'],
-    'Prod kesintisinde önce etki (kaç kullanıcı / hangi servis) belirlenir, #prod-olay kanalı açılır.\nP1: 30 dk içinde ilk durum notu, her saat güncelleme. Kök neden analizi 2 iş günü içinde wiki\'ye yazılır.'],
-  ['rapor-performans', 'Rapor performans kontrol listesi', 'Raporlama', ['rapor', 'performans', 'sorgu', 'yavaş', 'indeks'],
-    'Yavaş açılan raporlarda önce sorgu planına bakılır (EXPLAIN ANALYZE), eksik indeks en sık nedendir.\nAylık rapor tablosunda (fact_sales) tarih + bölge birleşik indeksi olmalıdır. Önbellek 15 dk.'],
-  ['rapor-toplam-tutarsizligi', 'Raporda toplam tutarsızlığı — bilinen nedenler', 'Raporlama', ['rapor', 'toplam', 'tutarsızlık', 'hatalı'],
-    'Toplamlar tutmuyorsa: 1) iade kayıtları negatif mi geliyor, 2) kur dönüşümü günü, 3) gece ETL yarım kalmış mı (batch logu).\nGeçmişte 3 vakanın 2\'si ETL\'in yarım kalmasından çıktı.'],
-  ['fatura-servisi-hata-kodlari', 'Fatura servisi hata kodları', 'Finans Sistemleri', ['fatura', 'ödeme', 'hata', '500'],
-    'FTR-500: e-fatura entegratörüne bağlantı yok (sertifika süresi?). FTR-409: aynı fatura numarası tekrar. FTR-503: kuyruk dolu, worker yeniden başlatılır.\nSorumlu ekip: Uygulama Destek, ikinci seviye: Finans Sistemleri.'],
-  ['vpn-hesap-acma', 'VPN ve uygulama hesabı açma süreci', 'BT Hizmetleri', ['vpn', 'erişim', 'yetki', 'hesap', 'işe başlama'],
-    'Yeni çalışan için İK\'dan gelen form yeterlidir. VPN grubu: VPN-Users. Uygulama rolleri yöneticinin onayıyla verilir.\nOrtalama süre: 1 iş günü.'],
-  ['sso-giris-sorunlari', 'SSO / portal giriş sorunları', 'BT Hizmetleri', ['sso', 'giriş', 'portal', 'şifre'],
-    'Kurumsal müşterilerde SSO hatası çoğunlukla IdP sertifikası yenilendiğinde metadata güncellenmediği için olur.\nKontrol: /saml/metadata tarihi, saat farkı (NTP).'],
-  ['batch-gecikme-runbook', 'Gece batch işi gecikme runbook', 'Operasyon', ['batch', 'gecikme', 'mutabakat', 'etl'],
-    'Mutabakat batch\'i 02:00\'de başlar. Gecikmede önce kilitli oturum (blocking) kontrol edilir, sonra yedekleme penceresiyle çakışma.\nKalıcı çözüm: yedekleme 04:00\'e alındı (YVR-0990).'],
-  ['kvkk-veri-talebi', 'KVKK veri sahibi başvuruları', 'Hukuk & Uyum', ['kvkk', 'uyum', 'veri silme', 'denetim'],
-    'Başvurular 30 gün içinde yanıtlanmalıdır. Talep Hukuk\'a iletilir, kimlik doğrulaması yapılmadan veri silinmez.\nTeknik ekip yalnız silme/anonimleştirme adımını uygular.'],
-  ['lisans-sertifika-envanteri', 'Lisans ve sertifika envanteri', 'BT Hizmetleri', ['lisans', 'sertifika', 'denetim', 'envanter'],
-    'Envanter tablosu her ay güncellenir. SSL sertifikaları bitişten 30 gün önce yenilenir. Denetim öncesi liste buradan alınır.'],
+  ['ust-yonetim-sla', 'Talep eden seviyesine göre SLA', 'Servis Yönetimi', ['üst-yönetim', 'sla', 'öncelik', 'po', 'birim'],
+    'Üst Yönetim (GMY, Direktör) taleplerine 4 saat içinde ilk dönüş yapılır, iş en az Yüksek öncelikle açılır ve takım lideri (ayse.yilmaz) bilgilendirilir.\nBirim yöneticisi taleplerinde ilk dönüş 1 iş günüdür. PO talepleri sprint önceliğine göre 2 iş günü içinde planlanır.'],
+  ['mq-kuyruk-dolulugu', 'MQ kuyruk doluluğu ve DLQ runbook', 'Middleware', ['mq', 'kuyruk', 'queue', 'dlq'],
+    'Kuyruk max depth\'e yaklaşınca önce consumer uygulamanın ayakta olduğu (OpenShift pod durumu) kontrol edilir; en sık neden consumer pod\'larının CrashLoop\'ta olmasıdır.\nGeçici çözüm: MAXDEPTH artırılır, DLQ handler çalıştırılır. Kalıcı çözüm için consumer ekibiyle incident açılır.'],
+  ['mq-channel-retry', 'MQ channel RETRY / STOPPED durumları', 'Middleware', ['mq', 'channel', 'sertifika', 'tls'],
+    'Channel RETRY\'da kalıyorsa sırasıyla: 1) TLS sertifika süresi, 2) karşı QMGR listener, 3) HBINT/KAINT ayarları.\nSertifika yenilemede REFRESH SECURITY TYPE(SSL) sonrası channel\'lar tek tek yeniden başlatılır; kesintisiz yapılabilir.'],
+  ['openshift-upgrade', 'OpenShift upgrade kontrol listesi', 'Platform', ['openshift', 'ocp', 'upgrade', 'cluster', 'worker node'],
+    'Upgrade öncesi: operator uyumluluk matrisi, etcd yedeği, PodDisruptionBudget kontrolü. Prod upgrade\'i test cluster provasından en az 1 hafta sonra yapılır.\nWorker drain uzun sürüyorsa PDB\'si minAvailable=replicas olan uygulamalar bulunur. Bakım penceresi CAB onayıyla Cumartesi 02:00.'],
+  ['server-upgrade-rhel', 'RHEL / Windows server upgrade süreci', 'Sistem Yönetimi', ['server', 'upgrade', 'rhel', 'yama', 'patch', 'windows server'],
+    'Destek süresi biten OS\'lar için server upgrade TFS Kanban\'da kart olarak izlenir. Sıra: snapshot → upgrade → uygulama sahibinin testi → CMDB güncelleme.\nRHEL 7→8 geçişinde Java 8 / Python 2 bağımlılıkları en sık engeldir; istisna için birim müdürü onayı gerekir.'],
+  ['decom-sureci', 'Sunucu / uygulama decom süreci', 'Sistem Yönetimi', ['decom', 'decommission', 'dns', 'yedek', 'cmdb'],
+    'Decom adımları: 90 günlük trafik/bağımlılık analizi → son yedek → 2 hafta kapalı bekletme → DNS, firewall ve CMDB temizliği → lisans iadesi.\nOrtalama süre 1-2 hafta; acil değildir, düşük öncelikle planlanır.'],
+  ['pipeline-failed', 'Pipeline failed — sık nedenler', 'DevOps', ['pipeline', 'failed', 'jenkins', 'helm', 'build', 'deploy'],
+    'Helm adımında timeout: readiness probe ve --wait süresi kontrol edilir. Build adımında failed: nexus erişimi ve bağımlılık sürümü.\nJenkins agent\'ları down ise önce agent diskleri (workspace) kontrol edilir.'],
+  ['batch-failed', 'Batch job FAILED runbook (EOD)', 'Operasyon', ['batch', 'failed', 'eod', 'ora-01555'],
+    'EOD_MUTABAKAT failed olursa job logundaki ORA kodu kontrol edilir. ORA-01555: undo retention / yedekleme penceresi çakışması.\nJob yeniden çalıştırılmadan önce yarım kalan kayıtlar temizlenir; sabah raporları için 07:00\'ye kadar bitmelidir.'],
+  ['change-cab', 'Change ve CAB süreci', 'Servis Yönetimi', ['change', 'cab', 'değişiklik', 'itsm'],
+    'Normal change\'ler Salı CAB toplantısında onaylanır; acil change için CAB üyelerinden ikisinin onayı yeterlidir.\nYıl sonu dondurma döneminde (15 Aralık – 5 Ocak) yalnız acil change yapılır.'],
+  ['release-yonetimi', 'Release ve deploy penceresi talepleri', 'Yazılım', ['release', 'deploy', 'versiyon', 'sprint', 'po'],
+    'PO, sprint sonu release için deploy penceresini TFS kartı ile en geç Perşembe ister. Prod deploy Salı ve Perşembe 22:00 pencerelerindedir.\nRelease öncesi: test onayı, release notu, geri dönüş planı.'],
+  ['incident-p1', 'Incident (P1/P2) yönetimi', 'Servis Yönetimi', ['incident', 'p1', 'olay', 'down'],
+    'P1: servis tamamen down ya da para hareketi etkileniyor. 15 dk içinde incident kaydı ve köprü toplantısı; her 30 dk durum notu.\nKök neden analizi 2 iş günü içinde problem kaydı olarak açılır.'],
 ]
 
-// [gün önce, çözüm süresi (gün), gönderen, konu, gövde, atanan, öncelik, kategori, çözüm notu]
+// Kapanmış geçmiş işler — [gün önce, çözüm süresi (gün), kaynak, dış ref, gönderen, konu, gövde, atanan, öncelik, kategori, çözüm notu]
 const HISTORY = [
-  [58, 1.5, 'deniz.arslan@firma.com', 'Aylık satış raporu çok yavaş açılıyor', 'Aylık satış raporu 40 sn\'de açılıyor, ekip kullanamıyor.', 'zeynep.demir', 'high', 'Olay',
-    'fact_sales tablosuna tarih+bölge indeksi eklendi, rapor 3 sn\'ye indi.'],
-  [51, 0.3, 'hakan.erdem@firma.com', 'ACİL: Yönetim sunumunda bölge toplamları hatalı', 'YK sunumundaki bölge toplamları ana tabloyla tutmuyor, bugün düzeltilmeli.', 'mehmet.kaya', 'critical', 'Olay',
-    'Gece ETL yarım kalmıştı, yeniden çalıştırıldı; toplamlar düzeldi. GM\'ye 3 saatte dönüldü.'],
-  [47, 2.0, 'selin.koc@firma.com', 'Fatura servisi prod\'da 500 hatası veriyor', 'e-fatura gönderimi duruyor, müşteriler fatura göremiyor.', 'mehmet.kaya', 'critical', 'Olay',
-    'FTR-500: entegratör sertifikası süresi dolmuş. Sertifika yenilendi, kuyruk boşaltıldı.'],
-  [44, 1.0, 'elif.sahin@firma.com', '3 yeni çalışan için VPN ve hesap açılması', 'Yeni başlayanlar için VPN ve uygulama hesabı rica ederiz.', 'can.ozturk', 'normal', 'Talep',
-    'VPN-Users grubuna eklendi, uygulama rolleri yönetici onayıyla verildi.'],
-  [40, 3.0, 'murat.aydin@firma.com', 'Mutabakat batch işi gecikiyor', 'Gece batch işi 3 gündür 2 saat geç bitiyor.', 'zeynep.demir', 'high', 'Olay',
-    'Yedekleme penceresiyle çakışıyordu; yedekleme 04:00\'e alındı.'],
-  [36, 0.5, 'burak.cetin@firma.com', 'Ödeme ekranı yavaşlığı — muhasebe kapanışı', 'Ödeme ekranı kapanış günü çok yavaş, acil bakılmalı.', 'mehmet.kaya', 'high', 'Olay',
-    'Ödeme servisinde bağlantı havuzu 20→60 yapıldı, yanıt süresi normale döndü.'],
-  [31, 4.0, 'deniz.arslan@firma.com', 'Kapasite raporuna disk trendi eklenmesi', 'Çeyrek kapasite raporuna disk büyüme trendi eklenebilir mi?', 'zeynep.demir', 'normal', 'Talep',
-    'Rapora sunucu bazında 90 günlük disk trendi grafiği eklendi.'],
-  [27, 1.0, 'gizem.yildiz@firma.com', 'Kurumsal müşteriler portala SSO ile giremiyor', 'Birkaç kurumsal müşteri SSO ile giriş yapamıyor.', 'can.ozturk', 'high', 'Olay',
-    'IdP sertifikası yenilenmiş, metadata güncellenmemişti. Metadata yenilendi.'],
-  [22, 6.0, 'ece.tan@musteri.com', 'KVKK veri silme başvurusu', 'Kişisel verilerimin silinmesini talep ediyorum.', 'ayse.yilmaz', 'normal', 'Talep',
-    'Hukuk onayı sonrası müşteri kaydı anonimleştirildi, başvuru sahibine 6. günde dönüldü.'],
-  [18, 2.0, 'selin.koc@firma.com', 'İç denetim için lisans listesi', 'Denetim öncesi yazılım lisansları ve bitiş tarihleri gerekiyor.', 'ayse.yilmaz', 'normal', 'Talep',
-    'Envanterden liste çıkarıldı, 2 lisansın yenilemesi başlatıldı.'],
-  [12, 0.8, 'hakan.erdem@firma.com', 'Yönetim panosuna tahsilat grafiği', 'Yönetim panosunda haftalık tahsilat trendini görmek istiyorum.', 'mehmet.kaya', 'high', 'Talep',
-    'Panoya haftalık tahsilat trendi eklendi, GM onayladı.'],
-  [8, 1.2, 'murat.aydin@firma.com', 'Sipariş API yanıt süresi yükseldi', 'Monitoring alarmı: sipariş API p95 2 sn.', 'zeynep.demir', 'high', 'Olay',
-    'Eksik indeks + N+1 sorgu düzeltildi, p95 300 ms.'],
+  [57, 1.0, 'mail', null, 'deniz.arslan@firma.com', 'MQ PAYMENT.IN kuyruğu doldu', 'Ödeme kanalında MQ kuyruğu max depth\'e ulaştı, işlemler beklemede.', 'mehmet.kaya', 'critical', 'Olay',
+    'Consumer uygulamanın 2 pod\'u CrashLoop\'taydı; yeniden başlatıldı, MAXDEPTH 50k yapıldı, DLQ boşaltıldı.'],
+  [50, 0.15, 'mail', null, 'hakan.erdem@firma.com', 'ACİL: Mobil kanalda transferler failed oluyor', 'Mobil kanalda para transferleri failed dönüyor, bugün içinde çözülmeli.', 'mehmet.kaya', 'critical', 'Olay',
+    'MQ channel TLS sertifikası süresi dolmuştu, yenilendi; channel RUNNING. GMY\'ye 3 saatte dönüldü.'],
+  [46, 6.0, 'jira', 'OPS-1012', 'selin.koc@firma.com', 'OpenShift test cluster 4.12 → 4.14 upgrade', 'Prod öncesi prova: test cluster upgrade\'i.', 'zeynep.demir', 'high', 'Planlama',
+    'Upgrade tamamlandı. Worker drain için PDB\'ler düzeltildi, Elastic operator uyumsuzluğu wiki\'ye yazıldı.'],
+  [42, 2.0, 'tfs', 'TFS-47102', 'burak.cetin@firma.com', 'Release pipeline helm adımında failed', 'Kanban: test ortamına deploy sırasında helm upgrade timeout.', 'can.ozturk', 'high', 'Kanban',
+    'Helm --wait 5→15 dk yapıldı, readiness probe düzeltildi; pipeline yeşil.'],
+  [38, 12.0, 'tfs', 'TFS-46988', 'murat.aydin@firma.com', 'RHEL 7 → 8 server upgrade (APPSRV01-06)', '6 uygulama sunucusunun OS upgrade\'i.', 'zeynep.demir', 'normal', 'Kanban',
+    '6 sunucu 3 bakım penceresinde yükseltildi; Java 8 bağımlılığı olan 1 uygulama için istisna açıldı.'],
+  [33, 3.0, 'mail', null, 'elif.sahin@firma.com', 'Firewall change\'i için CAB onayı', 'Gece yapılacak firewall değişikliği için change kaydı ve CAB onayı.', 'ayse.yilmaz', 'normal', 'Talep',
+    'CHG-2231 CAB\'den geçti, gece uygulandı, geri dönüş gerekmedi.'],
+  [29, 1.5, 'mail', null, 'noreply@monitor.firma.com', '[ALARM] Batch job FAILED — EOD_MUTABAKAT', 'EOD_MUTABAKAT job\'ı failed: ORA-01555 snapshot too old.', 'zeynep.demir', 'high', 'Olay',
+    'Undo retention artırıldı, job yeniden çalıştırıldı; yedekleme penceresi 04:00\'e kaydırıldı.'],
+  [25, 8.0, 'jira', 'OPS-1055', 'murat.aydin@firma.com', 'Eski log sunucularının decom edilmesi', 'LOGSRV01-03 artık kullanılmıyor, decom edilecek.', 'ayse.yilmaz', 'low', 'Planlama',
+    'Bağımlılık analizi yapıldı, son yedek alındı, DNS ve CMDB temizlendi, sunucular kapatıldı.'],
+  [20, 0.3, 'zoom', null, 'selin.koc@firma.com', 'Incident: Jenkins agent\'ları down', 'Haftalık operasyon toplantısında açılan incident: tüm build\'ler kuyrukta.', 'can.ozturk', 'critical', 'Olay',
+    'Agent diskleri dolmuştu; workspace temizliği cron\'a bağlandı, agent\'lar ayağa kalktı.'],
+  [16, 4.0, 'tfs', 'TFS-47560', 'gizem.yildiz@firma.com', 'Ödeme platformu 3.7 release ve prod deploy', 'Sprint 40 release kartı: deploy penceresi talebi.', 'can.ozturk', 'normal', 'Kanban',
+    'Release CAB\'den geçti, Salı 22:00 penceresinde deploy edildi; smoke test OK.'],
+  [12, 2.0, 'jira', 'OPS-1088', 'deniz.arslan@firma.com', 'MQ QMGR_PROD1 TLS sertifika yenilemesi', 'Sertifika bitişine 10 gün kaldı.', 'mehmet.kaya', 'high', 'Talep',
+    'Sertifika keystore\'a eklendi, channel\'lar REFRESH SECURITY ile sırayla yenilendi; kesinti olmadı.'],
+  [8, 1.0, 'mail', null, 'emre.kurt@firma.com', 'Mobil uygulamada login bug\'ı (Android)', 'Yeni versiyonda Android kullanıcılar login olamıyor.', 'can.ozturk', 'high', 'Olay',
+    'Token yenileme bug\'ı hotfix release ile giderildi (v5.2.1).'],
+  [5, 0.2, 'mail', null, 'hakan.erdem@firma.com', 'OpenShift prod\'da ödeme pod\'ları CrashLoop', 'Ödeme servisi prod\'da çalışmıyor, pod\'lar sürekli yeniden başlıyor.', 'zeynep.demir', 'critical', 'Olay',
+    'Worker node\'da memory pressure vardı; limitler artırıldı, pod\'lar başka node\'a taşındı.'],
+  [3, 2.0, 'jira', 'ITSM-3290', 'elif.sahin@firma.com', 'Problem kaydı: tekrarlayan MQ channel kesintileri', 'Son ay 3 kez yaşanan channel kesintileri için problem kaydı.', 'mehmet.kaya', 'normal', 'Talep',
+    'Kök neden heartbeat ayarı; HBINT 300→60 yapıldı, problem kapatıldı.'],
 ]
 
-// Şu an açık, üst yönetimden gelen birkaç iş (pano dolu görünsün)
-// [saat önce, gönderen, konu, gövde, öncelik]
+// Şu an açık işler — [saat önce, kaynak, dış ref, gönderen, konu, gövde, öncelik]
 const OPEN_NOW = [
-  [3, 'hakan.erdem@firma.com', 'ACİL: Bütçe raporunda toplamlar tutmuyor', 'Yarın sabahki bütçe toplantısı için rapordaki toplamlar hatalı görünüyor, bugün içinde düzeltilmesi gerekiyor.', 'high'],
-  [26, 'burak.cetin@firma.com', 'Fatura gönderiminde gecikme', 'Dünden beri e-fatura gönderimleri 1-2 saat gecikmeli gidiyor, kontrol rica ederim.', 'high'],
-  [50, 'selin.koc@firma.com', 'Sertifika bitiş tarihleri — denetim', 'Önümüzdeki ay biten SSL sertifikalarının listesini paylaşır mısınız? Denetim sorusu.', 'normal'],
-  [80, 'deniz.arslan@firma.com', 'Rapor ekranı yine yavaş', 'Satış raporu bu hafta tekrar yavaşladı, 30 sn üzerinde açılıyor.', 'normal'],
-  [130, 'murat.aydin@firma.com', 'Batch işi bu gece de gecikti', 'Mutabakat batch\'i yine geç bitti, sabah raporları eksik.', 'normal'],
+  [2, 'mail', null, 'hakan.erdem@firma.com', 'ACİL: Ödeme kanalında MQ kuyrukları doluyor',
+    'Ödeme kanalında işlemler beklemede kalıyor; MQ tarafında PAYMENT.IN kuyruğunun dolduğu söyleniyor. Bugün içinde durum ve kök neden rica ediyorum.', 'high'],
+  [5, 'jira', 'OPS-1131', 'selin.koc@firma.com', 'OpenShift prod cluster upgrade — worker node drain sorunu',
+    'Upgrade provasında worker node drain 40 dk sürdü; prod upgrade öncesi PDB ayarları gözden geçirilmeli.', 'high'],
+  [20, 'tfs', 'TFS-48213', 'burak.cetin@firma.com', 'Ödeme servisi deploy pipeline\'ı helm adımında failed',
+    'Kanban kartı: Dev → Test geçişinde helm upgrade timeout veriyor, sprint sonu release riskte.', 'high'],
+  [30, 'mail', null, 'murat.aydin@firma.com', 'RHEL 7 sunucuların server upgrade takvimi',
+    'Destek süresi biten RHEL 7 sunucular için OS upgrade takvimini birim bazında çıkaralım.', 'normal'],
+  [52, 'tfs', 'TFS-48230', 'gizem.yildiz@firma.com', 'Ödeme platformu 3.8 release hazırlığı',
+    'Sprint 42 release kartı: release notları hazır, prod deploy penceresi talep ediyorum.', 'normal'],
+  [75, 'zoom', null, 'elif.sahin@firma.com', 'Yıl sonu dondurma öncesi change takvimi',
+    'Servis yönetimi toplantısı aksiyonu: freeze öncesi yapılması gereken change kayıtları ve CAB tarihleri.', 'normal'],
+  [100, 'jira', 'OPS-1140', 'murat.aydin@firma.com', 'Legacy FTP sunucusunun decom edilmesi',
+    'Son 90 günde trafik yok; decom öncesi bağımlılık analizi yapılmalı.', 'low'],
+  [170, 'mail', null, 'emre.kurt@firma.com', 'Mobil backend yeni versiyon için test ortamı',
+    'Yeni API versiyonunun test ortamına deploy edilmesi gerekiyor, backlog önceliği yüksek.', 'normal'],
+  [200, 'mail', null, 'noreply@monitor.firma.com', '[ALARM] Batch job FAILED — EOD_MUTABAKAT',
+    'EOD_MUTABAKAT job\'ı 02:14\'te failed durumuna düştü. Hata: ORA-01555 snapshot too old.', 'high'],
 ]
 
 const uid = async (c, username) => (await c.query('SELECT id FROM app_user WHERE username = $1', [username])).rows[0]?.id ?? null
+const SRC_TEXT = { mail: 'Mailden oluşturuldu', zoom: 'Toplantıdan oluşturuldu', tfs: 'TFS Kanban kartından oluşturuldu', jira: 'Jira kaydından oluşturuldu' }
+const extUrl = (src, ref) => (src === 'tfs' ? `https://tfs.firma.local/tfs/DefaultCollection/_workitems/edit/${ref.replace(/^TFS-/, '')}`
+  : src === 'jira' ? `https://jira.firma.local/browse/${ref}` : null)
+
+/** Kaynağa göre (mail → email satırı; tfs/jira → external_ref) bir iş ekler. `at` = SQL zaman ifadesi parametresi. */
+async function insertItem(c, k, contacts, { src, ref, from, subject, body, priority, status, category, assignee, agoSql, agoVal, closeSecs }) {
+  const mailbox = 'takim@firma.com'
+  let emailId = null
+  if (src === 'mail') {
+    const e = (await c.query(
+      `INSERT INTO email (message_id, thread_id, mailbox, from_address, from_name, to_addresses, subject, body_preview, body_text, importance,
+                          received_at, is_read, triage_status)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8::text, $8::text, $9, now() - ${agoSql.replace('$13', '$10')}, $11, $12) ON CONFLICT (message_id) DO NOTHING RETURNING id`,
+      [`<demo-${k}@firma.com>`, `demo-${k}`, mailbox, from, contacts[from] ?? from, JSON.stringify([mailbox]), subject, body,
+       priority === 'critical' || priority === 'high' ? 'high' : priority === 'low' ? 'low' : 'normal', agoVal, status === 'done', status === 'done' ? 'done' : 'pending'])).rows[0]
+    if (!e) return null
+    emailId = e.id
+  }
+  const closed = status === 'done'
+  const w = (await c.query(
+    `INSERT INTO work_item (title, description, source_type, source_id, external_ref, external_url, status, priority, category, assignee_id,
+                            requester, requester_email, created_at, updated_at, closed_at)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, now() - ${agoSql},
+             now() - ${agoSql} + make_interval(secs => $14), ${closed ? `now() - ${agoSql} + make_interval(secs => $14)` : 'NULL'})
+     ON CONFLICT DO NOTHING RETURNING id`,
+    [subject.replace(/^ACİL:\s*/u, ''), body, src, emailId, ref, ref ? extUrl(src, ref) : null, status, priority, category,
+     await uid(c, assignee), contacts[from] ?? from, from, agoVal, closeSecs ?? 0])).rows[0]
+  if (!w) return null
+  if (emailId) await c.query('UPDATE email SET work_item_id = $1 WHERE id = $2', [w.id, emailId])
+  await c.query(`INSERT INTO work_item_activity (work_item_id, action, comment, created_at) VALUES ($1, 'created', $2, now() - ${agoSql.replace('$13', '$3')})`,
+    [w.id, SRC_TEXT[src] ?? 'Kayıt oluşturuldu', agoVal])
+  return w.id
+}
 
 export async function loadDemoHistory({ force = false } = {}) {
-  const done = (await query(`SELECT value FROM app_setting WHERE category = 'demo' AND key = 'history_v1'`)).rows[0]
-  if (done && !force) return false
+  const has = async (key) => !!(await query(`SELECT 1 FROM app_setting WHERE category = 'demo' AND key = $1`, [key])).rows[0]
+  if (!force && await has(VERSION_KEY)) return false
+  if (!force && await has('history_v1')) {
+    // 0.6 → 0.7: örnek veri IT operasyon konularına göre yenilenir
+    if (process.env.SEED_UPGRADE === 'false') {
+      await query(`INSERT INTO app_setting (category, key, value) VALUES ('demo', $1, 'skipped') ON CONFLICT (category, key) DO NOTHING`, [VERSION_KEY])
+      return false
+    }
+    console.log('[demo] 0.6 örnek verisi bulundu; IT operasyon örnek verisiyle yenileniyor (SEED_UPGRADE=false ile atlanır)')
+    await resetDemoData()
+  }
+  await query(`DELETE FROM wiki_page WHERE slug = ANY($1)`, [OLD_WIKI])
+  await query(`DELETE FROM contact WHERE email = 'ece.tan@musteri.com'`)
   await tx(async (c) => {
     for (const [email, name, title, dept, lvl] of CONTACTS) {
-      await c.query(`INSERT INTO contact (email, full_name, title, department, mgmt_level) VALUES ($1,$2,$3,$4,$5) ON CONFLICT (email) DO NOTHING`,
-        [email, name, title, dept, lvl])
+      await c.query(`INSERT INTO contact (email, full_name, title, department, mgmt_level) VALUES ($1,$2,$3,$4,$5)
+                     ON CONFLICT (email) DO UPDATE SET full_name = EXCLUDED.full_name, title = EXCLUDED.title,
+                       department = EXCLUDED.department, mgmt_level = EXCLUDED.mgmt_level`, [email, name, title, dept, lvl])
     }
-    for (const [slug, title, space, tags, body] of WIKI) {
+    for (const [i, [slug, title, space, tags, body]] of WIKI.entries()) {
       await c.query(`INSERT INTO wiki_page (slug, title, space, tags, body, url, updated_by, updated_at)
-                     VALUES ($1,$2,$3,$4,$5,$6,'ayse.yilmaz', now() - make_interval(days => $7)) ON CONFLICT (slug) DO NOTHING`,
-        [slug, title, space, tags, body, `${W}/${encodeURIComponent(space)}/${slug}`, (slug.length % 20) + 3])
+                     VALUES ($1,$2,$3,$4,$5,$6,'ayse.yilmaz', now() - make_interval(days => $7))
+                     ON CONFLICT (slug) DO UPDATE SET title = EXCLUDED.title, space = EXCLUDED.space, tags = EXCLUDED.tags, body = EXCLUDED.body,
+                       url = EXCLUDED.url, updated_at = EXCLUDED.updated_at`,
+        [slug, title, space, tags, body, `${W}/${encodeURIComponent(space)}/${slug}`, 3 + i * 4])
     }
     const contacts = Object.fromEntries((await c.query('SELECT email, full_name FROM contact')).rows.map((r) => [r.email, r.full_name]))
-    const mailbox = 'takim@firma.com'
     let k = 0
-    for (const [ago, dur, from, subject, body, assignee, priority, category, note] of HISTORY) {
+    for (const [ago, dur, src, ref, from, subject, body, assignee, priority, category, note] of HISTORY) {
       k++
-      const e = (await c.query(
-        `INSERT INTO email (message_id, thread_id, mailbox, from_address, from_name, to_addresses, subject, body_preview, body_text, importance,
-                            received_at, is_read, triage_status)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8::text, $8::text, $9, now() - make_interval(days => $10), TRUE, 'done')
-         ON CONFLICT (message_id) DO NOTHING RETURNING id`,
-        [`<hist-${k}@firma.com>`, `hist-${k}`, mailbox, from, contacts[from] ?? from, JSON.stringify([mailbox]), subject, body,
-         priority === 'critical' || priority === 'high' ? 'high' : 'normal', ago])).rows[0]
-      if (!e) continue
+      const id = await insertItem(c, `hist-${k}`, contacts, { src, ref, from, subject, body, priority, status: 'done', category, assignee,
+        agoSql: 'make_interval(days => $13)', agoVal: ago, closeSecs: Math.round(dur * 86400) })
+      if (!id) continue
       const a = await uid(c, assignee)
-      const w = (await c.query(
-        `INSERT INTO work_item (title, description, source_type, source_id, status, priority, category, assignee_id, requester, requester_email,
-                                created_at, updated_at, closed_at)
-         VALUES ($1, $2, 'mail', $3, 'done', $4, $5, $6, $7, $8, now() - make_interval(days => $9),
-                 now() - make_interval(days => $9) + make_interval(secs => $10), now() - make_interval(days => $9) + make_interval(secs => $10))
-         RETURNING id`,
-        [subject.replace(/^ACİL:\s*/u, ''), body, e.id, priority, category, a, contacts[from] ?? from, from, ago, Math.round(dur * 86400)])).rows[0]
-      await c.query('UPDATE email SET work_item_id = $1 WHERE id = $2', [w.id, e.id])
-      const at = (frac) => [w.id, ago, Math.round(dur * 86400 * frac)]
-      await c.query(`INSERT INTO work_item_activity (work_item_id, action, comment, created_at) VALUES ($1, 'created', 'Mailden oluşturuldu', now() - make_interval(days => $2) + make_interval(secs => $3))`, at(0))
+      const at = (frac) => `now() - make_interval(days => $2) + make_interval(secs => ${Math.round(dur * 86400 * frac)})`
       await c.query(`INSERT INTO work_item_activity (work_item_id, actor_id, action, new_value, comment, created_at)
-                     VALUES ($1, $4, 'assign', $5, $6, now() - make_interval(days => $2) + make_interval(secs => $3))`, [...at(0.05), a, assignee, `Atanan: ${assignee}`])
-      await c.query(`INSERT INTO work_item_activity (work_item_id, actor_id, action, comment, created_at)
-                     VALUES ($1, $4, 'comment', $5, now() - make_interval(days => $2) + make_interval(secs => $3))`, [...at(0.95), a, note])
+                     VALUES ($1, $3, 'assign', $4, $5, ${at(0.05)})`, [id, ago, a, assignee, `Atanan: ${assignee}`])
+      await c.query(`INSERT INTO work_item_activity (work_item_id, actor_id, action, comment, created_at) VALUES ($1, $3, 'comment', $4, ${at(0.95)})`, [id, ago, a, note])
       await c.query(`INSERT INTO work_item_activity (work_item_id, actor_id, action, old_value, new_value, comment, created_at)
-                     VALUES ($1, $4, 'status', 'in_progress', 'done', 'Durum: Devam Ediyor → Tamamlandı', now() - make_interval(days => $2) + make_interval(secs => $3))`, [...at(1), a])
+                     VALUES ($1, $3, 'status', 'in_progress', 'done', 'Durum: Devam Ediyor → Tamamlandı', ${at(1)})`, [id, ago, a])
     }
-    for (const [hours, from, subject, body, imp] of OPEN_NOW) {
+    for (const [hours, src, ref, from, subject, body, priority] of OPEN_NOW) {
       k++
-      const e = (await c.query(
-        `INSERT INTO email (message_id, thread_id, mailbox, from_address, from_name, to_addresses, subject, body_preview, body_text, importance, received_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8::text, $8::text, $9, now() - make_interval(hours => $10)) ON CONFLICT (message_id) DO NOTHING RETURNING id`,
-        [`<open-${k}@firma.com>`, `open-${k}`, mailbox, from, contacts[from] ?? from, JSON.stringify([mailbox]), subject, body, imp, hours])).rows[0]
-      if (!e) continue
-      const w = (await c.query(
-        `INSERT INTO work_item (title, description, source_type, source_id, status, priority, category, requester, requester_email, created_at, updated_at)
-         VALUES ($1, $2, 'mail', $3, 'new', $4, 'Talep', $5, $6, now() - make_interval(hours => $7), now() - make_interval(hours => $7)) RETURNING id`,
-        [subject.replace(/^ACİL:\s*/u, ''), body, e.id, imp === 'high' ? 'high' : 'normal', contacts[from] ?? from, from, hours])).rows[0]
-      await c.query('UPDATE email SET work_item_id = $1 WHERE id = $2', [w.id, e.id])
-      await c.query(`INSERT INTO work_item_activity (work_item_id, action, comment, created_at) VALUES ($1, 'created', 'Mailden oluşturuldu', now() - make_interval(hours => $2))`, [w.id, hours])
+      await insertItem(c, `open-${k}`, contacts, { src, ref, from, subject, body, priority, status: 'new',
+        category: src === 'tfs' ? 'Kanban' : src === 'jira' ? 'Jira' : 'Talep', assignee: null, agoSql: 'make_interval(hours => $13)', agoVal: hours })
     }
     // Örnek veride sabit id ile eklenen kayıtlar sequence'i ilerletmiş olabilir
     await c.query(`SELECT setval(pg_get_serial_sequence('work_item','id'), (SELECT max(id) FROM work_item))`)
     await c.query(`SELECT setval(pg_get_serial_sequence('email','id'), (SELECT max(id) FROM email))`)
     for (const r of (await c.query('SELECT id FROM work_item')).rows) await enrichItem(c, r.id)
-    await c.query(`INSERT INTO app_setting (category, key, value) VALUES ('demo', 'history_v1', now()::text)
-                   ON CONFLICT (category, key) DO UPDATE SET value = EXCLUDED.value`)
+    await c.query(`INSERT INTO app_setting (category, key, value) VALUES ('demo', $1, now()::text)
+                   ON CONFLICT (category, key) DO UPDATE SET value = EXCLUDED.value`, [VERSION_KEY])
   })
   // Açık işler için örnek ajan yorumu
   const open = (await query(`SELECT id FROM work_item WHERE status NOT IN ('done','cancelled') ORDER BY id`)).rows

@@ -1,6 +1,6 @@
 # Yaver × LangGraph — Ajan Akışı Rehberi ve API Referansı
 
-> Sürüm **0.6.0**. MCP yok: ajan Yaver'e yalnız **HTTP (REST + SSE)** ile bağlanır.
+> Sürüm **0.7.0**. MCP yok: ajan Yaver'e yalnız **HTTP (REST + SSE)** ile bağlanır.
 > Bu doküman iki parçadır: **(A)** LangGraph akışını nasıl kurmalısın, **(B)** bütün uçların referansı.
 > Uçtan uca test: `server/test/agent-e2e.mjs` (sahte bir ajanla tüm akışı dener, CI'da her push'ta çalışır).
 
@@ -505,9 +505,10 @@ Bakılacak kaynaklar Yaver'de tek pakette hazır: **`GET /api/work-items/{id}/co
 | **DB** | `similar_items` — benzer eski işler (anahtar kelime + kelime örtüşmesi), kim çözdü, kaç günde, son not | "Bunu daha önce kim, nasıl çözdü?" |
 | **Wiki** | `wiki_pages` — ilgili runbook / süreç sayfaları (başlık, alan, özet, url) | "Bilinen nedenler, prosedür, SLA" |
 | **Mail** | `sender_mails` — göndericinin son 120 gündeki mailleri ve hangilerinin işe dönüştüğü | "Bu kişi bu konuyu daha önce sordu mu?" |
-| Kişi | `contact` — unvan, departman, **üst yönetim seviyesi** (gm / gmy / direktor / mudur / diger) | öncelik ve SLA |
+| Kişi | `contact` — unvan, departman, **seviye** (`ust` Üst Yönetim / `birim` Birim Yöneticisi / `po` PO / `diger`) | öncelik ve ilk dönüş süresi |
 | Ekip | `team_load` — kişi başı açık iş | atama önerisi |
 | Mail | `mail` — işin kaynağı olan mail (tam gövde) | |
+| TFS / Jira | `external` — `{system, ref, url}` (ör. `TFS Kanban`, `TFS-48213`) | kaydın kendisine bağlantı |
 
 Yorumu geri yazmak: **`PUT /api/work-items/{id}/agent-comment`**
 
@@ -543,12 +544,17 @@ async def interpret(s: S):
 Triyaj grafiğinde (A4) `create_item`/`link_existing` ile `suggest` arasına koy.
 
 **Pod içindeki örnek yorumlayıcı.** LLM bağlı değilken panonun boş kalmaması için Yaver aynı paketten kural tabanlı bir yorum üretir
-(`agent_comment_by = "yaver-ajan (örnek)"`). Açılışta örnek veri için, `POST /api/bulk-send-mail` ile gelen her iş için ve arayüzden açılan işler için çalışır.
+(`agent_comment_by = "yaver-ajan (örnek)"`). Açılışta örnek veri için, `POST /api/bulk-send-mail` ile gelen her iş için `POST /api/bulk-import` ile gelen TFS / Jira kalemleri ve arayüzden açılan işler için çalışır.
 `AGENT_DEMO_INTERPRETER=false` ile kapatılır; varsayılan `auto` = `AGENT_WEBHOOK_URL` verilmişse kapalı. Gerçek ajanın yazdığı yorum her zaman bunun yerine geçer.
 
+**İş kaynakları.** Mail, Zoom, **TFS Kanban** ve **Jira** (+ manuel, API). TFS/Jira kalemi `source_type = tfs | jira`, `external_ref`
+(TFS-48213, OPS-1123) ve `external_url` ile tutulur; aynı anahtar ikinci kez eklenmez. Toplu giriş `POST /api/bulk-import`,
+periyodik çekme için Ayarlar > API servisinde hedef "TFS" / "Jira" (TFS `fields['System.Title']` ve Jira `fields.summary` yanıtları doğrudan okunur).
+
 **Pano gruplaması.** İşler durum yerine üç eksende gruplanır:
-**Üst Yönetim** (talep edenin `contact.mgmt_level`'i: Genel Müdür / GMY / Direktör / Diğer),
-**Anahtar kelime** (`keyword_rule` — mail konusu ve gövdesinde aranan kelimeler; ilk eşleşen kural grubu belirler) ve
+**Talep eden** (`contact.mgmt_level`: Üst Yönetim / Birim Yöneticisi / PO / Diğer — ilk dönüş 4 saat / 1 iş günü / 2 iş günü),
+**Konu** (`keyword_rule` — başlık, açıklama ve mailde aranan kelimeler; ilk eşleşen kural grubu belirler. Varsayılan konular:
+MQ, OpenShift Upgrade, Server Upgrade, Decom, DevOps, Failed hataları, Servis Yönetimi, Yazılım) ve
 **Süre** (açılıştan bu yana: son 24 saat / 1–3 gün / 3–7 gün / 7+ gün). Kişi ve kural değişince (`PUT /api/contacts`, `PUT /api/settings/keywords`) işler yeniden sınıflanır.
 
 ---
@@ -678,7 +684,7 @@ Sütunlar: **Kim** = `K` kullanıcı oturumu, `A` ajan token'ı (kapsam), `Y` ya
 |---|---|---|---|
 | GET | `/api/work-items` | K, A `items:read` | liste. Sorgu: `status` (virgüllü), `priority`, `source_type`, `assignee` (`none` = atanmamış), `category`, `tag`, `q` (başlık/açıklama/kod), `open=true`, `updated_since`, `created_since`, `due_before`, `sort` (`created`\|`updated`\|`due`\|`priority`), `limit` (≤200), `offset` → `{items, total, next_offset}` |
 | GET | `/api/work-items/{id}` | K, A `items:read` | iş + `activities` (actor, on_behalf_of, agent_run_id) + bağlı `emails`, `meetings` + `agent_actions`. `ETag: "<version>"` |
-| POST | `/api/work-items` | K, A `items:write` + politika `create` | `{title*, description, priority, category, assignee, requester, due_date, tags[], source_type, source_id}` → 201 iş. `source_type=mail` + `source_id` maili işe bağlar |
+| POST | `/api/work-items` | K, A `items:write` + politika `create` | `{title*, description, priority, category, assignee, requester, due_date, tags[], source_type, source_id, external_ref, external_url}` → 201 iş. `source_type=mail` + `source_id` maili işe bağlar |
 | PATCH | `/api/work-items/{id}` | K, A `items:write` + politika | `{title, description, status, priority, assignee, category, requester, due_date, tags[]}`; `If-Match` destekli → iş |
 | POST | `/api/work-items/{id}/comments` | K, A `items:write` | `{text}` → 201 `{ok, id, action: comment\|agent_note, created_at}` |
 | POST | `/api/work-items/{id}/links` | K, A `items:write` + politika `link` | `{email_id}` ve/veya `{meeting_id}` → 201 |
@@ -691,7 +697,7 @@ Sütunlar: **Kim** = `K` kullanıcı oturumu, `A` ajan token'ı (kapsam), `Y` ya
   "due_date": "2026-11-20", "tags": ["ajan"], "created_at": "…", "updated_at": "…", "closed_at": null, "version": 4 }
 ```
 
-`status`: `new | in_progress | waiting | done | cancelled` · `priority`: `low | normal | high | critical` · `source_type`: `mail | zoom | manual | api`
+`status`: `new | in_progress | waiting | done | cancelled` · `priority`: `low | normal | high | critical` · `source_type`: `mail | zoom | tfs | jira | manual | api`
 
 ### Geçmiş bağlamı, ajan yorumu, toplu mail (v0.6)
 
@@ -701,6 +707,7 @@ Sütunlar: **Kim** = `K` kullanıcı oturumu, `A` ajan token'ı (kapsam), `Y` ya
 | PUT | `/api/work-items/{id}/agent-comment` | K, A `items:write` | `{comment*, sources[], confidence, suggestion{priority, assignee, eta_days, sla}}` → iş |
 | POST | `/api/work-items/{id}/interpret` | K, A `items:write` | pod içi örnek yorumlayıcıyı bu iş için çalıştırır → iş |
 | POST | `/api/bulk-send-mail` | K, A `emails:write` (+ politika `create`) | toplu mail girişi; her mail → `email` + iş (+ ajan yorumu). Gövde aşağıda → 201 `{count, interpreted, emails, work_items}` |
+| POST | `/api/bulk-import` | K, A `items:write` + politika `create` | TFS Kanban / Jira kalemleri → iş (+ ajan yorumu). Gövde aşağıda → 201 `{count, interpreted, work_items, skipped}` |
 | GET | `/api/wiki?q=&tag=&space=` | K, A `items:read` | wiki sayfaları (özetle) |
 | GET | `/api/wiki/{id veya slug}` | K, A `items:read` | tam sayfa |
 | PUT | `/api/wiki/{slug}` | K | `{title*, space, body, tags[], url}` ekle/güncelle |
@@ -726,7 +733,25 @@ Sütunlar: **Kim** = `K` kullanıcı oturumu, `A` ajan token'ı (kapsam), `Y` ya
 `mails` verilmezse `{"count": 5}` ile örnek mailler üretilir (en fazla 50). Tek seferde en fazla 200 mail. Aynı `message_id` ikinci kez eklenmez.
 Her mail `email.received` olayı da üretir (ajana gider). Panodaki **"Toplu mail gönder"** düğmesi bu ucu `{"count": 5}` ile çağırır.
 
-İş nesnesine v0.6'da eklenen alanlar: `requester_email`, `mgmt_level`, `keywords[]`, `agent_comment`, `agent_sources[]`, `agent_confidence`,
+`POST /api/bulk-import` (v0.7, K, A `items:write` + politika `create`) — TFS Kanban / Jira kalemleri:
+
+```json
+{
+  "items": [
+    { "source_type": "tfs", "external_ref": "TFS-48213", "title": "Ödeme servisi deploy pipeline'ı helm adımında failed",
+      "description": "Dev → Test geçişinde helm upgrade timeout", "requester_email": "burak.cetin@firma.com",
+      "url": "https://tfs.firma.local/tfs/DefaultCollection/_workitems/edit/48213", "priority": "high" },
+    { "source_type": "jira", "external_ref": "OPS-1131", "title": "OpenShift prod cluster upgrade — worker node drain sorunu",
+      "requester_email": "selin.koc@firma.com" }
+  ],
+  "interpret": true
+}
+```
+
+→ 201 `{count, interpreted, work_items, skipped}`. `items` verilmezse `{"count": 4}` örnek kalem üretir. Aynı `source_type + external_ref`
+`skipped`'e düşer; `POST /api/work-items` ile aynı anahtar gönderilirse **409** `conflict`. Panodaki **"TFS / Jira al"** düğmesi bu ucu çağırır.
+
+İş nesnesine v0.6–0.7'de eklenen alanlar: `external_ref`, `external_url`, `requester_email`, `mgmt_level`, `keywords[]`, `agent_comment`, `agent_sources[]`, `agent_confidence`,
 `agent_suggestion`, `agent_comment_by`, `agent_comment_at`.
 
 ### Mail
@@ -863,6 +888,7 @@ es.addEventListener('chat', (e) => { const d = JSON.parse(e.data); if (d.type ==
 | `AGENT_CHAT_MODE` | URL varsa `stream`, yoksa `event` | chat modu |
 | `AGENT_CHAT_TIMEOUT_SEC` | `180` | chat cevabı için azami süre |
 | `AGENT_CHAT_HISTORY` | `20` | chat isteğinde gönderilen önceki mesaj sayısı |
+| `SEED_UPGRADE` | `true` | 0.6 → 0.7 yükseltmesinde örnek veriyi IT operasyon verisiyle bir kez yenile |
 | `AGENT_DEMO_INTERPRETER` | `auto` | pod içi örnek yorumlayıcı: `true` / `false` / `auto` (= `AGENT_WEBHOOK_URL` yoksa açık) |
 
 ## B7. Veritabanı tabloları
@@ -886,13 +912,23 @@ es.addEventListener('chat', (e) => { const d = JSON.parse(e.data); if (d.type ==
 
 | Tablo / değişiklik | Amaç |
 |---|---|
-| `contact` | kişi rehberi; `mgmt_level` = gm / gmy / direktor / mudur / diger → "Üst Yönetim" gruplaması |
-| `keyword_rule` | maildeki anahtar kelimeler (6 varsayılan kural: Acil, Prod/Kesinti, Fatura/Ödeme, Rapor, Erişim/Yetki, Denetim/Uyum) |
+| `contact` | kişi rehberi; `mgmt_level` = ust / birim / po / diger → "Talep eden" gruplaması (05'te) |
+| `keyword_rule` | takip edilen konular (varsayılanlar 05'te) |
 | `wiki_page` | kurum içi bilgi (runbook, süreç) — ajan yorumunda kaynak |
 | `work_item.requester_email, mgmt_level, keywords, agent_comment, agent_sources, agent_confidence, agent_suggestion, agent_comment_by, agent_comment_at` | sınıflama ve ajan yorumu |
 
-Örnek veri (`SEED=true`): 12 kişi (GM, 2 GMY, 2 direktör…), 10 wiki sayfası, son 60 günde kapanmış 12 iş (mail + çözüm notlarıyla) ve
-üst yönetimden 5 açık iş; açılışta tüm açık işlere örnek ajan yorumu yazılır. "Demo verisini sıfırla" bunları da yeniden yükler.
+`db/postgres/05-it-ops.sql` (v0.7):
+
+| Değişiklik | Amaç |
+|---|---|
+| `work_item.source_type` += `tfs`, `jira`; `work_item.external_url`; `api_poll_config.target` += `tfs`, `jira` | TFS Kanban / Jira kaynakları |
+| `mgmt_level` = `ust` / `birim` / `po` / `diger` (eski gm, gmy, direktor → ust; mudur → birim) | talep eden kırılımı |
+| `keyword_rule`: MQ, OpenShift Upgrade, Server Upgrade, Decom, DevOps, Failed hataları, Servis Yönetimi, Yazılım | takip edilen konular (0.6 kuralları bir kez pasife alınır) |
+
+Örnek veri (`SEED=true`): IT operasyon ekibi — 14 kişi (2 Üst Yönetim, 4 Birim Yöneticisi, 3 PO, ekip), 11 wiki sayfası (MQ, OpenShift upgrade,
+server upgrade, decom, pipeline failed, batch failed, change/CAB, release, incident), son 60 günde kapanmış 14 iş (Mail, Zoom, TFS, Jira; çözüm notlarıyla)
+ve 9 açık iş; açılışta tüm açık işlere örnek ajan yorumu yazılır. "Demo verisini sıfırla" bunları da yeniden yükler.
+0.6'dan yükseltilen kurulumda örnek veri bir kez sıfırlanıp bu veriyle değiştirilir; `SEED_UPGRADE=false` ile atlanır.
 
 > Not: pod tek replika çalışır (gömülü veritabanı). Chat token akışı ve canlı yayın süreç içidir; birden çok replikaya geçilirse
 > harici PostgreSQL'e dönülür, `LISTEN/NOTIFY` yapısı zaten replikalar arası çalışacak şekilde kurulu.

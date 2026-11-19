@@ -15,7 +15,7 @@ const FIELD_LABEL = { title: 'başlık', description: 'açıklama', category: 'k
 export const ITEM_SQL = `
   SELECT w.id, w.code, w.title, coalesce(w.description, '') AS description, w.source_type, w.source_id,
          w.status, w.priority, coalesce(w.category, '') AS category, u.username AS assignee, w.requester,
-         w.due_date, w.created_at, w.updated_at, w.closed_at, w.external_ref, w.version,
+         w.due_date, w.created_at, w.updated_at, w.closed_at, w.external_ref, w.external_url, w.version,
          w.requester_email, w.mgmt_level, w.keywords, w.agent_comment, w.agent_sources, w.agent_confidence, w.agent_suggestion,
          w.agent_comment_by, w.agent_comment_at,
          coalesce((SELECT array_agg(t.tag ORDER BY t.tag) FROM work_item_tag t WHERE t.work_item_id = w.id), '{}') AS tags
@@ -24,7 +24,7 @@ export const ITEM_SQL = `
 export const toItem = (r) => {
   const { external_ref, ...rest } = r
   if (rest.agent_confidence !== undefined && rest.agent_confidence !== null) rest.agent_confidence = Number(rest.agent_confidence)
-  return { ...rest, tags: external_ref && !r.tags.includes(`ext:${external_ref}`) ? [...r.tags, `ext:${external_ref}`] : r.tags }
+  return { ...rest, external_ref: external_ref ?? null, tags: external_ref && !r.tags.includes(`ext:${external_ref}`) ? [...r.tags, `ext:${external_ref}`] : r.tags }
 }
 
 export function toApiConfig(r, { mask = true } = {}) {
@@ -123,11 +123,12 @@ export const activity = (c, itemId, actor, action, comment, oldV = null, newV = 
 export async function createWorkItem(input, actor) {
   return tx(async (c) => {
     const r = await c.query(
-      `INSERT INTO work_item (title, description, source_type, source_id, priority, category, assignee_id, requester, due_date, created_by, requester_email)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING id`,
+      `INSERT INTO work_item (title, description, source_type, source_id, priority, category, assignee_id, requester, due_date, created_by, requester_email,
+                              external_ref, external_url)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) RETURNING id`,
       [input.title, input.description ?? '', input.source_type ?? 'manual', input.source_id ?? null, input.priority ?? 'normal',
        input.category ?? null, await userId(c, input.assignee), input.requester ?? actor.onBehalfOf?.username ?? actor.username, input.due_date || null, actor.id,
-       input.requester_email ?? null])
+       input.requester_email ?? null, input.external_ref ?? null, input.external_url ?? null])
     const id = r.rows[0].id
     for (const t of input.tags ?? []) await c.query('INSERT INTO work_item_tag VALUES ($1, $2) ON CONFLICT DO NOTHING', [id, t])
     if (input.source_type === 'mail' && input.source_id) await c.query('UPDATE email SET work_item_id = $1 WHERE id = $2', [id, input.source_id])

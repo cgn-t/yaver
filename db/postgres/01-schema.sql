@@ -26,7 +26,7 @@ CREATE TABLE IF NOT EXISTS work_item (
     code            VARCHAR(20)   GENERATED ALWAYS AS ('YVR-' || (id + 1000)) STORED,   -- YVR-1001
     title           VARCHAR(500)  NOT NULL,
     description     TEXT,
-    source_type     VARCHAR(10)   NOT NULL CHECK (source_type IN ('mail','zoom','manual','api')),
+    source_type     VARCHAR(10)   NOT NULL CHECK (source_type IN ('mail','zoom','tfs','jira','manual','api')),
     source_id       BIGINT,                                 -- email.id / meeting.id
     external_ref    VARCHAR(200),                           -- API kaynağındaki anahtar (Jira key vb.)
     status          VARCHAR(12)   NOT NULL DEFAULT 'new'    CHECK (status IN ('new','in_progress','waiting','done','cancelled')),
@@ -132,7 +132,7 @@ CREATE TABLE IF NOT EXISTS api_poll_config (
     id              SERIAL PRIMARY KEY,
     name            VARCHAR(200)  NOT NULL,
     enabled         BOOLEAN       NOT NULL DEFAULT FALSE,
-    target          VARCHAR(10)   NOT NULL DEFAULT 'generic' CHECK (target IN ('mail','zoom','generic')),
+    target          VARCHAR(10)   NOT NULL DEFAULT 'generic' CHECK (target IN ('mail','zoom','tfs','jira','generic')),
     url             VARCHAR(2000) NOT NULL DEFAULT '',
     method          VARCHAR(6)    NOT NULL DEFAULT 'GET'   CHECK (method IN ('GET','POST','PUT')),
     interval_sec    INT           NOT NULL DEFAULT 60      CHECK (interval_sec >= 10),   -- varsayılan 1 dk

@@ -1,20 +1,22 @@
 import AlternateEmailIcon from '@mui/icons-material/AlternateEmail'
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome'
+import ConfirmationNumberOutlinedIcon from '@mui/icons-material/ConfirmationNumberOutlined'
+import ViewKanbanOutlinedIcon from '@mui/icons-material/ViewKanbanOutlined'
 import MenuBookOutlinedIcon from '@mui/icons-material/MenuBookOutlined'
 import RefreshIcon from '@mui/icons-material/Refresh'
 import StorageOutlinedIcon from '@mui/icons-material/StorageOutlined'
 import { Box, Chip, IconButton, Tooltip, Typography } from '@mui/material'
 import { alpha } from '@mui/material/styles'
 import { useState } from 'react'
-import { ageLabel, boldParts, isSenior, itemKeywords, MGMT_LABEL, plain } from '../data/groups'
+import { ageLabel, boldParts, hasMgmtBadge, itemKeywords, MGMT_COLOR, MGMT_LABEL, plain } from '../data/groups'
 import { backend, PRIORITY_LABEL, reinterpret, rulesOf, useDb } from '../data/store'
 import type { AgentSource, WorkItem } from '../data/types'
 
-/** Üst yönetim seviyesi rozeti (yalnız GM / GMY / Direktör için). */
+/** Talep eden seviyesi rozeti (Üst Yönetim / Birim Yöneticisi / PO). */
 export function MgmtChip({ item, always = false }: { item: WorkItem; always?: boolean }) {
-  const lvl = item.mgmt_level ?? 'diger'
-  if (!always && !isSenior(item)) return null
-  const color = { gm: '#E5484D', gmy: '#F76B15', direktor: '#8E4EC6', mudur: '#3E63DD', diger: '#9A9EA8' }[lvl]
+  const lvl = item.mgmt_level && item.mgmt_level in MGMT_LABEL ? item.mgmt_level : 'diger'
+  if (!always && !hasMgmtBadge(item)) return null
+  const color = MGMT_COLOR[lvl]
   return (
     <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', height: 20, px: 0.75, borderRadius: 1.5, fontSize: 11, fontWeight: 650,
                                 color, bgcolor: alpha(color, 0.1), whiteSpace: 'nowrap', flexShrink: 0 }}>
@@ -62,8 +64,8 @@ export function AgentSnippet({ item, lines = 2 }: { item: WorkItem; lines?: numb
   )
 }
 
-const SOURCE_ICON = { db: StorageOutlinedIcon, wiki: MenuBookOutlinedIcon, mail: AlternateEmailIcon, meeting: AlternateEmailIcon }
-const SOURCE_TYPE_LABEL = { db: 'Geçmiş iş', wiki: 'Wiki', mail: 'Mail', meeting: 'Toplantı' }
+const SOURCE_ICON = { db: StorageOutlinedIcon, wiki: MenuBookOutlinedIcon, mail: AlternateEmailIcon, meeting: AlternateEmailIcon, tfs: ViewKanbanOutlinedIcon, jira: ConfirmationNumberOutlinedIcon }
+const SOURCE_TYPE_LABEL = { db: 'Geçmiş iş', wiki: 'Wiki', mail: 'Mail', meeting: 'Toplantı', tfs: 'TFS Kanban', jira: 'Jira' }
 
 /** İş detayında tam ajan yorumu: metin, kaynaklar (DB / Wiki / Mail), öneri, güven. */
 export function AgentCommentBox({ item, onOpenItem }: { item: WorkItem; onOpenItem?: (id: number) => void }) {
