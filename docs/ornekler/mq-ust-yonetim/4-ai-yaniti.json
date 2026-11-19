@@ -1,0 +1,116 @@
+{
+  "schema_version": "1.0",
+  "work_item_id": 56,
+  "work_item_version": 1,
+  "summary": "Üst yönetimden PAYMENT.IN kuyruk doluluğu; geçen ay aynı sorun consumer pod'ları yeniden başlatılarak 1 günde çözülmüş.",
+  "comment": "**Üst Yönetim talebi** — Hakan Erdem (BT Genel Müdür Yardımcısı). SLA: 4 saat içinde ilk dönüş, en az Yüksek öncelik; mailde 14:00 son saat verilmiş.\nKonu: «MQ». PAYMENT.IN kuyruğunda 15 binden fazla mesaj, EFT gecikmesi.\nAynı sorun YVR-1033'te mehmet.kaya tarafından 1 günde çözüldü: consumer uygulamanın 2 pod'u CrashLoop'taydı, yeniden başlatıldı, MAXDEPTH 50k yapıldı, DLQ boşaltıldı.\nWiki «MQ kuyruk doluluğu ve DLQ runbook»: önce consumer pod durumu (OpenShift) kontrol edilmeli.\n**Dikkat:** Aynı kişinin bugün açtığı YVR-1047 aynı konuda ve henüz kimseye atanmamış; birleştirilmesi gerekebilir.\n**Öneri:** öncelik Kritik, atanan mehmet.kaya, durum İşlemde, takım lideri ayse.yilmaz bilgilendirilsin.",
+  "classification": {
+    "topic_keys": [
+      "mq"
+    ],
+    "mgmt_level": "ust",
+    "is_duplicate_of": 47,
+    "is_actionable": true
+  },
+  "sources": [
+    {
+      "type": "db",
+      "id": 33,
+      "ref": "YVR-1033",
+      "title": "MQ PAYMENT.IN kuyruğu doldu",
+      "used_for": "çözüm yöntemi, süre, çözen kişi"
+    },
+    {
+      "type": "db",
+      "id": 47,
+      "ref": "YVR-1047",
+      "title": "Ödeme kanalında MQ kuyrukları doluyor",
+      "used_for": "olası kopya"
+    },
+    {
+      "type": "wiki",
+      "id": 2,
+      "ref": "mq-kuyruk-dolulugu",
+      "title": "MQ kuyruk doluluğu ve DLQ runbook",
+      "url": "https://wiki.firma.local/display/Middleware/mq-kuyruk-dolulugu",
+      "used_for": "ilk kontrol adımı"
+    },
+    {
+      "type": "wiki",
+      "id": 1,
+      "ref": "ust-yonetim-sla",
+      "title": "Talep eden seviyesine göre SLA",
+      "url": "https://wiki.firma.local/display/Servis%20Y%C3%B6netimi/ust-yonetim-sla",
+      "used_for": "SLA ve öncelik"
+    },
+    {
+      "type": "mail",
+      "id": 25,
+      "ref": "mail-25",
+      "title": "ACİL: Ödeme MQ kuyruğu yine doluyor, EFT'ler gecikiyor",
+      "used_for": "talebin kendisi"
+    }
+  ],
+  "confidence": 0.86,
+  "suggestion": {
+    "priority": "critical",
+    "assignee": "mehmet.kaya",
+    "status": "in_progress",
+    "due_date": "2026-11-19",
+    "eta_days": 0.5,
+    "sla": "4 saat"
+  },
+  "changes": [
+    {
+      "kind": "priority",
+      "payload": {
+        "priority": "critical"
+      },
+      "confidence": 0.9,
+      "reasoning": "Üst Yönetim + prod ödeme kuyruğu + EFT gecikmesi; YVR-1033 aynı sorunda Kritik açılmış."
+    },
+    {
+      "kind": "assign",
+      "payload": {
+        "assignee": "mehmet.kaya"
+      },
+      "confidence": 0.8,
+      "reasoning": "YVR-1033'ü (aynı kuyruk) 1 günde çözen kişi. 3 açık işi var; ayse.yilmaz daha boş ama benzer MQ işlerinde adı geçmiyor."
+    },
+    {
+      "kind": "status",
+      "payload": {
+        "status": "in_progress"
+      },
+      "confidence": 0.75,
+      "reasoning": "Atama yapılınca hemen işleme alınmalı (SLA 4 saat).",
+      "depends_on": [
+        "assign"
+      ]
+    },
+    {
+      "kind": "due_date",
+      "payload": {
+        "due_date": "2026-11-19"
+      },
+      "confidence": 0.85,
+      "reasoning": "Talep eden bugün 14:00'ü son saat olarak verdi."
+    },
+    {
+      "kind": "tags",
+      "payload": {
+        "tags": [
+          "üst-yönetim",
+          "payment.in",
+          "olası-kopya"
+        ]
+      },
+      "confidence": 0.9,
+      "reasoning": "Panoda filtrelemek ve YVR-1047 ile birleştirmeyi hatırlatmak için."
+    }
+  ],
+  "questions": [],
+  "warnings": [
+    "YVR-1047 aynı talep eden ve aynı konu; iki iş ayrı ayrı yürütülmemeli."
+  ]
+}

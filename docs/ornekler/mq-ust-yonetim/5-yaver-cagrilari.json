@@ -1,0 +1,532 @@
+{
+  "_aciklama": "AI yanıtının Yaver uçlarına eşlenmesi; gerçek Yaver 0.7.0 yanıtları (iş nesneleri kısaltıldı).",
+  "calls": [
+    {
+      "request": {
+        "method": "POST",
+        "path": "/api/agent/runs",
+        "headers": {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer yvr_…"
+        },
+        "body": {
+          "graph": "triage",
+          "event_id": 25,
+          "thread_id": "yaver-item-56"
+        }
+      },
+      "response": {
+        "status": 201,
+        "body": {
+          "id": 1,
+          "graph": "triage",
+          "event_id": 25,
+          "chat_session_id": null,
+          "external_run_id": null,
+          "thread_id": "yaver-item-56",
+          "status": "running",
+          "summary": null,
+          "error": null,
+          "tokens_in": null,
+          "tokens_out": null,
+          "started_at": "2026-11-19T13:01:44.422Z",
+          "finished_at": null
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "PATCH",
+        "path": "/api/agent/runs/1",
+        "headers": {
+          "Content-Type": "application/json",
+          "X-Yaver-Run-Id": "1",
+          "Authorization": "Bearer yvr_…"
+        },
+        "body": {
+          "status": "running"
+        }
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "id": 1,
+          "graph": "triage",
+          "event_id": 25,
+          "chat_session_id": null,
+          "external_run_id": null,
+          "thread_id": "yaver-item-56",
+          "status": "running",
+          "summary": null,
+          "error": null,
+          "tokens_in": null,
+          "tokens_out": null,
+          "started_at": "2026-11-19T13:01:44.422Z",
+          "finished_at": null
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "PUT",
+        "path": "/api/work-items/56/agent-comment",
+        "headers": {
+          "Content-Type": "application/json",
+          "X-Yaver-Run-Id": "1",
+          "Idempotency-Key": "25:comment",
+          "Authorization": "Bearer yvr_…"
+        },
+        "body": {
+          "comment": "**Üst Yönetim talebi** — Hakan Erdem (BT Genel Müdür Yardımcısı). SLA: 4 saat içinde ilk dönüş, en az Yüksek öncelik; mailde 14:00 son saat verilmiş.\nKonu: «MQ». PAYMENT.IN kuyruğunda 15 binden fazla mesaj, EFT gecikmesi.\nAynı sorun YVR-1033'te mehmet.kaya tarafından 1 günde çözüldü: consumer uygulamanın 2 pod'u CrashLoop'taydı, yeniden başlatıldı, MAXDEPTH 50k yapıldı, DLQ boşaltıldı.\nWiki «MQ kuyruk doluluğu ve DLQ runbook»: önce consumer pod durumu (OpenShift) kontrol edilmeli.\n**Dikkat:** Aynı kişinin bugün açtığı YVR-1047 aynı konuda ve henüz kimseye atanmamış; birleştirilmesi gerekebilir.\n**Öneri:** öncelik Kritik, atanan mehmet.kaya, durum İşlemde, takım lideri ayse.yilmaz bilgilendirilsin.\n_Uyarı: YVR-1047 aynı talep eden ve aynı konu; iki iş ayrı ayrı yürütülmemeli._",
+          "sources": [
+            {
+              "type": "db",
+              "id": 33,
+              "ref": "YVR-1033",
+              "title": "MQ PAYMENT.IN kuyruğu doldu",
+              "used_for": "çözüm yöntemi, süre, çözen kişi"
+            },
+            {
+              "type": "db",
+              "id": 47,
+              "ref": "YVR-1047",
+              "title": "Ödeme kanalında MQ kuyrukları doluyor",
+              "used_for": "olası kopya"
+            },
+            {
+              "type": "wiki",
+              "id": 2,
+              "ref": "mq-kuyruk-dolulugu",
+              "title": "MQ kuyruk doluluğu ve DLQ runbook",
+              "url": "https://wiki.firma.local/display/Middleware/mq-kuyruk-dolulugu",
+              "used_for": "ilk kontrol adımı"
+            },
+            {
+              "type": "wiki",
+              "id": 1,
+              "ref": "ust-yonetim-sla",
+              "title": "Talep eden seviyesine göre SLA",
+              "url": "https://wiki.firma.local/display/Servis%20Y%C3%B6netimi/ust-yonetim-sla",
+              "used_for": "SLA ve öncelik"
+            },
+            {
+              "type": "mail",
+              "id": 25,
+              "ref": "mail-25",
+              "title": "ACİL: Ödeme MQ kuyruğu yine doluyor, EFT'ler gecikiyor",
+              "used_for": "talebin kendisi"
+            }
+          ],
+          "confidence": 0.86,
+          "suggestion": {
+            "priority": "critical",
+            "assignee": "mehmet.kaya",
+            "status": "in_progress",
+            "due_date": "2026-11-19",
+            "eta_days": 0.5,
+            "sla": "4 saat",
+            "summary": "Üst yönetimden PAYMENT.IN kuyruk doluluğu; geçen ay aynı sorun consumer pod'ları yeniden başlatılarak 1 günde çözülmüş.",
+            "topic_keys": [
+              "mq"
+            ],
+            "mgmt_level": "ust",
+            "duplicate_of": 47,
+            "actionable": true,
+            "schema_version": "1.0"
+          }
+        }
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "id": 56,
+          "code": "YVR-1056",
+          "title": "Ödeme MQ kuyruğu yine doluyor, EFT'ler gecikiyor",
+          "status": "new",
+          "priority": "high",
+          "assignee": null,
+          "due_date": null,
+          "tags": [],
+          "version": 1,
+          "mgmt_level": "ust",
+          "keywords": [
+            "mq"
+          ],
+          "agent_confidence": 0.86,
+          "agent_comment_by": "yaver-ajan",
+          "updated_at": "2026-11-19T13:00:19.232Z",
+          "…": "diğer iş alanları kısaltıldı"
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "path": "/api/agent/actions",
+        "headers": {
+          "Content-Type": "application/json",
+          "X-Yaver-Run-Id": "1",
+          "Idempotency-Key": "25:change:priority",
+          "Authorization": "Bearer yvr_…"
+        },
+        "body": {
+          "kind": "priority",
+          "work_item_id": 56,
+          "payload": {
+            "priority": "critical"
+          },
+          "confidence": 0.9,
+          "reasoning": "Üst Yönetim + prod ödeme kuyruğu + EFT gecikmesi; YVR-1033 aynı sorunda Kritik açılmış.",
+          "force_proposal": false
+        }
+      },
+      "response": {
+        "status": 202,
+        "body": {
+          "action": {
+            "id": 1,
+            "run_id": 1,
+            "work_item_id": 56,
+            "email_id": null,
+            "meeting_id": null,
+            "kind": "priority",
+            "payload": {
+              "priority": "critical"
+            },
+            "confidence": 0.9,
+            "reasoning": "Üst Yönetim + prod ödeme kuyruğu + EFT gecikmesi; YVR-1033 aynı sorunda Kritik açılmış.",
+            "status": "pending",
+            "result_json": null,
+            "error": null,
+            "created_by": 6,
+            "decided_by": null,
+            "decided_at": null,
+            "created_at": "2026-11-19T13:01:44.436Z"
+          },
+          "applied": false
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "path": "/api/agent/actions",
+        "headers": {
+          "Content-Type": "application/json",
+          "X-Yaver-Run-Id": "1",
+          "Idempotency-Key": "25:change:assign",
+          "Authorization": "Bearer yvr_…"
+        },
+        "body": {
+          "kind": "assign",
+          "work_item_id": 56,
+          "payload": {
+            "assignee": "mehmet.kaya"
+          },
+          "confidence": 0.8,
+          "reasoning": "YVR-1033'ü (aynı kuyruk) 1 günde çözen kişi. 3 açık işi var; ayse.yilmaz daha boş ama benzer MQ işlerinde adı geçmiyor.",
+          "force_proposal": false
+        }
+      },
+      "response": {
+        "status": 202,
+        "body": {
+          "action": {
+            "id": 2,
+            "run_id": 1,
+            "work_item_id": 56,
+            "email_id": null,
+            "meeting_id": null,
+            "kind": "assign",
+            "payload": {
+              "assignee": "mehmet.kaya"
+            },
+            "confidence": 0.8,
+            "reasoning": "YVR-1033'ü (aynı kuyruk) 1 günde çözen kişi. 3 açık işi var; ayse.yilmaz daha boş ama benzer MQ işlerinde adı geçmiyor.",
+            "status": "pending",
+            "result_json": null,
+            "error": null,
+            "created_by": 6,
+            "decided_by": null,
+            "decided_at": null,
+            "created_at": "2026-11-19T13:01:44.443Z"
+          },
+          "applied": false
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "path": "/api/agent/actions",
+        "headers": {
+          "Content-Type": "application/json",
+          "X-Yaver-Run-Id": "1",
+          "Idempotency-Key": "25:change:status",
+          "Authorization": "Bearer yvr_…"
+        },
+        "body": {
+          "kind": "status",
+          "work_item_id": 56,
+          "payload": {
+            "status": "in_progress"
+          },
+          "confidence": 0.75,
+          "reasoning": "Atama yapılınca hemen işleme alınmalı (SLA 4 saat).",
+          "force_proposal": true
+        }
+      },
+      "response": {
+        "status": 202,
+        "body": {
+          "action": {
+            "id": 3,
+            "run_id": 1,
+            "work_item_id": 56,
+            "email_id": null,
+            "meeting_id": null,
+            "kind": "status",
+            "payload": {
+              "status": "in_progress"
+            },
+            "confidence": 0.75,
+            "reasoning": "Atama yapılınca hemen işleme alınmalı (SLA 4 saat).",
+            "status": "pending",
+            "result_json": null,
+            "error": null,
+            "created_by": 6,
+            "decided_by": null,
+            "decided_at": null,
+            "created_at": "2026-11-19T13:01:44.453Z"
+          },
+          "applied": false
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "path": "/api/agent/actions",
+        "headers": {
+          "Content-Type": "application/json",
+          "X-Yaver-Run-Id": "1",
+          "Idempotency-Key": "25:change:due_date",
+          "Authorization": "Bearer yvr_…"
+        },
+        "body": {
+          "kind": "due_date",
+          "work_item_id": 56,
+          "payload": {
+            "due_date": "2026-11-19"
+          },
+          "confidence": 0.85,
+          "reasoning": "Talep eden bugün 14:00'ü son saat olarak verdi.",
+          "force_proposal": false
+        }
+      },
+      "response": {
+        "status": 202,
+        "body": {
+          "action": {
+            "id": 4,
+            "run_id": 1,
+            "work_item_id": 56,
+            "email_id": null,
+            "meeting_id": null,
+            "kind": "due_date",
+            "payload": {
+              "due_date": "2026-11-19"
+            },
+            "confidence": 0.85,
+            "reasoning": "Talep eden bugün 14:00'ü son saat olarak verdi.",
+            "status": "pending",
+            "result_json": null,
+            "error": null,
+            "created_by": 6,
+            "decided_by": null,
+            "decided_at": null,
+            "created_at": "2026-11-19T13:01:44.460Z"
+          },
+          "applied": false
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "path": "/api/agent/actions",
+        "headers": {
+          "Content-Type": "application/json",
+          "X-Yaver-Run-Id": "1",
+          "Idempotency-Key": "25:change:tags",
+          "Authorization": "Bearer yvr_…"
+        },
+        "body": {
+          "kind": "tags",
+          "work_item_id": 56,
+          "payload": {
+            "tags": [
+              "üst-yönetim",
+              "payment.in",
+              "olası-kopya"
+            ]
+          },
+          "confidence": 0.9,
+          "reasoning": "Panoda filtrelemek ve YVR-1047 ile birleştirmeyi hatırlatmak için.",
+          "force_proposal": false
+        }
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "action": {
+            "id": 5,
+            "run_id": 1,
+            "work_item_id": 56,
+            "email_id": null,
+            "meeting_id": null,
+            "kind": "tags",
+            "payload": {
+              "tags": [
+                "üst-yönetim",
+                "payment.in",
+                "olası-kopya"
+              ]
+            },
+            "confidence": 0.9,
+            "reasoning": "Panoda filtrelemek ve YVR-1047 ile birleştirmeyi hatırlatmak için.",
+            "status": "applied",
+            "result_json": {
+              "work_item": {
+                "id": 56,
+                "code": "YVR-1056",
+                "title": "Ödeme MQ kuyruğu yine doluyor, EFT'ler gecikiyor",
+                "status": "new",
+                "priority": "high",
+                "assignee": null,
+                "due_date": null,
+                "tags": [
+                  "olası-kopya",
+                  "payment.in",
+                  "üst-yönetim"
+                ],
+                "version": 2,
+                "mgmt_level": "ust",
+                "keywords": [
+                  "mq"
+                ],
+                "agent_confidence": 0.86,
+                "agent_comment_by": "yaver-ajan",
+                "updated_at": "2026-11-19T13:01:44.468Z",
+                "…": "diğer iş alanları kısaltıldı"
+              }
+            },
+            "error": null,
+            "created_by": 6,
+            "decided_by": null,
+            "decided_at": "2026-11-19T13:01:44.475Z",
+            "created_at": "2026-11-19T13:01:44.466Z"
+          },
+          "applied": true,
+          "result": {
+            "work_item": {
+              "id": 56,
+              "code": "YVR-1056",
+              "title": "Ödeme MQ kuyruğu yine doluyor, EFT'ler gecikiyor",
+              "status": "new",
+              "priority": "high",
+              "assignee": null,
+              "due_date": null,
+              "tags": [
+                "olası-kopya",
+                "payment.in",
+                "üst-yönetim"
+              ],
+              "version": 2,
+              "mgmt_level": "ust",
+              "keywords": [
+                "mq"
+              ],
+              "agent_confidence": 0.86,
+              "agent_comment_by": "yaver-ajan",
+              "updated_at": "2026-11-19T13:01:44.468Z",
+              "…": "diğer iş alanları kısaltıldı"
+            }
+          }
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "PATCH",
+        "path": "/api/agent/runs/1",
+        "headers": {
+          "Content-Type": "application/json",
+          "X-Yaver-Run-Id": "1",
+          "Authorization": "Bearer yvr_…"
+        },
+        "body": {
+          "status": "succeeded",
+          "summary": "Üst yönetimden PAYMENT.IN kuyruk doluluğu; geçen ay aynı sorun consumer pod'ları yeniden başlatılarak 1 günde çözülmüş.",
+          "tokens_in": 4210,
+          "tokens_out": 690
+        }
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "id": 1,
+          "graph": "triage",
+          "event_id": 25,
+          "chat_session_id": null,
+          "external_run_id": null,
+          "thread_id": "yaver-item-56",
+          "status": "succeeded",
+          "summary": "Üst yönetimden PAYMENT.IN kuyruk doluluğu; geçen ay aynı sorun consumer pod'ları yeniden başlatılarak 1 günde çözülmüş.",
+          "error": null,
+          "tokens_in": 4210,
+          "tokens_out": 690,
+          "started_at": "2026-11-19T13:01:44.422Z",
+          "finished_at": "2026-11-19T13:01:44.481Z"
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "path": "/api/work-items/56",
+        "headers": {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer yvr_…"
+        },
+        "body": null
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "id": 56,
+          "code": "YVR-1056",
+          "title": "Ödeme MQ kuyruğu yine doluyor, EFT'ler gecikiyor",
+          "status": "new",
+          "priority": "high",
+          "assignee": null,
+          "due_date": null,
+          "tags": [
+            "olası-kopya",
+            "payment.in",
+            "üst-yönetim"
+          ],
+          "version": 2,
+          "mgmt_level": "ust",
+          "keywords": [
+            "mq"
+          ],
+          "agent_confidence": 0.86,
+          "agent_comment_by": "yaver-ajan",
+          "updated_at": "2026-11-19T13:01:44.468Z",
+          "…": "diğer iş alanları kısaltıldı"
+        }
+      }
+    }
+  ]
+}

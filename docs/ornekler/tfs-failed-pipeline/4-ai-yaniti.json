@@ -1,0 +1,98 @@
+{
+  "schema_version": "1.0",
+  "work_item_id": 57,
+  "work_item_version": 1,
+  "summary": "Kredi başvuru servisinin helm upgrade adımı timeout ile failed; benzer açık işler var, çözülmüş örnek yok.",
+  "comment": "**Birim Yöneticisi talebi** — Burak Çetin (Uygulama Geliştirme Birim Müdürü), TFS-48391. SLA: 1 iş günü.\nKonu: «DevOps», «Failed hataları». Test ortamına deploy'da helm upgrade 10 dk sonra timeout.\nWiki «Pipeline failed — sık nedenler»: helm adımında timeout genelde readiness probe ve --wait süresinden kaynaklanır.\nBenzer YVR-1049 (ödeme servisi, helm failed) hâlâ yeni ve atanmamış; YVR-1006'yı can.ozturk yürütüyor. Çözülmüş benzer iş yok.\nHangi değişiklikten sonra başladığı bilinmiyor; helm/pod logu olmadan kök neden tahmini zayıf.\n**Öneri:** atanan can.ozturk, son tarih yarın, log gelene kadar Bekliyor.",
+  "classification": {
+    "topic_keys": [
+      "devops",
+      "failed"
+    ],
+    "mgmt_level": "birim",
+    "is_duplicate_of": null,
+    "is_actionable": true
+  },
+  "sources": [
+    {
+      "type": "tfs",
+      "ref": "TFS-48391",
+      "title": "Kredi başvuru servisi deploy pipeline'ı helm upgrade adımında failed",
+      "url": "https://tfs.firma.local/tfs/DefaultCollection/Kredi/_workitems/edit/48391",
+      "used_for": "talebin kendisi"
+    },
+    {
+      "type": "wiki",
+      "id": 7,
+      "ref": "pipeline-failed",
+      "title": "Pipeline failed — sık nedenler",
+      "used_for": "olası neden"
+    },
+    {
+      "type": "db",
+      "id": 49,
+      "ref": "YVR-1049",
+      "title": "Ödeme servisi deploy pipeline'ı helm adımında failed",
+      "used_for": "benzer açık iş"
+    },
+    {
+      "type": "db",
+      "id": 6,
+      "ref": "YVR-1006",
+      "title": "Kart: mobil backend pipeline build adımında failed",
+      "used_for": "pipeline işlerini kim yürütüyor"
+    }
+  ],
+  "confidence": 0.62,
+  "suggestion": {
+    "priority": "normal",
+    "assignee": "can.ozturk",
+    "status": "waiting",
+    "due_date": "2026-11-20",
+    "eta_days": 1,
+    "sla": "1 iş günü"
+  },
+  "changes": [
+    {
+      "kind": "assign",
+      "payload": {
+        "assignee": "can.ozturk"
+      },
+      "confidence": 0.65,
+      "reasoning": "Pipeline işlerini (YVR-1006) o yürütüyor; ancak 4 açık işi var, ekip lideri değiştirebilir."
+    },
+    {
+      "kind": "due_date",
+      "payload": {
+        "due_date": "2026-11-20"
+      },
+      "confidence": 0.8,
+      "reasoning": "Birim Yöneticisi SLA'sı 1 iş günü."
+    },
+    {
+      "kind": "status",
+      "payload": {
+        "status": "waiting"
+      },
+      "confidence": 0.6,
+      "reasoning": "Helm/pod logu ve son değişiklik bilgisi olmadan başlanamaz; soru talep edene iletildi."
+    },
+    {
+      "kind": "tags",
+      "payload": {
+        "tags": [
+          "helm",
+          "pipeline",
+          "test-ortamı"
+        ]
+      },
+      "confidence": 0.9,
+      "reasoning": "Arama ve benzer işlerle eşleştirme için."
+    }
+  ],
+  "questions": [
+    "Son başarılı deploy'dan bu yana helm chart'ta veya readiness probe ayarlarında değişiklik yapıldı mı?",
+    "Başarısız 3 denemeden birinin helm ve pod (kubectl describe) çıktısını TFS kartına ekleyebilir misiniz?"
+  ],
+  "warnings": []
+}

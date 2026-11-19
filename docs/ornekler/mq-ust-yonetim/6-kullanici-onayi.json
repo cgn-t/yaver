@@ -1,0 +1,86 @@
+{
+  "_aciklama": "Ekip lideri arayüzde \"Onayla\"ya basar (kullanıcı oturumu). Bekleyen atama uygulanır.",
+  "request": {
+    "method": "POST",
+    "path": "/api/agent/actions/2/approve",
+    "headers": {
+      "Authorization": "Bearer <kullanıcı oturumu>"
+    },
+    "body": {
+      "note": "Onaylandı"
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "action": {
+        "id": 2,
+        "run_id": 1,
+        "work_item_id": 56,
+        "email_id": null,
+        "meeting_id": null,
+        "kind": "assign",
+        "payload": {
+          "assignee": "mehmet.kaya"
+        },
+        "confidence": 0.8,
+        "reasoning": "YVR-1033'ü (aynı kuyruk) 1 günde çözen kişi. 3 açık işi var; ayse.yilmaz daha boş ama benzer MQ işlerinde adı geçmiyor.",
+        "status": "applied",
+        "result_json": {
+          "work_item": {
+            "id": 56,
+            "code": "YVR-1056",
+            "title": "Ödeme MQ kuyruğu yine doluyor, EFT'ler gecikiyor",
+            "status": "new",
+            "priority": "high",
+            "assignee": "mehmet.kaya",
+            "due_date": null,
+            "tags": [
+              "olası-kopya",
+              "payment.in",
+              "üst-yönetim"
+            ],
+            "version": 3,
+            "mgmt_level": "ust",
+            "keywords": [
+              "mq"
+            ],
+            "updated_at": "2026-11-19T13:01:49.569Z",
+            "…": "diğer iş alanları kısaltıldı"
+          }
+        },
+        "error": null,
+        "created_by": 6,
+        "decided_by": 3,
+        "decided_at": "2026-11-19T13:01:49.573Z",
+        "created_at": "2026-11-19T13:01:44.443Z"
+      },
+      "applied": true,
+      "result": {
+        "work_item": {
+          "id": 56,
+          "code": "YVR-1056",
+          "title": "Ödeme MQ kuyruğu yine doluyor, EFT'ler gecikiyor",
+          "status": "new",
+          "priority": "high",
+          "assignee": "mehmet.kaya",
+          "due_date": null,
+          "tags": [
+            "olası-kopya",
+            "payment.in",
+            "üst-yönetim"
+          ],
+          "version": 3,
+          "mgmt_level": "ust",
+          "keywords": [
+            "mq"
+          ],
+          "agent_confidence": 0.86,
+          "agent_comment_by": "yaver-ajan",
+          "updated_at": "2026-11-19T13:01:49.569Z",
+          "…": "diğer iş alanları kısaltıldı"
+        }
+      }
+    }
+  }
+}

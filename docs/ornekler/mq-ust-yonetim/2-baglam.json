@@ -1,0 +1,270 @@
+{
+  "_aciklama": "AI servisi → Yaver. Geçmiş paketi (DB benzer işler, Wiki, göndericinin mailleri, kişi seviyesi, ekip yükü).",
+  "request": {
+    "method": "GET",
+    "path": "/api/work-items/56/context",
+    "headers": {
+      "Authorization": "Bearer yvr_…"
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "item": {
+        "id": 56,
+        "code": "YVR-1056",
+        "title": "Ödeme MQ kuyruğu yine doluyor, EFT'ler gecikiyor",
+        "description": "Merhaba,\n\nPAYMENT.IN kuyruğunda 15 binin üzerinde mesaj birikmiş, şubelerden EFT gecikmesi şikâyeti geliyor. Geçen ay da aynı sorun yaşanmıştı.\nBugün 14:00'ten önce çözülmesi gerekiyor, lütfen durumu bana iletin.\n\nHakan Erdem\nBT Genel Müdür Yardımcısı",
+        "source_type": "mail",
+        "source_id": 25,
+        "status": "new",
+        "priority": "high",
+        "category": "Olay",
+        "assignee": null,
+        "requester": "Hakan Erdem",
+        "due_date": null,
+        "created_at": "2026-11-19T13:00:19.232Z",
+        "updated_at": "2026-11-19T13:00:19.232Z",
+        "closed_at": null,
+        "external_url": null,
+        "version": 1,
+        "requester_email": "hakan.erdem@firma.com",
+        "mgmt_level": "ust",
+        "keywords": [
+          "mq"
+        ],
+        "agent_comment": null,
+        "agent_sources": [],
+        "agent_confidence": null,
+        "agent_suggestion": null,
+        "agent_comment_by": null,
+        "agent_comment_at": null,
+        "tags": [],
+        "external_ref": null
+      },
+      "mail": {
+        "id": 25,
+        "from_address": "hakan.erdem@firma.com",
+        "from_name": "Hakan Erdem",
+        "subject": "ACİL: Ödeme MQ kuyruğu yine doluyor, EFT'ler gecikiyor",
+        "body": "Merhaba,\n\nPAYMENT.IN kuyruğunda 15 binin üzerinde mesaj birikmiş, şubelerden EFT gecikmesi şikâyeti geliyor. Geçen ay da aynı sorun yaşanmıştı.\nBugün 14:00'ten önce çözülmesi gerekiyor, lütfen durumu bana iletin.\n\nHakan Erdem\nBT Genel Müdür Yardımcısı",
+        "received_at": "2026-11-19T09:12:00.000Z"
+      },
+      "external": null,
+      "contact": {
+        "email": "hakan.erdem@firma.com",
+        "full_name": "Hakan Erdem",
+        "title": "BT Genel Müdür Yardımcısı",
+        "department": "Bilgi Teknolojileri",
+        "mgmt_level": "ust",
+        "mgmt_label": "Üst Yönetim"
+      },
+      "keywords": [
+        {
+          "key": "mq",
+          "label": "MQ"
+        }
+      ],
+      "similar_items": [
+        {
+          "id": 47,
+          "code": "YVR-1047",
+          "title": "Ödeme kanalında MQ kuyrukları doluyor",
+          "status": "new",
+          "priority": "high",
+          "assignee": null,
+          "source_type": "mail",
+          "external_ref": null,
+          "resolved_in_days": null,
+          "last_note": null,
+          "shared_keywords": [
+            "mq"
+          ],
+          "shared_words": [
+            "ödeme",
+            "kuyrukları",
+            "doluyor",
+            "payment",
+            "kuyruğunun"
+          ],
+          "score": 17
+        },
+        {
+          "id": 33,
+          "code": "YVR-1033",
+          "title": "MQ PAYMENT.IN kuyruğu doldu",
+          "status": "done",
+          "priority": "critical",
+          "assignee": "mehmet.kaya",
+          "source_type": "mail",
+          "external_ref": null,
+          "resolved_in_days": 1,
+          "last_note": "Consumer uygulamanın 2 pod'u CrashLoop'taydı; yeniden başlatıldı, MAXDEPTH 50k yapıldı, DLQ boşaltıldı.",
+          "shared_keywords": [
+            "mq"
+          ],
+          "shared_words": [
+            "payment",
+            "kuyruğu",
+            "ödeme"
+          ],
+          "score": 11
+        },
+        {
+          "id": 1,
+          "code": "YVR-1001",
+          "title": "MQ channel CRM.TO.CORE RETRY durumunda",
+          "status": "in_progress",
+          "priority": "high",
+          "assignee": "mehmet.kaya",
+          "source_type": "mail",
+          "external_ref": null,
+          "resolved_in_days": null,
+          "last_note": "Yavaş sorgu tespit edildi, indeks analizi yapılıyor.",
+          "shared_keywords": [
+            "mq"
+          ],
+          "shared_words": [
+            "durumunda",
+            "mesajlar"
+          ],
+          "score": 8
+        },
+        {
+          "id": 7,
+          "code": "YVR-1007",
+          "title": "MQ kuyruk derinliği alarmı",
+          "status": "done",
+          "priority": "normal",
+          "assignee": "admin",
+          "source_type": "mail",
+          "external_ref": null,
+          "resolved_in_days": 0.3,
+          "last_note": null,
+          "shared_keywords": [
+            "mq"
+          ],
+          "shared_words": [
+            "kuyruk"
+          ],
+          "score": 5
+        },
+        {
+          "id": 46,
+          "code": "YVR-1046",
+          "title": "Problem kaydı: tekrarlayan MQ channel kesintileri",
+          "status": "done",
+          "priority": "normal",
+          "assignee": "mehmet.kaya",
+          "source_type": "jira",
+          "external_ref": "ITSM-3290",
+          "resolved_in_days": 2,
+          "last_note": "Kök neden heartbeat ayarı; HBINT 300→60 yapıldı, problem kapatıldı.",
+          "shared_keywords": [
+            "mq"
+          ],
+          "shared_words": [
+            "yaşanan"
+          ],
+          "score": 5
+        }
+      ],
+      "wiki_pages": [
+        {
+          "id": 2,
+          "slug": "mq-kuyruk-dolulugu",
+          "title": "MQ kuyruk doluluğu ve DLQ runbook",
+          "space": "Middleware",
+          "url": "https://wiki.firma.local/display/Middleware/mq-kuyruk-dolulugu",
+          "tags": [
+            "mq",
+            "kuyruk",
+            "queue",
+            "dlq"
+          ],
+          "score": 7,
+          "excerpt": "Kuyruk max depth'e yaklaşınca önce consumer uygulamanın ayakta olduğu (OpenShift pod durumu) kontrol edilir; en sık neden consumer pod'larının CrashLoop'ta olmasıdır."
+        },
+        {
+          "id": 3,
+          "slug": "mq-channel-retry",
+          "title": "MQ channel RETRY / STOPPED durumları",
+          "space": "Middleware",
+          "url": "https://wiki.firma.local/display/Middleware/mq-channel-retry",
+          "tags": [
+            "mq",
+            "channel",
+            "sertifika",
+            "tls"
+          ],
+          "score": 6,
+          "excerpt": "Channel RETRY'da kalıyorsa sırasıyla: 1) TLS sertifika süresi, 2) karşı QMGR listener, 3) HBINT/KAINT ayarları."
+        },
+        {
+          "id": 1,
+          "slug": "ust-yonetim-sla",
+          "title": "Talep eden seviyesine göre SLA",
+          "space": "Servis Yönetimi",
+          "url": "https://wiki.firma.local/display/Servis%20Y%C3%B6netimi/ust-yonetim-sla",
+          "tags": [
+            "üst-yönetim",
+            "sla",
+            "öncelik",
+            "po",
+            "birim"
+          ],
+          "score": 4,
+          "excerpt": "Üst Yönetim (GMY, Direktör) taleplerine 4 saat içinde ilk dönüş yapılır, iş en az Yüksek öncelikle açılır ve takım lideri (ayse.yilmaz) bilgilendirilir."
+        }
+      ],
+      "sender_mails": [
+        {
+          "id": 21,
+          "subject": "ACİL: Ödeme kanalında MQ kuyrukları doluyor",
+          "received_at": "2026-11-19T11:00:03.588Z",
+          "work_item_code": "YVR-1047",
+          "work_item_status": "new"
+        },
+        {
+          "id": 11,
+          "subject": "MQ kuyruk derinliği alarmı",
+          "received_at": "2026-11-17T10:00:03.501Z",
+          "work_item_code": null,
+          "work_item_status": null
+        },
+        {
+          "id": 20,
+          "subject": "OpenShift prod'da ödeme pod'ları CrashLoop",
+          "received_at": "2026-11-14T13:00:03.588Z",
+          "work_item_code": "YVR-1045",
+          "work_item_status": "done"
+        },
+        {
+          "id": 16,
+          "subject": "ACİL: Mobil kanalda transferler failed oluyor",
+          "received_at": "2026-09-30T13:00:03.588Z",
+          "work_item_code": "YVR-1034",
+          "work_item_status": "done"
+        }
+      ],
+      "team_load": [
+        {
+          "username": "ayse.yilmaz",
+          "open_items": 1
+        },
+        {
+          "username": "zeynep.demir",
+          "open_items": 2
+        },
+        {
+          "username": "mehmet.kaya",
+          "open_items": 3
+        },
+        {
+          "username": "can.ozturk",
+          "open_items": 4
+        }
+      ]
+    }
+  }
+}

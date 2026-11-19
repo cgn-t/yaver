@@ -1,0 +1,272 @@
+{
+  "_aciklama": "AI servisi → Yaver. Geçmiş paketi (DB benzer işler, Wiki, göndericinin mailleri, kişi seviyesi, ekip yükü).",
+  "request": {
+    "method": "GET",
+    "path": "/api/work-items/57/context",
+    "headers": {
+      "Authorization": "Bearer yvr_…"
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "item": {
+        "id": 57,
+        "code": "YVR-1057",
+        "title": "Kredi başvuru servisi deploy pipeline'ı helm upgrade adımında failed",
+        "description": "Test ortamına deploy sırasında 'helm upgrade' 10 dk sonra timeout ile failed oluyor. Dün akşamdan beri 3 deneme başarısız. Hangi değişiklikten sonra başladığını bilmiyoruz.",
+        "source_type": "tfs",
+        "source_id": null,
+        "status": "new",
+        "priority": "normal",
+        "category": "Kanban",
+        "assignee": null,
+        "requester": "Burak Çetin",
+        "due_date": null,
+        "created_at": "2026-11-19T13:00:56.187Z",
+        "updated_at": "2026-11-19T13:00:56.187Z",
+        "closed_at": null,
+        "external_url": "https://tfs.firma.local/tfs/DefaultCollection/Kredi/_workitems/edit/48391",
+        "version": 1,
+        "requester_email": "burak.cetin@firma.com",
+        "mgmt_level": "birim",
+        "keywords": [
+          "devops",
+          "failed"
+        ],
+        "agent_comment": null,
+        "agent_sources": [],
+        "agent_confidence": null,
+        "agent_suggestion": null,
+        "agent_comment_by": null,
+        "agent_comment_at": null,
+        "tags": [
+          "ext:TFS-48391"
+        ],
+        "external_ref": "TFS-48391"
+      },
+      "mail": null,
+      "external": {
+        "system": "TFS Kanban",
+        "ref": "TFS-48391",
+        "url": "https://tfs.firma.local/tfs/DefaultCollection/Kredi/_workitems/edit/48391"
+      },
+      "contact": {
+        "email": "burak.cetin@firma.com",
+        "full_name": "Burak Çetin",
+        "title": "Uygulama Geliştirme Birim Müdürü",
+        "department": "Yazılım Geliştirme",
+        "mgmt_level": "birim",
+        "mgmt_label": "Birim Yöneticisi"
+      },
+      "keywords": [
+        {
+          "key": "devops",
+          "label": "DevOps"
+        },
+        {
+          "key": "failed",
+          "label": "Failed hataları"
+        }
+      ],
+      "similar_items": [
+        {
+          "id": 49,
+          "code": "YVR-1049",
+          "title": "Ödeme servisi deploy pipeline'ı helm adımında failed",
+          "status": "new",
+          "priority": "high",
+          "assignee": null,
+          "source_type": "tfs",
+          "external_ref": "TFS-48213",
+          "resolved_in_days": null,
+          "last_note": null,
+          "shared_keywords": [
+            "devops",
+            "failed"
+          ],
+          "shared_words": [
+            "servisi",
+            "deploy",
+            "pipeline",
+            "helm",
+            "adımında",
+            "failed",
+            "test",
+            "upgrade",
+            "timeout"
+          ],
+          "score": 31
+        },
+        {
+          "id": 6,
+          "code": "YVR-1006",
+          "title": "Kart: mobil backend pipeline build adımında failed",
+          "status": "in_progress",
+          "priority": "critical",
+          "assignee": "can.ozturk",
+          "source_type": "tfs",
+          "external_ref": "TFS-48190",
+          "resolved_in_days": null,
+          "last_note": null,
+          "shared_keywords": [
+            "devops",
+            "failed"
+          ],
+          "shared_words": [
+            "pipeline",
+            "adımında",
+            "failed"
+          ],
+          "score": 13
+        },
+        {
+          "id": 4,
+          "code": "YVR-1004",
+          "title": "Ödeme platformu release'i için test ortamı deploy",
+          "status": "waiting",
+          "priority": "normal",
+          "assignee": "can.ozturk",
+          "source_type": "mail",
+          "external_ref": null,
+          "resolved_in_days": null,
+          "last_note": null,
+          "shared_keywords": [
+            "devops"
+          ],
+          "shared_words": [
+            "test",
+            "deploy",
+            "ortamına"
+          ],
+          "score": 11
+        },
+        {
+          "id": 54,
+          "code": "YVR-1054",
+          "title": "Mobil backend yeni versiyon için test ortamı",
+          "status": "new",
+          "priority": "normal",
+          "assignee": null,
+          "source_type": "mail",
+          "external_ref": null,
+          "resolved_in_days": null,
+          "last_note": null,
+          "shared_keywords": [
+            "devops"
+          ],
+          "shared_words": [
+            "test",
+            "ortamına",
+            "deploy"
+          ],
+          "score": 11
+        },
+        {
+          "id": 34,
+          "code": "YVR-1034",
+          "title": "Mobil kanalda transferler failed oluyor",
+          "status": "done",
+          "priority": "critical",
+          "assignee": "mehmet.kaya",
+          "source_type": "mail",
+          "external_ref": null,
+          "resolved_in_days": 0.2,
+          "last_note": "MQ channel TLS sertifikası süresi dolmuştu, yenilendi; channel RUNNING. GMY'ye 3 saatte dönüldü.",
+          "shared_keywords": [
+            "failed"
+          ],
+          "shared_words": [
+            "failed",
+            "oluyor"
+          ],
+          "score": 8
+        }
+      ],
+      "wiki_pages": [
+        {
+          "id": 7,
+          "slug": "pipeline-failed",
+          "title": "Pipeline failed — sık nedenler",
+          "space": "DevOps",
+          "url": "https://wiki.firma.local/display/DevOps/pipeline-failed",
+          "tags": [
+            "pipeline",
+            "failed",
+            "jenkins",
+            "helm",
+            "build",
+            "deploy"
+          ],
+          "score": 20,
+          "excerpt": "Helm adımında timeout: readiness probe ve --wait süresi kontrol edilir. Build adımında failed: nexus erişimi ve bağımlılık sürümü."
+        },
+        {
+          "id": 8,
+          "slug": "batch-failed",
+          "title": "Batch job FAILED runbook (EOD)",
+          "space": "Operasyon",
+          "url": "https://wiki.firma.local/display/Operasyon/batch-failed",
+          "tags": [
+            "batch",
+            "failed",
+            "eod",
+            "ora-01555"
+          ],
+          "score": 4,
+          "excerpt": "EOD_MUTABAKAT failed olursa job logundaki ORA kodu kontrol edilir. ORA-01555: undo retention / yedekleme penceresi çakışması."
+        },
+        {
+          "id": 10,
+          "slug": "release-yonetimi",
+          "title": "Release ve deploy penceresi talepleri",
+          "space": "Yazılım",
+          "url": "https://wiki.firma.local/display/Yaz%C4%B1l%C4%B1m/release-yonetimi",
+          "tags": [
+            "release",
+            "deploy",
+            "versiyon",
+            "sprint",
+            "po"
+          ],
+          "score": 4,
+          "excerpt": "PO, sprint sonu release için deploy penceresini TFS kartı ile en geç Perşembe ister. Prod deploy Salı ve Perşembe 22:00 pencerelerindedir."
+        }
+      ],
+      "sender_mails": [
+        {
+          "id": 6,
+          "subject": "Jenkins agent disk doluluğu",
+          "received_at": "2026-11-19T07:00:03.501Z",
+          "work_item_code": null,
+          "work_item_status": null
+        },
+        {
+          "id": 14,
+          "subject": "Windows Server 2012 server upgrade",
+          "received_at": "2026-11-16T07:00:03.501Z",
+          "work_item_code": null,
+          "work_item_status": null
+        }
+      ],
+      "team_load": [
+        {
+          "username": "ayse.yilmaz",
+          "open_items": 1
+        },
+        {
+          "username": "zeynep.demir",
+          "open_items": 2
+        },
+        {
+          "username": "mehmet.kaya",
+          "open_items": 3
+        },
+        {
+          "username": "can.ozturk",
+          "open_items": 4
+        }
+      ]
+    }
+  }
+}

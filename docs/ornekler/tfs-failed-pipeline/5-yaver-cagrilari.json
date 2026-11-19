@@ -1,0 +1,533 @@
+{
+  "_aciklama": "AI yanıtının Yaver uçlarına eşlenmesi; gerçek Yaver 0.7.0 yanıtları (iş nesneleri kısaltıldı).",
+  "calls": [
+    {
+      "request": {
+        "method": "POST",
+        "path": "/api/agent/runs",
+        "headers": {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer yvr_…"
+        },
+        "body": {
+          "graph": "triage",
+          "event_id": 26,
+          "thread_id": "yaver-item-57"
+        }
+      },
+      "response": {
+        "status": 201,
+        "body": {
+          "id": 2,
+          "graph": "triage",
+          "event_id": 26,
+          "chat_session_id": null,
+          "external_run_id": null,
+          "thread_id": "yaver-item-57",
+          "status": "running",
+          "summary": null,
+          "error": null,
+          "tokens_in": null,
+          "tokens_out": null,
+          "started_at": "2026-11-19T13:01:49.483Z",
+          "finished_at": null
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "PATCH",
+        "path": "/api/agent/runs/2",
+        "headers": {
+          "Content-Type": "application/json",
+          "X-Yaver-Run-Id": "2",
+          "Authorization": "Bearer yvr_…"
+        },
+        "body": {
+          "status": "running"
+        }
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "id": 2,
+          "graph": "triage",
+          "event_id": 26,
+          "chat_session_id": null,
+          "external_run_id": null,
+          "thread_id": "yaver-item-57",
+          "status": "running",
+          "summary": null,
+          "error": null,
+          "tokens_in": null,
+          "tokens_out": null,
+          "started_at": "2026-11-19T13:01:49.483Z",
+          "finished_at": null
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "PUT",
+        "path": "/api/work-items/57/agent-comment",
+        "headers": {
+          "Content-Type": "application/json",
+          "X-Yaver-Run-Id": "2",
+          "Idempotency-Key": "26:comment",
+          "Authorization": "Bearer yvr_…"
+        },
+        "body": {
+          "comment": "**Birim Yöneticisi talebi** — Burak Çetin (Uygulama Geliştirme Birim Müdürü), TFS-48391. SLA: 1 iş günü.\nKonu: «DevOps», «Failed hataları». Test ortamına deploy'da helm upgrade 10 dk sonra timeout.\nWiki «Pipeline failed — sık nedenler»: helm adımında timeout genelde readiness probe ve --wait süresinden kaynaklanır.\nBenzer YVR-1049 (ödeme servisi, helm failed) hâlâ yeni ve atanmamış; YVR-1006'yı can.ozturk yürütüyor. Çözülmüş benzer iş yok.\nHangi değişiklikten sonra başladığı bilinmiyor; helm/pod logu olmadan kök neden tahmini zayıf.\n**Öneri:** atanan can.ozturk, son tarih yarın, log gelene kadar Bekliyor.",
+          "sources": [
+            {
+              "type": "tfs",
+              "ref": "TFS-48391",
+              "title": "Kredi başvuru servisi deploy pipeline'ı helm upgrade adımında failed",
+              "url": "https://tfs.firma.local/tfs/DefaultCollection/Kredi/_workitems/edit/48391",
+              "used_for": "talebin kendisi"
+            },
+            {
+              "type": "wiki",
+              "id": 7,
+              "ref": "pipeline-failed",
+              "title": "Pipeline failed — sık nedenler",
+              "used_for": "olası neden"
+            },
+            {
+              "type": "db",
+              "id": 49,
+              "ref": "YVR-1049",
+              "title": "Ödeme servisi deploy pipeline'ı helm adımında failed",
+              "used_for": "benzer açık iş"
+            },
+            {
+              "type": "db",
+              "id": 6,
+              "ref": "YVR-1006",
+              "title": "Kart: mobil backend pipeline build adımında failed",
+              "used_for": "pipeline işlerini kim yürütüyor"
+            }
+          ],
+          "confidence": 0.62,
+          "suggestion": {
+            "priority": "normal",
+            "assignee": "can.ozturk",
+            "status": "waiting",
+            "due_date": "2026-11-20",
+            "eta_days": 1,
+            "sla": "1 iş günü",
+            "summary": "Kredi başvuru servisinin helm upgrade adımı timeout ile failed; benzer açık işler var, çözülmüş örnek yok.",
+            "topic_keys": [
+              "devops",
+              "failed"
+            ],
+            "mgmt_level": "birim",
+            "duplicate_of": null,
+            "actionable": true,
+            "schema_version": "1.0"
+          }
+        }
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "id": 57,
+          "code": "YVR-1057",
+          "title": "Kredi başvuru servisi deploy pipeline'ı helm upgrade adımında failed",
+          "status": "new",
+          "priority": "normal",
+          "assignee": null,
+          "due_date": null,
+          "tags": [
+            "ext:TFS-48391"
+          ],
+          "version": 1,
+          "mgmt_level": "birim",
+          "keywords": [
+            "devops",
+            "failed"
+          ],
+          "agent_confidence": 0.62,
+          "agent_comment_by": "yaver-ajan",
+          "updated_at": "2026-11-19T13:00:56.187Z",
+          "…": "diğer iş alanları kısaltıldı"
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "path": "/api/agent/actions",
+        "headers": {
+          "Content-Type": "application/json",
+          "X-Yaver-Run-Id": "2",
+          "Idempotency-Key": "26:change:assign",
+          "Authorization": "Bearer yvr_…"
+        },
+        "body": {
+          "kind": "assign",
+          "work_item_id": 57,
+          "payload": {
+            "assignee": "can.ozturk"
+          },
+          "confidence": 0.65,
+          "reasoning": "Pipeline işlerini (YVR-1006) o yürütüyor; ancak 4 açık işi var, ekip lideri değiştirebilir.",
+          "force_proposal": false
+        }
+      },
+      "response": {
+        "status": 202,
+        "body": {
+          "action": {
+            "id": 6,
+            "run_id": 2,
+            "work_item_id": 57,
+            "email_id": null,
+            "meeting_id": null,
+            "kind": "assign",
+            "payload": {
+              "assignee": "can.ozturk"
+            },
+            "confidence": 0.65,
+            "reasoning": "Pipeline işlerini (YVR-1006) o yürütüyor; ancak 4 açık işi var, ekip lideri değiştirebilir.",
+            "status": "pending",
+            "result_json": null,
+            "error": null,
+            "created_by": 6,
+            "decided_by": null,
+            "decided_at": null,
+            "created_at": "2026-11-19T13:01:49.503Z"
+          },
+          "applied": false
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "path": "/api/agent/actions",
+        "headers": {
+          "Content-Type": "application/json",
+          "X-Yaver-Run-Id": "2",
+          "Idempotency-Key": "26:change:due_date",
+          "Authorization": "Bearer yvr_…"
+        },
+        "body": {
+          "kind": "due_date",
+          "work_item_id": 57,
+          "payload": {
+            "due_date": "2026-11-20"
+          },
+          "confidence": 0.8,
+          "reasoning": "Birim Yöneticisi SLA'sı 1 iş günü.",
+          "force_proposal": false
+        }
+      },
+      "response": {
+        "status": 202,
+        "body": {
+          "action": {
+            "id": 7,
+            "run_id": 2,
+            "work_item_id": 57,
+            "email_id": null,
+            "meeting_id": null,
+            "kind": "due_date",
+            "payload": {
+              "due_date": "2026-11-20"
+            },
+            "confidence": 0.8,
+            "reasoning": "Birim Yöneticisi SLA'sı 1 iş günü.",
+            "status": "pending",
+            "result_json": null,
+            "error": null,
+            "created_by": 6,
+            "decided_by": null,
+            "decided_at": null,
+            "created_at": "2026-11-19T13:01:49.509Z"
+          },
+          "applied": false
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "path": "/api/agent/actions",
+        "headers": {
+          "Content-Type": "application/json",
+          "X-Yaver-Run-Id": "2",
+          "Idempotency-Key": "26:change:status",
+          "Authorization": "Bearer yvr_…"
+        },
+        "body": {
+          "kind": "status",
+          "work_item_id": 57,
+          "payload": {
+            "status": "waiting"
+          },
+          "confidence": 0.6,
+          "reasoning": "Helm/pod logu ve son değişiklik bilgisi olmadan başlanamaz; soru talep edene iletildi.",
+          "force_proposal": false
+        }
+      },
+      "response": {
+        "status": 202,
+        "body": {
+          "action": {
+            "id": 8,
+            "run_id": 2,
+            "work_item_id": 57,
+            "email_id": null,
+            "meeting_id": null,
+            "kind": "status",
+            "payload": {
+              "status": "waiting"
+            },
+            "confidence": 0.6,
+            "reasoning": "Helm/pod logu ve son değişiklik bilgisi olmadan başlanamaz; soru talep edene iletildi.",
+            "status": "pending",
+            "result_json": null,
+            "error": null,
+            "created_by": 6,
+            "decided_by": null,
+            "decided_at": null,
+            "created_at": "2026-11-19T13:01:49.517Z"
+          },
+          "applied": false
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "path": "/api/agent/actions",
+        "headers": {
+          "Content-Type": "application/json",
+          "X-Yaver-Run-Id": "2",
+          "Idempotency-Key": "26:change:tags",
+          "Authorization": "Bearer yvr_…"
+        },
+        "body": {
+          "kind": "tags",
+          "work_item_id": 57,
+          "payload": {
+            "tags": [
+              "helm",
+              "pipeline",
+              "test-ortamı"
+            ]
+          },
+          "confidence": 0.9,
+          "reasoning": "Arama ve benzer işlerle eşleştirme için.",
+          "force_proposal": false
+        }
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "action": {
+            "id": 9,
+            "run_id": 2,
+            "work_item_id": 57,
+            "email_id": null,
+            "meeting_id": null,
+            "kind": "tags",
+            "payload": {
+              "tags": [
+                "helm",
+                "pipeline",
+                "test-ortamı"
+              ]
+            },
+            "confidence": 0.9,
+            "reasoning": "Arama ve benzer işlerle eşleştirme için.",
+            "status": "applied",
+            "result_json": {
+              "work_item": {
+                "id": 57,
+                "code": "YVR-1057",
+                "title": "Kredi başvuru servisi deploy pipeline'ı helm upgrade adımında failed",
+                "status": "new",
+                "priority": "normal",
+                "assignee": null,
+                "due_date": null,
+                "tags": [
+                  "helm",
+                  "pipeline",
+                  "test-ortamı",
+                  "ext:TFS-48391"
+                ],
+                "version": 2,
+                "mgmt_level": "birim",
+                "keywords": [
+                  "devops",
+                  "failed"
+                ],
+                "agent_confidence": 0.62,
+                "agent_comment_by": "yaver-ajan",
+                "updated_at": "2026-11-19T13:01:49.522Z",
+                "…": "diğer iş alanları kısaltıldı"
+              }
+            },
+            "error": null,
+            "created_by": 6,
+            "decided_by": null,
+            "decided_at": "2026-11-19T13:01:49.527Z",
+            "created_at": "2026-11-19T13:01:49.521Z"
+          },
+          "applied": true,
+          "result": {
+            "work_item": {
+              "id": 57,
+              "code": "YVR-1057",
+              "title": "Kredi başvuru servisi deploy pipeline'ı helm upgrade adımında failed",
+              "status": "new",
+              "priority": "normal",
+              "assignee": null,
+              "due_date": null,
+              "tags": [
+                "helm",
+                "pipeline",
+                "test-ortamı",
+                "ext:TFS-48391"
+              ],
+              "version": 2,
+              "mgmt_level": "birim",
+              "keywords": [
+                "devops",
+                "failed"
+              ],
+              "agent_confidence": 0.62,
+              "agent_comment_by": "yaver-ajan",
+              "updated_at": "2026-11-19T13:01:49.522Z",
+              "…": "diğer iş alanları kısaltıldı"
+            }
+          }
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "path": "/api/work-items/57/comments",
+        "headers": {
+          "Content-Type": "application/json",
+          "X-Yaver-Run-Id": "2",
+          "Idempotency-Key": "26:q:0",
+          "Authorization": "Bearer yvr_…"
+        },
+        "body": {
+          "text": "Ajan sorusu: Son başarılı deploy'dan bu yana helm chart'ta veya readiness probe ayarlarında değişiklik yapıldı mı?"
+        }
+      },
+      "response": {
+        "status": 201,
+        "body": {
+          "ok": true,
+          "id": 108,
+          "action": "agent_note",
+          "created_at": "2026-11-19T13:01:49.531Z"
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "path": "/api/work-items/57/comments",
+        "headers": {
+          "Content-Type": "application/json",
+          "X-Yaver-Run-Id": "2",
+          "Idempotency-Key": "26:q:1",
+          "Authorization": "Bearer yvr_…"
+        },
+        "body": {
+          "text": "Ajan sorusu: Başarısız 3 denemeden birinin helm ve pod (kubectl describe) çıktısını TFS kartına ekleyebilir misiniz?"
+        }
+      },
+      "response": {
+        "status": 201,
+        "body": {
+          "ok": true,
+          "id": 109,
+          "action": "agent_note",
+          "created_at": "2026-11-19T13:01:49.535Z"
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "PATCH",
+        "path": "/api/agent/runs/2",
+        "headers": {
+          "Content-Type": "application/json",
+          "X-Yaver-Run-Id": "2",
+          "Authorization": "Bearer yvr_…"
+        },
+        "body": {
+          "status": "succeeded",
+          "summary": "Kredi başvuru servisinin helm upgrade adımı timeout ile failed; benzer açık işler var, çözülmüş örnek yok.",
+          "tokens_in": 4210,
+          "tokens_out": 690
+        }
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "id": 2,
+          "graph": "triage",
+          "event_id": 26,
+          "chat_session_id": null,
+          "external_run_id": null,
+          "thread_id": "yaver-item-57",
+          "status": "succeeded",
+          "summary": "Kredi başvuru servisinin helm upgrade adımı timeout ile failed; benzer açık işler var, çözülmüş örnek yok.",
+          "error": null,
+          "tokens_in": 4210,
+          "tokens_out": 690,
+          "started_at": "2026-11-19T13:01:49.483Z",
+          "finished_at": "2026-11-19T13:01:49.538Z"
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "path": "/api/work-items/57",
+        "headers": {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer yvr_…"
+        },
+        "body": null
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "id": 57,
+          "code": "YVR-1057",
+          "title": "Kredi başvuru servisi deploy pipeline'ı helm upgrade adımında failed",
+          "status": "new",
+          "priority": "normal",
+          "assignee": null,
+          "due_date": null,
+          "tags": [
+            "helm",
+            "pipeline",
+            "test-ortamı",
+            "ext:TFS-48391"
+          ],
+          "version": 2,
+          "mgmt_level": "birim",
+          "keywords": [
+            "devops",
+            "failed"
+          ],
+          "agent_confidence": 0.62,
+          "agent_comment_by": "yaver-ajan",
+          "updated_at": "2026-11-19T13:01:49.535Z",
+          "…": "diğer iş alanları kısaltıldı"
+        }
+      }
+    }
+  ]
+}
