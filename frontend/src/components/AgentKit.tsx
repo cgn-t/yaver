@@ -1,5 +1,4 @@
 import AlternateEmailIcon from '@mui/icons-material/AlternateEmail'
-import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome'
 import ConfirmationNumberOutlinedIcon from '@mui/icons-material/ConfirmationNumberOutlined'
 import ViewKanbanOutlinedIcon from '@mui/icons-material/ViewKanbanOutlined'
 import MenuBookOutlinedIcon from '@mui/icons-material/MenuBookOutlined'
@@ -11,6 +10,7 @@ import { useState } from 'react'
 import { ageLabel, boldParts, hasMgmtBadge, itemKeywords, MGMT_COLOR, MGMT_LABEL, plain } from '../data/groups'
 import { backend, PRIORITY_LABEL, reinterpret, rulesOf, useDb } from '../data/store'
 import type { AgentSource, WorkItem } from '../data/types'
+import { YaverMark } from './Brand'
 
 /** Talep eden seviyesi rozeti (Üst Yönetim / Birim Yöneticisi / PO). */
 export function MgmtChip({ item, always = false }: { item: WorkItem; always?: boolean }) {
@@ -55,7 +55,7 @@ export function AgentSnippet({ item, lines = 2 }: { item: WorkItem; lines?: numb
   const text = (pick.length ? pick : all).slice(0, lines).join(' · ')
   return (
     <Box sx={(t) => ({ display: 'flex', gap: 0.75, mt: 1, p: 0.75, pl: 1, borderRadius: 2, bgcolor: alpha(t.palette.primary.main, t.palette.mode === 'dark' ? 0.12 : 0.05) })}>
-      <AutoAwesomeIcon sx={{ fontSize: 14, color: 'primary.main', mt: '2px', flexShrink: 0 }} />
+      <Box sx={{ mt: '2px', flexShrink: 0 }}><YaverMark size={14} /></Box>
       <Typography variant="caption" color="text.secondary"
                   sx={{ display: '-webkit-box', WebkitLineClamp: lines, WebkitBoxOrient: 'vertical', overflow: 'hidden', lineHeight: 1.45 }}>
         {text}
@@ -75,7 +75,7 @@ export function AgentCommentBox({ item, onOpenItem }: { item: WorkItem; onOpenIt
     <Box sx={(t) => ({ mt: 2, p: 2, borderRadius: 3, border: 1, borderColor: alpha(t.palette.primary.main, 0.25),
                        background: `linear-gradient(180deg, ${alpha(t.palette.primary.main, t.palette.mode === 'dark' ? 0.14 : 0.06)}, transparent 70%)` })}>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-        <AutoAwesomeIcon sx={{ fontSize: 18, color: 'primary.main' }} />
+        <YaverMark size={18} />
         <Typography variant="subtitle2" sx={{ flexGrow: 1 }}>Ajan yorumu</Typography>
         {item.agent_confidence != null && (
           <Tooltip title="Ajanın bu yoruma güveni (benzer geçmiş kayıt, wiki ve kişi bilgisi arttıkça yükselir)">
