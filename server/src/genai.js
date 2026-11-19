@@ -170,7 +170,7 @@ export async function chatBlock(cfg, { msg, thread_id = '', request_context = {}
 }
 
 // ---------- Yanıtı ayrıştırma ----------
-const TEXT_KEYS = ['msg', 'message', 'answer', 'response', 'content', 'text', 'output', 'result', 'reply', 'completion', 'data']
+const TEXT_KEYS = ['last_message', 'lastMessage', 'final_answer', 'msg', 'message', 'answer', 'response', 'content', 'text', 'output', 'result', 'reply', 'completion', 'data']
 
 /** Chat Block yanıtından modelin metnini ve thread_id'yi bulur (yanıt şekli kuruma göre değişebilir). */
 export function extractAnswer(raw) {
