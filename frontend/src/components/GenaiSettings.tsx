@@ -167,7 +167,69 @@ export function GenaiTab() {
           <Button onClick={queueOpen} disabled={!cfg.enabled}>Yorumu olmayan açık işleri yorumlat</Button>
         </Stack>
       </Box>
+      <DemoFlowCard />
     </Stack>
+  )
+}
+
+type DemoItem = { id: number; code: string; title: string; source_type: string; external_ref: string | null; genai_status: string | null; genai_error: string | null;
+  agent_comment: string | null; agent_comment_by: string | null; pending_actions: number }
+type DemoStatus = { mode: 'genai' | 'yerel'; total: number; commented: number; items: DemoItem[] }
+const SRC_LABEL: Record<string, string> = { mail: 'Mail', zoom: 'Zoom', tfs: 'TFS', jira: 'Jira' }
+
+/** Demo iş akışı: Jira/TFS/Mail/Zoom'dan demo işler → AI yorumu → DB (POST /api/demo/run). */
+function DemoFlowCard() {
+  const { enqueueSnackbar } = useSnackbar()
+  const [st, setSt] = useState<DemoStatus | null>(null)
+  const [busy, setBusy] = useState(false)
+  const load = useCallback(async () => { try { setSt(await apiFetch<DemoStatus>('/demo/status')) } catch { /* yetki yoksa gizli kalır */ } }, [])
+  useEffect(() => { void load() }, [load])
+  const pending = !!st?.items.some((x) => x.genai_status === 'pending' || x.genai_status === 'running')
+  useEffect(() => { if (!pending) return; const t = setInterval(() => void load(), 3000); return () => clearInterval(t) }, [pending, load])
+  const run = async () => {
+    setBusy(true)
+    try {
+      const r = await apiFetch<{ count: number; mode: string; status: DemoStatus }>('/demo/run', { method: 'POST', body: {} })
+      setSt(r.status)
+      enqueueSnackbar(`${r.count} demo iş oluşturuldu; ${r.mode === 'genai' ? 'GenAI Studio yorumluyor' : 'yerel yorum yazıldı'}`, { variant: 'success' })
+    } catch (e) { enqueueSnackbar(e instanceof Error ? e.message : String(e), { variant: 'error' }) } finally { setBusy(false) }
+  }
+  const clear = async () => {
+    setBusy(true)
+    try { await apiFetch('/demo/clear', { method: 'POST', body: {} }); await load() } catch (e) { enqueueSnackbar(e instanceof Error ? e.message : String(e), { variant: 'error' }) } finally { setBusy(false) }
+  }
+  return (
+    <Paper variant="outlined" sx={{ p: 2 }}>
+      <Typography variant="subtitle2">Demo iş akışı</Typography>
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+        Jira, TFS, mail ve Zoom'dan gelmiş gibi demo işler oluşturur, her birini AI'a yorumlatıp DB'ye yazar. Tekrar çalıştırınca önceki demo işleri silinir.
+        API: <code>POST /api/demo/run</code>, durum: <code>GET /api/demo/status</code>.
+      </Typography>
+      <Stack direction="row" spacing={1.5} sx={{ mb: st?.items.length ? 1.5 : 0 }}>
+        <Button variant="contained" onClick={run} disabled={busy}>{busy ? 'Çalışıyor…' : 'Demo akışını çalıştır'}</Button>
+        <Button onClick={clear} disabled={busy || !st?.total}>Demo işlerini sil</Button>
+        {st && st.total > 0 && <Chip size="small" label={`${st.commented}/${st.total} yorumlandı`} color={st.commented === st.total ? 'success' : 'default'} sx={{ alignSelf: 'center' }} />}
+      </Stack>
+      {!!st?.items.length && (
+        <TableContainer>
+          <Table size="small">
+            <TableHead><TableRow><TableCell>İş</TableCell><TableCell>Kaynak</TableCell><TableCell>AI</TableCell><TableCell>Yorum</TableCell></TableRow></TableHead>
+            <TableBody>
+              {st.items.map((x) => (
+                <TableRow key={x.id}>
+                  <TableCell sx={{ whiteSpace: 'nowrap' }}><b>{x.code}</b> {x.title}</TableCell>
+                  <TableCell>{SRC_LABEL[x.source_type] ?? x.source_type}{x.external_ref ? ` ${x.external_ref}` : ''}</TableCell>
+                  <TableCell><Chip size="small" label={x.genai_status ?? (x.agent_comment ? 'yerel' : '—')}
+                    color={x.genai_status === 'done' ? 'success' : x.genai_status === 'failed' ? 'error' : 'default'} title={x.genai_error ?? ''} /></TableCell>
+                  <TableCell sx={{ maxWidth: 360 }}><Typography variant="caption" sx={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                    {x.agent_comment ?? ''}</Typography></TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      )}
+    </Paper>
   )
 }
 

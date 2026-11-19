@@ -1,5 +1,7 @@
 import express from 'express'
 import * as G from './genai.js'
+import * as D from './demoflow.js'
+import { SUGGESTIONS, askYaver } from './ai-ask.js'
 import { adminOnly, createApiToken, humanOnly, ldapTest, loadLdapSettings, requireAuth, scope } from './auth.js'
 import { resetDemoData, query } from './db.js'
 import * as S from './state.js'
@@ -145,6 +147,24 @@ export function apiRouter() {
     await A.assertDirect(req.user, ['create'])
     res.status(201).json(await I.bulkImport(req.body ?? {}, req.user))
   }))
+
+  // =================== Demo iş akışı (0.9) ===================
+  /**
+   * Jira / TFS / Mail / Zoom'dan gelmiş gibi demo işler oluşturur, AI'a yorumlatır, DB'ye yazar.
+   * Gövde: {keys?: [...], reset?: true, interpret?: true, wait?: false, timeout_sec?: 180}. Tekrar çalıştırılınca önceki demo işleri silinir.
+   */
+  api.get('/demo/scenarios', scope('items:read'), h(async (_req, res) => res.json({ scenarios: D.listScenarios() })))
+  api.post('/demo/run', scope('items:write'), h(async (req, res) => {
+    await A.assertDirect(req.user, ['create'])
+    res.status(201).json(await D.runDemo(req.body ?? {}, req.user))
+  }))
+  api.get('/demo/status', scope('items:read'), h(async (_req, res) => res.json(await D.demoStatus())))
+  api.post('/demo/clear', scope('items:write'), h(async (_req, res) => res.json(await D.clearDemo())))
+  api.post('/demo/reset-all', adminOnly, h(async (_req, res) => res.json(await D.resetAll())))
+
+  // =================== Yaver AI sohbet (0.9) ===================
+  api.get('/ai/suggestions', humanOnly, h(async (_req, res) => res.json({ suggestions: SUGGESTIONS, mode: G.isActive() ? 'genai' : 'yerel' })))
+  api.post('/ai/ask', humanOnly, h(async (req, res) => res.json(await askYaver(req.body ?? {}, req.user))))
 
   // =================== Wiki ve kişiler ===================
   api.get('/wiki', scope('items:read'), h(async (req, res) => res.json(await I.listWiki(req.query))))

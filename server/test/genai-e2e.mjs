@@ -88,6 +88,12 @@ const mock = http.createServer((req, res) => {
       chatCalls.push({ headers: req.headers, body })
       if (!/^Bearer tok-\d+$/.test(req.headers.authorization ?? '')) return res.writeHead(401).end('{"error":"unauthorized"}')
       if (req.headers['app-id'] !== APP_ID || req.headers['app-identifier'] !== APP_IDENT) return res.writeHead(403).end('{"error":"app"}')
+      if (body.request_context?.source === 'yaver-ai-sohbet') {
+        const ctx = JSON.parse(body.msg.slice(body.msg.lastIndexOf('<baglam>') + 8, body.msg.lastIndexOf('</baglam>')))
+        const top = ctx.items.find((i) => i.status === 'done') ?? ctx.items[0]
+        const answer = top ? `${top.code} ${top.title}: ${top.assignee} ${top.resolved_in_days} günde çözdü.` : 'Bağlamda kayıt yok.'
+        return res.writeHead(200, { 'Content-Type': 'application/json' }).end(JSON.stringify({ thread_id: body.thread_id || 'thr-ask', msg: answer }))
+      }
       if (body.request_context?.test) return res.writeHead(200, { 'Content-Type': 'application/json' }).end(JSON.stringify({ thread_id: 'thr-test', msg: 'Merhaba! Size nasıl yardımcı olabilirim?' }))
       const real = /GERCEK-FORMAT/.test(body.msg)
       return res.writeHead(200, { 'Content-Type': 'application/json' }).end(JSON.stringify(real ? realFormatAnswer(body.msg) : fakeAnswer(body.msg)))
@@ -227,6 +233,49 @@ try {
   // 8) Token önbelleği: her çağrıda yeni token alınmaz
   assert.ok(tokenCalls.length <= 2, `token isteği sayısı ${tokenCalls.length}`)
   step('SSO token önbelleği')
+
+  // 9) Demo iş akışı: Jira/TFS/Mail/Zoom → GenAI yorumu → DB; tekrar çalıştırmada çift kayıt yok
+  const sc = (await call('GET', '/api/demo/scenarios', admin)).body.scenarios
+  assert.ok(sc.length >= 8 && ['mail', 'jira', 'tfs', 'zoom'].every((t) => sc.some((x) => x.source_type === t)), JSON.stringify(sc.map((x) => x.source_type)))
+  const d1 = await call('POST', '/api/demo/run', admin, { wait: true, timeout_sec: 120 })
+  assert.equal(d1.status, 201, d1.text)
+  assert.equal(d1.body.mode, 'genai')
+  assert.equal(d1.body.count, sc.length)
+  assert.equal(d1.body.status.commented, sc.length, JSON.stringify(d1.body.status.items.map((x) => [x.code, x.genai_status, x.genai_error])))
+  assert.ok(d1.body.status.items.every((x) => x.agent_comment_by === 'GenAI Studio' && x.genai_status === 'done'))
+  const zoomIt = d1.body.items.find((x) => x.source_type === 'zoom')
+  assert.ok((await call('GET', `/api/work-items/${zoomIt.id}`, admin)).body.source_id, 'Zoom işi toplantıya bağlı olmalı')
+  step(`demo akışı: ${sc.length} iş (mail, Jira, TFS, Zoom) oluşturuldu ve GenAI ile yorumlandı`)
+  const d2 = await call('POST', '/api/demo/run', admin, { wait: true, timeout_sec: 120 })
+  assert.equal(d2.status, 201, d2.text)
+  assert.equal(d2.body.cleared.work_items, sc.length)
+  const ds = (await call('GET', '/api/demo/status', admin)).body
+  assert.equal(ds.total, sc.length, 'tekrar çalıştırmada çift kayıt olmamalı')
+  step('demo akışı tekrar çalıştırılabilir: önceki demo işleri silinip yeniden oluşturulur')
+
+  // 10) Yaver AI sohbet: bağlam + Chat Block + thread devamı
+  const sg = (await call('GET', '/api/ai/suggestions', admin)).body
+  assert.ok(sg.suggestions.length >= 3 && sg.mode === 'genai')
+  const a1 = await call('POST', '/api/ai/ask', admin, { message: 'PAYMENT.IN kuyruğu yine doldu, daha önce nasıl çözüldü ve kim çözdü?' })
+  assert.equal(a1.status, 200, a1.text)
+  assert.equal(a1.body.mode, 'genai')
+  assert.match(a1.body.answer, /YVR-\d+/)
+  assert.ok(a1.body.sources.some((x) => x.type === 'db') && a1.body.sources.some((x) => x.type === 'wiki'), JSON.stringify(a1.body.sources))
+  const askCall = chatCalls.at(-1)
+  assert.match(askCall.body.msg, /mq-kuyruk-dolulugu/, 'MQ wiki bağlamda olmalı')
+  assert.equal(a1.body.thread_id, 'thr-ask')
+  const a2 = await call('POST', '/api/ai/ask', admin, { message: 'Peki şu an kaç açık MQ işi var?', thread_id: a1.body.thread_id,
+    history: [{ role: 'user', content: 'PAYMENT.IN' }, { role: 'assistant', content: a1.body.answer }] })
+  assert.equal(a2.status, 200, a2.text)
+  assert.equal(chatCalls.at(-1).body.thread_id, 'thr-ask', 'konuşma aynı thread ile sürmeli')
+  assert.equal((await call('POST', '/api/ai/ask', admin, { message: '' })).status, 400)
+  step('Yaver AI sohbet: benzer iş + wiki bağlamı, Chat Block cevabı, thread devamı')
+
+  // 11) Demo işlerini temizle
+  const cl = (await call('POST', '/api/demo/clear', admin)).body
+  assert.equal(cl.work_items, sc.length)
+  assert.equal((await call('GET', '/api/demo/status', admin)).body.total, 0)
+  step('demo işleri temizlenir')
 
   console.log(`\n${ok} adım geçti`)
   mock.close()

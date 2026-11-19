@@ -503,7 +503,7 @@ export function validate(ai, ctx, vocab, cfg) {
 
 // ---------- Ajan kimliği ----------
 let agentUser = null
-async function agentActor(runId = null) {
+export async function agentActor(runId = null) {
   if (!agentUser) {
     agentUser = (await query(`SELECT id, username FROM app_user WHERE username = 'yaver-ajan'`)).rows[0]
     if (!agentUser) throw new Error("'yaver-ajan' kullanıcısı yok (03-agent.sql)")

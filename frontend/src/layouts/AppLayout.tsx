@@ -25,6 +25,7 @@ import { useThemeMode } from '../App'
 import { useAuth } from '../auth/AuthContext'
 import { BrandMark, Kbd } from '../components/Brand'
 import CommandPalette from '../components/CommandPalette'
+import YaverAi from '../components/YaverAi'
 import { LiveDot, PageTransition } from '../components/Motion'
 import { NewWorkItemDialog, StatusIcon, UserAvatar, timeAgo } from '../components/WorkKit'
 import { isOpen, isOverdue, useDb, type NewWorkItem } from '../data/store'
@@ -243,6 +244,7 @@ export default function AppLayout() {
 
       <CommandPalette open={palette} onClose={() => setPalette(false)} onNewItem={() => openNew()} onToggleTheme={toggle} />
       <NewWorkItemDialog open={newOpen} initial={newInit} onClose={() => setNewOpen(false)} />
+      <YaverAi left={{ xs: 16, md: NAV_W + 16 }} />
     </UiContext.Provider>
   )
 }

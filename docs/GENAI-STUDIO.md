@@ -1,6 +1,6 @@
 # GenAI Studio (Chat Block) Entegrasyonu
 
-> Sürüm **0.8.2**. Yaver'e gelen her iş (Mail, Zoom, TFS Kanban, Jira, manuel, API) arka planda kurum içi
+> Sürüm **0.9.0**. Yaver'e gelen her iş (Mail, Zoom, TFS Kanban, Jira, manuel, API) arka planda kurum içi
 > GenAI Studio **Chat Block** API'sine gönderilir. Dönen cevapla iş **yorumlanır**, **kategorize edilir**
 > (konu, kategori) ve gerekiyorsa **durum / öncelik / atama / son tarih** değişikliği önerilir.
 >
