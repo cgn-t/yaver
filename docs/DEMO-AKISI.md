@@ -1,6 +1,6 @@
 # Demo iş akışı ve Yaver AI sohbet
 
-> Sürüm **0.9.1**. GenAI Studio bağlantısı: [`GENAI-ENV.md`](GENAI-ENV.md) · ayrıntı: [`GENAI-STUDIO.md`](GENAI-STUDIO.md)
+> Sürüm **0.9.2**. GenAI Studio bağlantısı: [`GENAI-ENV.md`](GENAI-ENV.md) · ayrıntı: [`GENAI-STUDIO.md`](GENAI-STUDIO.md)
 
 ## 1. Demo iş akışı
 
@@ -65,3 +65,6 @@ Yaver sorudaki konuya ve kelimelere göre DB'den benzer işleri (kim, kaç günd
 ve ekip yükünü bulur; soru ile bu bağlamı Chat Block'a gönderir (`request_context.source = "yaver-ai-sohbet"`).
 Chat Block'un döndürdüğü `thread_id` bir sonraki soruda gönderilir, konuşma sürer. GenAI kapalıysa aynı bağlamdan yerel bir cevap
 yazılır. Cevaptaki iş ve wiki etiketlerine tıklanınca ilgili kayıt açılır. "Yeni konuşma" düğmesi thread'i sıfırlar.
+
+- **JSON cevap:** GenAI Studio uygulamasının talimatı modeli JSON'a zorlasa bile (ör. AI yorum şeması) cevap okunur metne çevrilir: özet, değerlendirme, öneri (öncelik, atanacak kişi, durum, SLA), önerilen değişiklikler, kaynaklar, sorular, uyarılar. Teknik alanlar (`schema_version`, `work_item_id` …) gösterilmez (`server/src/ai-format.js`).
+- **Geçmiş ve rollout:** Konuşma tarayıcı sekmesinde tutulur. Pod yeniden başladığında (rollout) sunucunun açılış kimliği (`boot_id`) değişir; arayüz bunu görünce konuşma geçmişini ve thread'i siler.

@@ -21,7 +21,7 @@ import { apiFetch, backend } from '../data/store'
 
 type Source = { type: 'db' | 'wiki'; id: number; ref: string; title: string; status?: string; url?: string }
 type Msg = { role: 'user' | 'assistant'; content: string; sources?: Source[]; mode?: string; error?: boolean; ms?: number }
-type AskResponse = { answer: string; thread_id: string | null; mode: 'genai' | 'yerel'; sources: Source[]; duration_ms: number }
+type AskResponse = { answer: string; thread_id: string | null; mode: 'genai' | 'yerel'; sources: Source[]; duration_ms: number; boot_id?: string }
 
 const CHAT_KEY = 'yaver_ai_chat'
 const POS_KEY = 'yaver_ai_y'
@@ -56,12 +56,56 @@ function useVerticalDrag(y: number, setY: (y: number) => void, height: number, o
   return { onPointerDown, onPointerMove, onPointerUp, onPointerCancel: () => { st.current = null } }
 }
 
+/** Satır içi: **kalın** ve `kod`. */
+function Inline({ text }: { text: string }) {
+  const parts = text.split(/(\*\*[^*]+\*\*|`[^`]+`)/g).filter(Boolean)
+  return <>{parts.map((p, i) => p.startsWith('**') && p.endsWith('**') ? <strong key={i}>{p.slice(2, -2)}</strong>
+    : p.startsWith('`') && p.endsWith('`') ? <Box key={i} component="code" sx={{ fontSize: 12.5, px: 0.5, borderRadius: 0.5, bgcolor: 'action.hover' }}>{p.slice(1, -1)}</Box>
+    : <span key={i}>{p}</span>)}</>
+}
+
+/** Hafif Markdown: "### başlık", "- / * / • madde", "1. madde", boş satır = paragraf. */
+function RichText({ text }: { text: string }) {
+  type Block = { kind: 'h' | 'p' | 'ul' | 'ol'; lines: string[] }
+  const blocks: Block[] = []
+  for (const raw of String(text ?? '').replace(/\r/g, '').split('\n')) {
+    const line = raw.trimEnd()
+    const last = blocks[blocks.length - 1]
+    if (!line.trim()) { blocks.push({ kind: 'p', lines: [] }); continue }
+    const h = line.match(/^#{1,4}\s+(.*)$/)
+    const ul = line.match(/^\s*[-*•]\s+(.*)$/)
+    const ol = line.match(/^\s*\d+[.)]\s+(.*)$/)
+    if (h) blocks.push({ kind: 'h', lines: [h[1]] })
+    else if (ul) { if (last?.kind === 'ul') last.lines.push(ul[1]); else blocks.push({ kind: 'ul', lines: [ul[1]] }) }
+    else if (ol) { if (last?.kind === 'ol') last.lines.push(ol[1]); else blocks.push({ kind: 'ol', lines: [ol[1]] }) }
+    else if (last?.kind === 'p' && last.lines.length) last.lines.push(line)
+    else blocks.push({ kind: 'p', lines: [line] })
+  }
+  const shown = blocks.filter((b) => b.lines.length)
+  return (
+    <Box sx={{ '& > * + *': { mt: 1 } }}>
+      {shown.map((b, i) => b.kind === 'h' ? (
+        <Typography key={i} sx={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, color: 'text.secondary', pt: i ? 0.5 : 0 }}>
+          <Inline text={b.lines[0]} />
+        </Typography>
+      ) : b.kind === 'p' ? (
+        <Box key={i}>{b.lines.map((l, j) => <Box key={j}><Inline text={l} /></Box>)}</Box>
+      ) : (
+        <Box key={i} component={b.kind} sx={{ m: 0, pl: 2.25, '& li + li': { mt: 0.5 } }}>
+          {b.lines.map((l, j) => <li key={j}><Inline text={l} /></li>)}
+        </Box>
+      ))}
+    </Box>
+  )
+}
+
 export default function YaverAi() {
   const [open, setOpen] = useState(false)
   const [y, setYRaw] = useState(() => read(localStorage, POS_KEY, 0) || Math.round(window.innerHeight * 0.45))
-  const saved = read(sessionStorage, CHAT_KEY, { msgs: [] as Msg[], thread: null as string | null })
+  const [saved] = useState(() => read(sessionStorage, CHAT_KEY, { msgs: [] as Msg[], thread: null as string | null, boot: null as string | null }))
   const [msgs, setMsgs] = useState<Msg[]>(saved.msgs ?? [])
   const [thread, setThread] = useState<string | null>(saved.thread ?? null)
+  const [boot, setBoot] = useState<string | null>(saved.boot ?? null)
   const [text, setText] = useState('')
   const [busy, setBusy] = useState(false)
   const [suggestions, setSuggestions] = useState<string[]>([])
@@ -77,12 +121,21 @@ export default function YaverAi() {
     window.addEventListener('resize', onResize)
     return () => window.removeEventListener('resize', onResize)
   }, [])
-  useEffect(() => { write(sessionStorage, CHAT_KEY, { msgs, thread }) }, [msgs, thread])
+  useEffect(() => { write(sessionStorage, CHAT_KEY, { msgs, thread, boot }) }, [msgs, thread, boot])
   useEffect(() => { end.current?.scrollIntoView({ behavior: 'smooth', block: 'end' }) }, [msgs, busy, open])
+  // Sunucu (pod) kimliği değiştiyse — rollout / yeniden başlatma — sohbet geçmişi ve thread silinir
+  const syncBoot = useCallback((serverBoot: string | undefined) => {
+    if (!serverBoot) return
+    setBoot((prev) => {
+      if (prev !== serverBoot) { setMsgs([]); setThread(null) }
+      return serverBoot
+    })
+  }, [])
   useEffect(() => {
-    if (!open || suggestions.length || backend !== 'api') return
-    apiFetch<{ suggestions: string[]; mode: string }>('/ai/suggestions').then((r) => { setSuggestions(r.suggestions); setMode(r.mode) }).catch(() => {})
-  }, [open, suggestions.length])
+    if (backend !== 'api') return
+    apiFetch<{ suggestions: string[]; mode: string; boot_id?: string }>('/ai/suggestions')
+      .then((r) => { setSuggestions(r.suggestions); setMode(r.mode); syncBoot(r.boot_id) }).catch(() => {})
+  }, [open, syncBoot])
   useEffect(() => {
     if (!open) return
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false) }
@@ -102,9 +155,13 @@ export default function YaverAi() {
     setBusy(true)
     try {
       const r = await apiFetch<AskResponse>('/ai/ask', { method: 'POST', body: { message: question, thread_id: thread, history } })
+      const fresh = !!boot && !!r.boot_id && r.boot_id !== boot
+      if (r.boot_id) setBoot(r.boot_id)
       setThread(r.thread_id)
       setMode(r.mode)
-      setMsgs((m) => [...m, { role: 'assistant', content: r.answer, sources: r.sources, mode: r.mode, ms: r.duration_ms }])
+      const reply: Msg = { role: 'assistant', content: r.answer, sources: r.sources, mode: r.mode, ms: r.duration_ms }
+      // Bu arada pod yeniden başladıysa eski geçmiş atılır, yalnız bu soru-cevap kalır
+      setMsgs((m) => (fresh ? [{ role: 'user', content: question }, reply] : [...m, reply]))
     } catch (e) {
       setMsgs((m) => [...m, { role: 'assistant', content: `Cevap alınamadı: ${(e as Error).message}`, error: true }])
     } finally { setBusy(false) }
@@ -198,9 +255,9 @@ export default function YaverAi() {
                       <AutoAwesomeIcon sx={{ fontSize: 14 }} />
                     </Box>
                     <Box sx={{ minWidth: 0, flexGrow: 1 }}>
-                      <Paper variant="outlined" sx={{ px: 1.5, py: 1.25, borderRadius: 1.5, fontSize: 13.5, lineHeight: 1.55, whiteSpace: 'pre-wrap', wordBreak: 'break-word',
+                      <Paper variant="outlined" sx={{ px: 1.5, py: 1.25, borderRadius: 1.5, fontSize: 13.5, lineHeight: 1.55, wordBreak: 'break-word',
                                                        color: m.error ? 'error.main' : 'text.primary' }}>
-                        {m.content}
+                        <RichText text={m.content} />
                         {!!m.sources?.length && (
                           <Box sx={{ mt: 1.25, pt: 1, borderTop: 1, borderColor: 'divider' }}>
                             <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>Kaynaklar</Typography>
