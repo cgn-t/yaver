@@ -48,6 +48,8 @@ function load(): Db {
 // ---------- Mod / sunucu bağlantısı ----------
 export type Backend = 'api' | 'local'
 export let backend: Backend = 'local'
+/** Sunucu açık ama veritabanı hazır değilse nedeni (giriş ekranında gösterilir) */
+export let dbWaiting: string | null = null
 const TOKEN_KEY = 'yaver_token'
 export const getToken = () => localStorage.getItem(TOKEN_KEY)
 
@@ -60,8 +62,10 @@ export async function initBackend() {
     const t = setTimeout(() => ctrl.abort(), 2500)
     const res = await fetch('/api/health', { signal: ctrl.signal })
     clearTimeout(t)
-    const d = res.ok ? await res.json() : null
-    if (d?.ok) backend = 'api'
+    // 503 de olsa mode:'db' dönüyorsa sunucu var demektir (DB henüz hazır değil) → demo moduna düşme
+    const d = await res.json().catch(() => null)
+    if (d?.mode === 'db') backend = 'api'
+    if (d?.mode === 'db' && !d.ok) dbWaiting = d.detail ?? 'veritabanı bekleniyor'
   } catch { /* sunucu yok → demo modu */ }
   if (backend === 'api') {
     db = EMPTY

@@ -11,6 +11,7 @@ import { BrandMark } from '../components/Brand'
 import { Sparkline } from '../components/Charts'
 import { PriorityIcon, StatusIcon } from '../components/WorkKit'
 import { avatarColor, initials } from '../theme'
+import { dbWaiting } from '../data/store'
 
 const ease = [0.22, 1, 0.36, 1] as const
 
@@ -115,6 +116,12 @@ export default function Login() {
                                endAdornment: <InputAdornment position="end"><IconButton size="small" edge="end" onClick={() => setShowPass((s) => !s)} aria-label={showPass ? 'Şifreyi gizle' : 'Şifreyi göster'}>
                                  {showPass ? <VisibilityOffIcon fontSize="small" /> : <VisibilityIcon fontSize="small" />}</IconButton></InputAdornment> } }} />
                 </Box>
+                {dbWaiting && !error && (
+                  <Alert severity="warning" variant="outlined" sx={{ borderRadius: 2.5 }}>
+                    Sunucu açık ama veritabanı hazır değil ({dbWaiting}). Birkaç dakika sonra sayfayı yenileyin;
+                    düzelmezse yöneticiniz yaver konteyner logundaki açıklamaya baksın.
+                  </Alert>
+                )}
                 {error && (
                   <motion.div key={attempt} animate={{ x: [0, -8, 8, -5, 5, 0] }} transition={{ duration: 0.4 }}>
                     <Alert severity="error" variant="outlined" sx={{ borderRadius: 2.5 }}>{error}</Alert>

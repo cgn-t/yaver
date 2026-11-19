@@ -19,10 +19,18 @@ const h = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(
 const id = (req) => Number(req.params.id)
 
 // ---------- Açık uçlar ----------
-app.get('/api/health', h(async (_req, res) => {
-  await query('SELECT 1')
-  res.json({ ok: true, mode: 'db', version: process.env.APP_VERSION ?? 'dev' })
-}))
+// DB hazır olana kadar sunucu yine açıktır: /api/health 503 + neden döner, arayüz "veritabanı bekleniyor" gösterir.
+let ready = false
+let startupError = 'veritabanı bekleniyor'
+app.get('/api/health', async (_req, res) => {
+  const version = process.env.APP_VERSION ?? 'dev'
+  if (!ready) return res.status(503).json({ ok: false, mode: 'db', version, detail: startupError })
+  try { await query('SELECT 1'); res.json({ ok: true, mode: 'db', version }) } catch (e) {
+    res.status(503).json({ ok: false, mode: 'db', version, detail: `veritabanı erişilemiyor: ${e.message}` })
+  }
+})
+app.use('/api', (req, res, next) =>
+  ready ? next() : res.status(503).json({ detail: `Sunucu hazır değil: ${startupError}` }))
 
 app.post('/api/auth/login', h(async (req, res) => {
   const r = await login(req.body?.username, req.body?.password)
@@ -120,7 +128,9 @@ app.use((err, _req, res, _next) => {
   res.status(pgCheck ? 400 : 500).json({ detail: pgCheck ? 'Geçersiz değer' : 'Sunucu hatası' })
 })
 
+app.listen(PORT, () => console.log(`[web] Yaver ${process.env.APP_VERSION ?? 'dev'} http://0.0.0.0:${PORT} adresinde`))
 await waitForDb()
+startupError = 'tablolar hazırlanıyor'
 await migrateAndSeed({ seed: process.env.SEED !== 'false' })
+ready = true
 startPoller()
-app.listen(PORT, () => console.log(`[web] Yaver http://0.0.0.0:${PORT} adresinde`))
