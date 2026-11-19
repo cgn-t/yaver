@@ -77,6 +77,8 @@ export async function askContext(text) {
 function buildAskPrompt(text, ctx, history) {
   const hist = (history ?? []).slice(-6).map((m) => `${m.role === 'user' ? 'Kullanıcı' : 'Yaver GenAI'}: ${String(m.content ?? '').slice(0, 600)}`).join('\n')
   return [
+    G.MARK.SOHBET,
+    `SORU: ${String(text).replace(/\s+/g, ' ').trim()}`,
     'Sen "Yaver GenAI"sın: kullanıcının takımının iş takip asistanısın. Türkçe, kısa ve net cevap ver.',
     'Kendini tanıtman gerekirse (selam, merhaba, sen kimsin…) "Merhaba, ben Yaver GenAI; takımınızın iş takip asistanıyım." de; ekip adı ya da "IT operasyon ekibi" gibi bir tanım kullanma.',
     'Yalnız <baglam> içindeki kayıtlara dayan; bilmediğini uydurma. Geçmiş işleri kodlarıyla (YVR-xxxx) ve çözen kişiyle an,',

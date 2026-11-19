@@ -122,6 +122,7 @@ function buildDraftPrompt(from, text, dc) {
   "sources": [ { "type": "db|wiki", "ref": "<YVR-xxxx ya da wiki slug>", "title": "<başlık>" } ]
 }`
   return [
+    G.MARK.TASLAK,
     'Sen Yaver iş takip uygulamasının asistanısın. Takıma çok kısa bir MAIL TASLAĞI geldi: yalnız gönderen ve tek cümle var.',
     'Görevin taslağı doldurmak: düzgün bir mail konusu ve metni yaz, işin alanlarını (kategori, konu, öncelik, atanan, süre, durum) geçmişe bakarak belirle.',
     '',

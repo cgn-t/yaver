@@ -123,6 +123,7 @@ Gelen her iş (Mail, Zoom, TFS, Jira, manuel) kurum içi GenAI Studio **Chat Blo
 konu ve kategori atanır, durum / öncelik / atama önerileri onaya düşer. Bağlantı bilgileri **yalnız OpenShift Secret**
 (`yaver-genai`, `GENAI_*` değişkenleri) ile verilir; repoda ve ekranda değer yoktur.
 Kurulum, istek/cevap biçimi ve sorun giderme: **[docs/GENAI-STUDIO.md](docs/GENAI-STUDIO.md)**.
+GenAI Studio akışında istek türüne göre dallanma (condition'lar, sınıflandırıcı ve ajan prompt'ları): **[docs/GENAI-AKIS.md](docs/GENAI-AKIS.md)**.
 
 ## Yalnız arayüz (geliştirme)
 
