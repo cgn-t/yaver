@@ -69,6 +69,7 @@ CREATE TABLE meeting (
     status          VARCHAR(12)    NOT NULL DEFAULT 'scheduled', -- scheduled | live | ended | cancelled
     recording_url   NVARCHAR(1000) NULL,
     notes           NVARCHAR(MAX)  NULL,
+    work_item_id    BIGINT         NULL,                 -- toplantıdan açılan iş (FK aşağıda, work_item sonra tanımlandığı için)
     ingested_at     DATETIME2      NOT NULL DEFAULT SYSUTCDATETIME()
 );
 CREATE INDEX ix_meeting_start ON meeting(start_time);
@@ -113,6 +114,7 @@ CREATE INDEX ix_work_item_source   ON work_item(source_type, source_id);
 CREATE UNIQUE INDEX ux_work_item_extref ON work_item(source_type, external_ref) WHERE external_ref IS NOT NULL;
 
 ALTER TABLE email ADD CONSTRAINT fk_email_work_item FOREIGN KEY (work_item_id) REFERENCES work_item(id);
+ALTER TABLE meeting ADD CONSTRAINT fk_meeting_work_item FOREIGN KEY (work_item_id) REFERENCES work_item(id);
 
 CREATE TABLE work_item_tag (
     work_item_id    BIGINT         NOT NULL REFERENCES work_item(id) ON DELETE CASCADE,

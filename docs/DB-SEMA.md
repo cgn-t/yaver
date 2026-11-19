@@ -1,6 +1,9 @@
 # Yaver — DB tablo / kolon önerisi
 
-DDL: [`db/schema-mssql.sql`](../db/schema-mssql.sql) (MSSQL, Jumbo ile aynı altyapı varsayıldı).
+DDL:
+- **PostgreSQL (tek pod kurulumunda kullanılan):** [`db/postgres/01-schema.sql`](../db/postgres/01-schema.sql)
+  + örnek veri [`db/postgres/02-seed.sql`](../db/postgres/02-seed.sql). Uygulama ilk açılışta ikisini otomatik çalıştırır.
+- MSSQL karşılığı (Jumbo altyapısında kurulacaksa): [`db/schema-mssql.sql`](../db/schema-mssql.sql)
 
 ## Temel fikir
 
@@ -30,7 +33,7 @@ app_setting (category='ldap' | 'general')
 | `app_user` | Lokal admin + LDAP'tan gelen kullanıcılar | `username` (tekil), `auth_source` (local/ldap), `role`, `team_group` |
 | `email` | Posta kutusundan çekilen mailler | `message_id` (**tekil**, tekrar çekmede çift kayıt yok), `thread_id`, `from_*`, `subject`, `body_preview`, `importance`, `received_at`, `is_read`, `work_item_id` |
 | `email_attachment` | Ek meta verisi | dosya içeriği DB'de değil, `storage_path` |
-| `meeting` | Zoom toplantıları | `zoom_uuid` (**tekil**, her oturum), `zoom_meeting_id`, `topic`, `start_time`, `duration_min`, `status`, `recording_url`, `notes` |
+| `meeting` | Zoom toplantıları | `zoom_uuid` (**tekil**, her oturum), `zoom_meeting_id`, `topic`, `start_time`, `duration_min`, `status`, `recording_url`, `notes`, `work_item_id` |
 | `meeting_participant` | Katılımcılar | `email`, `join_time`, `leave_time`, `attended` |
 | `work_item` | **Merkez iş tablosu** | `code` (YVR-1001), `title`, `source_type`, `source_id`, `external_ref`, `status`, `priority`, `category`, `assignee_id`, `requester`, `due_date`, `closed_at` |
 | `work_item_tag` | Etiketler | (work_item_id, tag) |
@@ -57,28 +60,31 @@ display_attr, group_base, group_filter, team_group_ou, timeout_sec`.
 
 1. **Tekrar çekmede çift kayıt yok:** `email.message_id`, `meeting.zoom_uuid` ve
    `work_item(source_type, external_ref)` tekil. API servisi her dakika çalışsa da aynı kayıt bir kez yazılır.
-2. **Gizli bilgiler şifreli:** `api_poll_config.auth_secret_enc` ve `app_setting.is_secret=1`
-   satırları Fernet ile şifrelenir (Jumbo'daki `settings` servisiyle aynı yaklaşım).
-3. **Zamanlayıcı backend'de:** Önyüzdeki servis uygulama açıkken tarayıcıda çalışır (demo/geliştirme).
-   Üretimde backend zamanlanmış görevi `api_poll_config`'i okuyup çalıştırmalı; çoklu pod'da
-   `locked_until` ile aynı servis iki kez çalışmaz.
-4. **Tüm tarihler UTC** (`DATETIME2` + `SYSUTCDATETIME()`); ekranda yerel saate çevrilir.
-5. **Log temizliği:** `api_poll_log` dakikada bir satır/servis üretir (~1.440/gün). 30 günden eski satırlar
-   gecelik bir işle silinmeli.
+2. **Gizli bilgiler maskeli:** `api_poll_config.auth_secret` ve `app_setting.is_secret=TRUE` satırları
+   API'den hiçbir zaman açık dönmez (`********`); maskeli değer geri gönderilirse eski değer korunur.
+   Üretimde bu kolonlar ayrıca şifrelenmeli (ör. pgcrypto ya da Jumbo'daki Fernet yaklaşımı).
+3. **Zamanlayıcı sunucuda:** `server/src/poller.js` 2 sn'de bir `api_poll_config`'e bakar, süresi gelen etkin
+   servisi çalıştırır; tarayıcı kapalıyken de çalışır. `locked_until` ile aynı servis üst üste binmez.
+4. **Tüm tarihler UTC** (`TIMESTAMPTZ`); ekranda yerel saate çevrilir.
+5. **Log temizliği:** `api_poll_log` dakikada bir satır/servis üretir (~1.440/gün). Sunucu 30 günden eski
+   satırları günde bir siler (`API_LOG_RETENTION_DAYS`).
 
-## Önyüzün beklediği API uçları (backend için)
+## API uçları (server/ — uygulandı)
 
 | Uç | Açıklama |
 |---|---|
-| `POST /api/auth/login` | `{username, password}` → token (lokal admin + LDAP) |
-| `GET /api/work-items?status=&source=&assignee=&q=` · `POST` · `PATCH /api/work-items/{id}` | İşler |
-| `GET/POST /api/work-items/{id}/activity` | Tarihçe, yorum ekleme |
-| `GET /api/emails` · `PATCH /api/emails/{id}` · `POST /api/emails/{id}/convert` | Mailler, işe dönüştürme |
-| `GET /api/meetings` · `PATCH /api/meetings/{id}` | Zoom toplantıları, notlar |
-| `GET/POST/PUT/DELETE /api/settings/api-services` · `POST /api/settings/api-services/{id}/run` | API çağrı servisi |
-| `GET /api/settings/api-services/logs` | Çağrı geçmişi |
+| `GET /api/health` | Sağlık kontrolü (k8s probe'ları) |
+| `POST /api/auth/login` | `{username, password}` → token. Lokal hesap (admin) veya LDAP etkinse AD doğrulaması |
+| `GET /api/state` | Ekranların tüm verisi tek çağrıda (işler, mailler, toplantılar, tarihçe, servisler, loglar, ayarlar) |
+| `POST /api/work-items` · `PATCH /api/work-items/{id}` | İş oluşturma / güncelleme (durum, atama, öncelik değişiklikleri tarihçeye yazılır) |
+| `POST /api/work-items/{id}/comments` | Yorum |
+| `PATCH /api/emails/{id}` | Okundu / okunmadı |
+| `PATCH /api/meetings/{id}` | Toplantı notu, durum |
+| `POST/PUT/DELETE /api/settings/api-services[/{id}]` · `POST /api/settings/api-services/{id}/run` | API çağrı servisi |
+| `DELETE /api/settings/api-logs` | Çağrı geçmişini temizle |
 | `GET/PUT /api/settings/ldap` · `POST /api/settings/ldap/test` | LDAP |
-| `GET/PUT /api/settings/general` | Genel ayarlar |
+| `GET/PUT /api/settings/general` | Genel ayarlar (takım üyeleri = `app_user`) |
+| `POST /api/admin/reset-demo` | İş/mail/toplantı verisini örnek veriye döndürür |
 
-Önyüzde bu uçların yerini şimdilik `frontend/src/data/store.ts` (tarayıcı içi veri) tutuyor;
-backend gelince yalnız bu dosya değişir, sayfalar etkilenmez.
+Arayüz açılışta `/api/health`'e bakar: sunucu varsa veritabanı modunda, yoksa tarayıcı içi demo modunda çalışır
+(`frontend/src/data/store.ts`).

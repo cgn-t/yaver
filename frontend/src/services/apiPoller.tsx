@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
-import { getDb, recordApiResult } from '../data/store'
+import { backend, getDb, getToken, recordApiResult, refresh, runApiServiceOnServer } from '../data/store'
 import type { ApiServiceConfig } from '../data/types'
 
 /**
@@ -8,9 +8,10 @@ import type { ApiServiceConfig } from '../data/types'
  * (varsayılan 60 sn = 1 dk) çağrılır. Dönen JSON dizi (veya {items|data|records: [...]})
  * hedef tabloya (mail / zoom / iş) yazılır; her çağrı Çağrı Geçmişi'ne loglanır.
  *
- * Not: Bu zamanlayıcı tarayıcıda, uygulama açıkken çalışır. Üretimde aynı ayarlar
- * (api_poll_config tablosu) backend'deki zamanlanmış görev tarafından okunup çalıştırılmalıdır;
- * o durumda bu servis yalnız "Şimdi Çalıştır" ve geçmiş görüntüleme için kullanılır.
+ * Sunucu (pod) modunda zamanlayıcı SUNUCUDA çalışır (server/src/poller.js, api_poll_config tablosu) —
+ * tarayıcı kapalıyken de devam eder. Bu durumda buradaki sağlayıcı yalnız "Şimdi çalıştır"ı sunucuya
+ * iletir ve ekranı birkaç saniyede bir veritabanından tazeler.
+ * Demo modunda (sunucu yok) zamanlayıcı tarayıcıda, uygulama açıkken çalışır.
  */
 
 interface PollerState {
@@ -83,7 +84,7 @@ export function ApiPollerProvider({ children }: { children: ReactNode }) {
     if (inFlight.current.has(cfg.id)) return       // önceki çağrı bitmeden yenisi başlamaz
     inFlight.current.add(cfg.id)
     setRunning([...inFlight.current])
-    try { await callApi(cfg) } finally {
+    try { await (backend === 'api' ? runApiServiceOnServer(cfg.id) : callApi(cfg)) } finally {
       inFlight.current.delete(cfg.id)
       setRunning([...inFlight.current])
     }
@@ -97,6 +98,13 @@ export function ApiPollerProvider({ children }: { children: ReactNode }) {
 
   // Saniyede bir: süresi gelen etkin servisleri çalıştır. Ayar değişikliği anında devreye girer.
   useEffect(() => {
+    if (backend === 'api') {
+      // Sunucu çalıştırıyor; yeni gelen mail/toplantı/loglar için ekranı tazele (sekme görünürken)
+      const h = setInterval(() => {
+        if (document.visibilityState === 'visible' && getToken()) void refresh().catch(() => {})
+      }, 5000)
+      return () => clearInterval(h)
+    }
     const tick = () => {
       for (const cfg of getDb().apiConfigs) {
         const due = nextRunAt(cfg)

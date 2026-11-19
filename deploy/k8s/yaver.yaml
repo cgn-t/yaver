@@ -1,0 +1,145 @@
+# =====================================================================
+# Yaver — TEK POD kurulumu
+#   Pod içinde 2 konteyner: postgres (veritabanı) + yaver (arayüz + API + zamanlanmış API servisi)
+#   Konteynerler aynı pod'da olduğu için localhost:5432 üzerinden konuşur; DB dışarı açılmaz.
+#   İlk açılışta yaver konteyneri tabloları oluşturur (01-schema.sql) ve örnek veriyi yükler (02-seed.sql).
+#   Veriler PVC'de kalıcıdır; pod yeniden başlasa da kaybolmaz.
+#
+# Kurulum:
+#   1) İmajı derleyip kendi registry'nize gönderin:
+#        docker build -t <registry>/yaver:0.3.0 .  &&  docker push <registry>/yaver:0.3.0
+#   2) Aşağıdaki "image: yaver:0.3.0" satırını kendi adresinizle değiştirin, Secret şifrelerini değiştirin.
+#   3) kubectl apply -f deploy/k8s/yaver.yaml
+#   4) kubectl -n yaver port-forward svc/yaver 8080:80   →  http://localhost:8080  (admin / admin)
+# =====================================================================
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: yaver
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: yaver-secrets
+  namespace: yaver
+type: Opaque
+stringData:
+  POSTGRES_PASSWORD: "DEGISTIRIN-db-sifresi"          # veritabanı şifresi
+  TOKEN_SECRET: "DEGISTIRIN-uzun-rastgele-bir-deger"  # oturum imzalama anahtarı (openssl rand -hex 32)
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: yaver-pgdata
+  namespace: yaver
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 5Gi
+  # storageClassName: standard   # kümenizdeki sınıfa göre açın
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: yaver
+  namespace: yaver
+  labels: { app: yaver }
+spec:
+  replicas: 1                     # tek pod: veritabanı pod içinde olduğu için 1'den fazla yapmayın
+  strategy:
+    type: Recreate                # aynı diski iki pod aynı anda bağlamasın
+  selector:
+    matchLabels: { app: yaver }
+  template:
+    metadata:
+      labels: { app: yaver }
+    spec:
+      securityContext:
+        fsGroup: 70               # postgres (alpine) grubu → PVC yazılabilir
+      containers:
+        # ---------- 1) Veritabanı ----------
+        - name: postgres
+          image: postgres:16-alpine
+          env:
+            - { name: POSTGRES_DB, value: yaver }
+            - { name: POSTGRES_USER, value: yaver }
+            - name: POSTGRES_PASSWORD
+              valueFrom: { secretKeyRef: { name: yaver-secrets, key: POSTGRES_PASSWORD } }
+            - { name: PGDATA, value: /var/lib/postgresql/data/pgdata }
+            - { name: TZ, value: Europe/Istanbul }
+          ports:
+            - { name: postgres, containerPort: 5432 }
+          readinessProbe:
+            exec: { command: ["pg_isready", "-U", "yaver", "-d", "yaver", "-h", "127.0.0.1"] }
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          livenessProbe:
+            exec: { command: ["pg_isready", "-U", "yaver", "-d", "yaver", "-h", "127.0.0.1"] }
+            initialDelaySeconds: 30
+            periodSeconds: 15
+          resources:
+            requests: { cpu: 100m, memory: 256Mi }
+            limits: { memory: 1Gi }
+          volumeMounts:
+            - { name: pgdata, mountPath: /var/lib/postgresql/data }
+
+        # ---------- 2) Uygulama: arayüz + API ----------
+        - name: yaver
+          image: yaver:0.3.0      # ← kendi registry adresiniz
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: POSTGRES_PASSWORD
+              valueFrom: { secretKeyRef: { name: yaver-secrets, key: POSTGRES_PASSWORD } }
+            - { name: DATABASE_URL, value: "postgres://yaver:$(POSTGRES_PASSWORD)@127.0.0.1:5432/yaver" }
+            - name: TOKEN_SECRET
+              valueFrom: { secretKeyRef: { name: yaver-secrets, key: TOKEN_SECRET } }
+            - { name: SEED, value: "true" }          # ilk açılışta örnek veri; boş kurulum için "false"
+            - { name: DEMO_FEEDS, value: "true" }    # örnek mail/zoom kaynakları; gerçek entegrasyonda "false"
+            - { name: TZ, value: Europe/Istanbul }
+          ports:
+            - { name: http, containerPort: 8080 }
+          startupProbe:                              # DB hazır + şema yüklenene kadar bekler
+            httpGet: { path: /api/health, port: http }
+            periodSeconds: 3
+            failureThreshold: 40
+          readinessProbe:
+            httpGet: { path: /api/health, port: http }
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: { path: /api/health, port: http }
+            periodSeconds: 20
+            failureThreshold: 3
+          resources:
+            requests: { cpu: 50m, memory: 128Mi }
+            limits: { memory: 512Mi }
+      volumes:
+        - name: pgdata
+          persistentVolumeClaim: { claimName: yaver-pgdata }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: yaver
+  namespace: yaver
+spec:
+  selector: { app: yaver }
+  ports:
+    - { name: http, port: 80, targetPort: http }
+# ---------------------------------------------------------------------
+# İsteğe bağlı: dışarı açmak için Ingress (host'u kendinize göre düzenleyin)
+# ---------------------------------------------------------------------
+# ---
+# apiVersion: networking.k8s.io/v1
+# kind: Ingress
+# metadata:
+#   name: yaver
+#   namespace: yaver
+# spec:
+#   rules:
+#     - host: yaver.firma.local
+#       http:
+#         paths:
+#           - path: /
+#             pathType: Prefix
+#             backend: { service: { name: yaver, port: { number: 80 } } }

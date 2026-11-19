@@ -136,11 +136,11 @@ export function NewWorkItemDialog({ open, onClose, initial }: { open: boolean; o
   if (key !== lastKey) { setLastKey(key); if (open) setForm({ ...blank, ...initial }) }
   const set = <K extends keyof NewWorkItem>(k: K, v: NewWorkItem[K]) => setForm((f) => ({ ...f, [k]: v }))
 
-  const save = () => {
+  const save = async () => {
     if (!form.title.trim()) return
-    const item = createWorkItem(form)
-    enqueueSnackbar(`${item.code} oluşturuldu`, { variant: 'success' })
     onClose()
+    const item = await createWorkItem(form)
+    enqueueSnackbar(`${item.code} oluşturuldu`, { variant: 'success' })
   }
 
   return (

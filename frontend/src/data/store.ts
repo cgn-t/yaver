@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from 'react'
+import { enqueueSnackbar } from 'notistack'
 import { DEFAULT_GENERAL, DEFAULT_LDAP, newApiConfig, seedApiConfigs, seedData } from './seed'
 import type {
   Activity, ApiCallLog, ApiServiceConfig, Email, GeneralConfig, LdapConfig, Meeting, Priority, SourceType,
@@ -6,10 +7,12 @@ import type {
 } from './types'
 
 /**
- * Önyüz veri katmanı. Backend olmadığı için veri tarayıcıda (localStorage) tutulur.
- * Backend hazır olduğunda bu dosyadaki fonksiyonlar /api uçlarına çağrı yapacak şekilde
- * değiştirilir; sayfalar yalnız useDb() + aksiyon fonksiyonlarını kullandığı için etkilenmez.
- * Önerilen uçlar: docs/DB-SEMA.md "API uçları" bölümü.
+ * Önyüz veri katmanı — iki modda çalışır:
+ *  - 'api'  : Yaver sunucusu (server/) erişilebilir → veri PostgreSQL'den gelir (GET /api/state),
+ *             her değişiklik ilgili /api ucuna gönderilir. Ekran anında güncellenir (iyimser),
+ *             ardından sunucudaki gerçek durum yeniden okunur.
+ *  - 'local': Sunucu yoksa (ör. yalnız `npm run dev`) veri tarayıcıda (localStorage) tutulur — demo modu.
+ * Sayfalar yalnız useDb() + aksiyon fonksiyonlarını kullandığı için iki modda da aynı çalışır.
  */
 
 export interface Db {
@@ -42,12 +45,88 @@ function load(): Db {
   return initial()
 }
 
+// ---------- Mod / sunucu bağlantısı ----------
+export type Backend = 'api' | 'local'
+export let backend: Backend = 'local'
+const TOKEN_KEY = 'yaver_token'
+export const getToken = () => localStorage.getItem(TOKEN_KEY)
+
+const EMPTY: Db = { items: [], emails: [], meetings: [], activities: [], apiConfigs: [], apiLogs: [], ldap: DEFAULT_LDAP, general: DEFAULT_GENERAL }
+
+/** Açılışta bir kez: sunucu varsa API moduna geç ve (oturum varsa) veriyi yükle. */
+export async function initBackend() {
+  try {
+    const ctrl = new AbortController()
+    const t = setTimeout(() => ctrl.abort(), 2500)
+    const res = await fetch('/api/health', { signal: ctrl.signal })
+    clearTimeout(t)
+    const d = res.ok ? await res.json() : null
+    if (d?.ok) backend = 'api'
+  } catch { /* sunucu yok → demo modu */ }
+  if (backend === 'api') {
+    db = EMPTY
+    if (getToken()) await refresh().catch(() => {})
+  }
+}
+
+export class ApiError extends Error {
+  status: number
+  constructor(message: string, status: number) { super(message); this.status = status }
+}
+
+/** Oturum token'ı ile /api çağrısı. 401 → oturumu kapatıp giriş ekranına döner. */
+export async function apiFetch<T = unknown>(path: string, init: { method?: string; body?: unknown } = {}): Promise<T> {
+  const res = await fetch(`/api${path}`, {
+    method: init.method ?? 'GET',
+    headers: { 'Content-Type': 'application/json', ...(getToken() ? { Authorization: `Bearer ${getToken()}` } : {}) },
+    body: init.body === undefined ? undefined : JSON.stringify(init.body),
+  })
+  if (res.status === 401 && path !== '/auth/login') {
+    clearSession()
+    if (location.pathname !== '/login') location.assign('/login')
+  }
+  const text = await res.text()
+  const data = text ? JSON.parse(text) : null
+  if (!res.ok) throw new ApiError(data?.detail ?? `HTTP ${res.status}`, res.status)
+  return data as T
+}
+
+export function setSession(token: string) { localStorage.setItem(TOKEN_KEY, token) }
+export function clearSession() {
+  localStorage.removeItem(TOKEN_KEY)
+  localStorage.removeItem('yaver_username')
+  localStorage.removeItem('yaver_fullname')
+  if (backend === 'api') { db = EMPTY; listeners.forEach((l) => l()) }
+}
+
+/** Sunucudaki güncel durumu okur (API modunda; periyodik olarak da çağrılır). */
+export async function refresh() {
+  if (backend !== 'api') return
+  const next = await apiFetch<Db>('/state')
+  db = next
+  listeners.forEach((l) => l())
+}
+
+/** İyimser güncellemeden sonra sunucu çağrısını yapar, sonra gerçek durumu yeniden okur. Hata → mesaj + geri al. */
+async function sync<T>(call: () => Promise<T>): Promise<T | undefined> {
+  try {
+    return await call()
+  } catch (e) {
+    enqueueSnackbar(e instanceof Error ? e.message : 'Sunucu hatası', { variant: 'error' })
+    return undefined
+  } finally {
+    await refresh().catch(() => {})
+  }
+}
+
 let db: Db = load()
 const listeners = new Set<() => void>()
 
 function commit(next: Db) {
   db = next
-  try { localStorage.setItem(KEY, JSON.stringify(db)) } catch { /* depolama dolu: yalnız bellekte */ }
+  if (backend === 'local') {
+    try { localStorage.setItem(KEY, JSON.stringify(db)) } catch { /* depolama dolu: yalnız bellekte */ }
+  }
   listeners.forEach((l) => l())
 }
 
@@ -56,7 +135,10 @@ export function useDb(): Db {
 }
 export const getDb = () => db
 
-export function resetDemoData() { commit({ ...initial(), ldap: db.ldap, general: db.general, apiConfigs: db.apiConfigs }) }
+export async function resetDemoData() {
+  if (backend === 'api') { await sync(() => apiFetch('/admin/reset-demo', { method: 'POST' })); return }
+  commit({ ...initial(), ldap: db.ldap, general: db.general, apiConfigs: db.apiConfigs })
+}
 
 const now = () => new Date().toISOString()
 const nextId = (rows: { id: number }[]) => rows.reduce((m, r) => Math.max(m, r.id), 0) + 1
@@ -86,7 +168,13 @@ export type NewWorkItem = Pick<WorkItem, 'title' | 'description' | 'priority' | 
   source_type?: SourceType; source_id?: number | null; requester?: string | null; tags?: string[]
 }
 
-export function createWorkItem(input: NewWorkItem): WorkItem {
+export async function createWorkItem(input: NewWorkItem): Promise<WorkItem> {
+  const local = createWorkItemLocal(input)
+  if (backend !== 'api') return local
+  return (await sync(() => apiFetch<WorkItem>('/work-items', { method: 'POST', body: input }))) ?? local
+}
+
+function createWorkItemLocal(input: NewWorkItem): WorkItem {
   const id = nextId(db.items)
   const item: WorkItem = {
     id, code: `YVR-${1000 + id}`, title: input.title, description: input.description,
@@ -107,6 +195,7 @@ export function createWorkItem(input: NewWorkItem): WorkItem {
 }
 
 export function updateWorkItem(id: number, patch: Partial<WorkItem>) {
+  if (backend === 'api') void sync(() => apiFetch(`/work-items/${id}`, { method: 'PATCH', body: patch }))
   const old = db.items.find((w) => w.id === id)
   if (!old) return
   let acts = db.activities
@@ -123,32 +212,57 @@ export function updateWorkItem(id: number, patch: Partial<WorkItem>) {
 }
 
 export function addComment(id: number, text: string) {
+  if (backend === 'api') void sync(() => apiFetch(`/work-items/${id}/comments`, { method: 'POST', body: { text } }))
   commit({ ...db, activities: addActivity(db.activities, id, 'comment', text),
            items: db.items.map((w) => (w.id === id ? { ...w, updated_at: now() } : w)) })
 }
 
 // ---------- Mail / Zoom ----------
 export function markEmailRead(id: number, is_read = true) {
+  if (backend === 'api') void sync(() => apiFetch(`/emails/${id}`, { method: 'PATCH', body: { is_read } }))
   commit({ ...db, emails: db.emails.map((e) => (e.id === id ? { ...e, is_read } : e)) })
 }
 export function updateMeeting(id: number, patch: Partial<Meeting>) {
+  if (backend === 'api') void sync(() => apiFetch(`/meetings/${id}`, { method: 'PATCH', body: patch }))
   commit({ ...db, meetings: db.meetings.map((m) => (m.id === id ? { ...m, ...patch } : m)) })
 }
 
 // ---------- Ayarlar ----------
-export function saveLdap(ldap: LdapConfig) { commit({ ...db, ldap }) }
-export function saveGeneral(general: GeneralConfig) { commit({ ...db, general }) }
+export function saveLdap(ldap: LdapConfig) {
+  if (backend === 'api') void sync(() => apiFetch('/settings/ldap', { method: 'PUT', body: ldap }))
+  commit({ ...db, ldap })
+}
+export function saveGeneral(general: GeneralConfig) {
+  if (backend === 'api') void sync(() => apiFetch('/settings/general', { method: 'PUT', body: general }))
+  commit({ ...db, general })
+}
 export function saveApiConfig(cfg: ApiServiceConfig) {
+  if (backend === 'api') void sync(() => apiFetch(`/settings/api-services/${cfg.id}`, { method: 'PUT', body: cfg }))
   const exists = db.apiConfigs.some((c) => c.id === cfg.id)
   commit({ ...db, apiConfigs: exists ? db.apiConfigs.map((c) => (c.id === cfg.id ? cfg : c)) : [...db.apiConfigs, cfg] })
 }
-export function addApiConfig(): ApiServiceConfig {
+export async function addApiConfig(): Promise<ApiServiceConfig> {
+  if (backend === 'api') {
+    const created = await sync(() => apiFetch<ApiServiceConfig>('/settings/api-services', { method: 'POST', body: newApiConfig(0) }))
+    if (created) return created
+  }
   const cfg = newApiConfig(nextId(db.apiConfigs))
   commit({ ...db, apiConfigs: [...db.apiConfigs, cfg] })
   return cfg
 }
-export function deleteApiConfig(id: number) { commit({ ...db, apiConfigs: db.apiConfigs.filter((c) => c.id !== id) }) }
-export function clearApiLogs() { commit({ ...db, apiLogs: [] }) }
+export function deleteApiConfig(id: number) {
+  if (backend === 'api') void sync(() => apiFetch(`/settings/api-services/${id}`, { method: 'DELETE' }))
+  commit({ ...db, apiConfigs: db.apiConfigs.filter((c) => c.id !== id) })
+}
+export function clearApiLogs() {
+  if (backend === 'api') void sync(() => apiFetch('/settings/api-logs', { method: 'DELETE' }))
+  commit({ ...db, apiLogs: [] })
+}
+
+/** "Şimdi çalıştır" — API modunda çağrıyı sunucu yapar (tarayıcının CORS/ağ kısıtı olmadan). */
+export async function runApiServiceOnServer(id: number) {
+  await sync(() => apiFetch(`/settings/api-services/${id}/run`, { method: 'POST' }))
+}
 
 /** API servisinden dönen kayıtları ilgili tabloya yazar (çift kayıt: dış anahtar ile engellenir). */
 export function recordApiResult(cfg: ApiServiceConfig, log: Omit<ApiCallLog, 'id'>, records: unknown[]) {

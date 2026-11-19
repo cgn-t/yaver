@@ -1,0 +1,33 @@
+# =====================================================================
+# Yaver — tek imaj: React arayüz + Node API (+ SQL şema/örnek veri dosyaları)
+# Veritabanı aynı pod'da ayrı konteyner (postgres:16-alpine) olarak çalışır; bkz. deploy/k8s/yaver.yaml
+# =====================================================================
+
+# ---- 1) Arayüz derleme ----
+FROM node:22-alpine AS web
+WORKDIR /src/frontend
+COPY frontend/package.json frontend/package-lock.json ./
+RUN npm ci --no-audit --no-fund
+COPY frontend/ ./
+RUN npm run build
+
+# ---- 2) Sunucu bağımlılıkları ----
+FROM node:22-alpine AS deps
+WORKDIR /app/server
+COPY server/package.json server/package-lock.json ./
+RUN npm ci --omit=dev --no-audit --no-fund
+
+# ---- 3) Çalışma imajı ----
+FROM node:22-alpine
+ENV NODE_ENV=production PORT=8080 \
+    STATIC_DIR=/app/frontend/dist SQL_DIR=/app/db/postgres
+WORKDIR /app
+COPY --from=deps /app/server/node_modules server/node_modules
+COPY server/package.json server/
+COPY server/src server/src
+COPY db/postgres db/postgres
+COPY --from=web /src/frontend/dist frontend/dist
+USER node
+EXPOSE 8080
+HEALTHCHECK --interval=30s --timeout=5s --start-period=60s CMD wget -qO- http://127.0.0.1:8080/api/health || exit 1
+CMD ["node", "server/src/index.js"]

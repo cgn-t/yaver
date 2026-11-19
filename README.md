@@ -1,10 +1,44 @@
-# YAVER — Takım İş Takip Platformu (önyüz)
+# YAVER — Takım İş Takip Platformu
 
-Takıma gelen mailleri, Zoom toplantılarını ve diğer tüm işleri tek yerden takip eden uygulamanın önyüzü.
-Görünüm ve yapı **Jumbo** (cgn-t/ju) önyüzünden alındı: React + TypeScript + Vite + MUI, kırmızı sol menü,
-IBM Plex Sans, açık/koyu tema, gruplu Ayarlar ekranı.
+Takıma gelen mailleri, Zoom toplantılarını ve diğer tüm işleri tek yerden takip eden uygulama.
+Başlangıç taslağı **Jumbo** (cgn-t/ju) önyüzü; v0.2'den itibaren kendi tasarım sistemi var.
 
-## Çalıştırma
+```
+frontend/   React + TypeScript + Vite + MUI arayüz
+server/     Node (Express + pg) API: giriş, işler, mail, toplantı, ayarlar, zamanlanmış API servisi; arayüzü de sunar
+db/postgres 01-schema.sql (tablolar) + 02-seed.sql (örnek veri) — ilk açılışta otomatik çalışır
+deploy/k8s  yaver.yaml: TEK POD (postgres + yaver konteyneri), PVC, Secret, Service
+```
+
+## Tek pod kurulumu (arayüz + API + veritabanı)
+
+Pod içinde iki konteyner vardır: **postgres:16-alpine** ve **yaver** (arayüz + API). Aynı pod'da oldukları için
+`localhost:5432` üzerinden konuşurlar; veritabanı dışarı açılmaz. İlk açılışta yaver konteyneri tabloları
+oluşturur ve örnek veriyi yükler; veriler PVC'de kalır.
+
+```bash
+docker build -t <registry>/yaver:0.3.0 .
+docker push <registry>/yaver:0.3.0
+# deploy/k8s/yaver.yaml içinde image ve Secret şifrelerini düzenleyin
+kubectl apply -f deploy/k8s/yaver.yaml
+kubectl -n yaver port-forward svc/yaver 8080:80     # http://localhost:8080  →  admin / admin
+```
+
+Kubernetes olmadan aynı ikiliyi denemek için: `docker compose up --build` → http://localhost:8080
+
+| Ortam değişkeni (yaver) | Varsayılan | Açıklama |
+|---|---|---|
+| `DATABASE_URL` | `postgres://yaver:yaver@localhost:5432/yaver` | Pod içindeki DB |
+| `TOKEN_SECRET` | (rastgele) | Oturum imzalama anahtarı; verilmezse pod yeniden başlayınca tekrar giriş gerekir |
+| `SEED` | `true` | DB boşsa örnek veriyi yükle. `false` → boş kurulum (yalnız admin) |
+| `DEMO_FEEDS` | `true` | Örnek mail/Zoom kaynakları (`/api/integrations/*/sync`). Gerçek entegrasyonda `false` |
+| `ADMIN_PASSWORD` | `admin` | `SEED=false` iken oluşturulan admin şifresi |
+| `API_LOG_RETENTION_DAYS` | `30` | Çağrı geçmişi saklama süresi |
+
+Örnek veri SQL'i arayüzün demo verisinden üretilir: `node --experimental-strip-types db/tools/gen-seed.ts > db/postgres/02-seed.sql`.
+Tarihler `now()`'a görelidir, hangi gün yüklenirse pano dolu görünür.
+
+## Yalnız arayüz (geliştirme)
 
 ```bash
 cd frontend
@@ -14,7 +48,9 @@ npm run dev          # http://localhost:5173
 
 Giriş: **admin / admin**
 
-Backend hazır olduğunda: `VITE_API_TARGET=http://localhost:8000 npm run dev` (`/api` istekleri oraya yönlenir).
+Sunucu yoksa arayüz **demo modunda** açılır (veriler tarayıcıda). Sunucuyla geliştirmek için:
+`cd server && npm install && DATABASE_URL=postgres://… PORT=8000 npm start`, ardından
+`VITE_API_TARGET=http://localhost:8000 npm run dev`.
 
 ## Tasarım (v0.2)
 
@@ -50,15 +86,16 @@ Kendi görsel kimliği olan modern bir SaaS arayüzü (Linear / Vercel çizgisi)
 
 ## API çağrı servisi nasıl çalışır?
 
-`frontend/src/services/apiPoller.tsx` — oturum açıkken saniyede bir kontrol eder; etkin her servis kendi aralığında
-çağrılır, önceki çağrı bitmeden yenisi başlamaz. Dönen JSON dizi (veya `{items|data|records: [...]}`) seçilen
-hedefe yazılır (mail → `message_id`, zoom → `zoom_meeting_id`, iş → `id/key` ile tekilleştirilir) ve sonuç
-Çağrı Geçmişi'ne loglanır. Üretimde aynı ayarlar backend zamanlayıcısı tarafından çalıştırılmalı (bkz. DB dokümanı).
+Pod kurulumunda zamanlayıcı **sunucuda** çalışır (`server/src/poller.js`), tarayıcı kapalıyken de devam eder:
+etkin her servis kendi aralığında (varsayılan 1 dk) çağrılır, önceki çağrı bitmeden yenisi başlamaz. Dönen JSON dizi
+(veya `{items|data|records: [...]}`) seçilen hedefe yazılır (mail → `message_id`, zoom → `zoom_uuid`,
+iş → `external_ref` ile tekilleştirilir) ve sonuç `api_poll_log` tablosuna yazılır. Göreli URL'ler
+(`/api/...`) pod'un kendisine gider. Demo modunda aynı mantık tarayıcıda çalışır (`services/apiPoller.tsx`).
 
 ## Veri
 
-Backend olmadığı için veriler şimdilik tarayıcıda (localStorage) tutulur ve örnek veriyle başlar
-(`frontend/src/data/`). Backend gelince yalnız `data/store.ts` API çağrılarına çevrilir.
+Sunucu varsa veriler pod içindeki PostgreSQL'de; yoksa tarayıcıda (demo). Geçişi `frontend/src/data/store.ts` yapar.
 
-- DB tablo/kolon önerisi: [docs/DB-SEMA.md](docs/DB-SEMA.md)
-- DDL (MSSQL): [db/schema-mssql.sql](db/schema-mssql.sql)
+- Tablolar ve kolonlar: [docs/DB-SEMA.md](docs/DB-SEMA.md)
+- DDL (PostgreSQL): [db/postgres/01-schema.sql](db/postgres/01-schema.sql) · örnek veri: [db/postgres/02-seed.sql](db/postgres/02-seed.sql)
+- DDL (MSSQL karşılığı): [db/schema-mssql.sql](db/schema-mssql.sql)

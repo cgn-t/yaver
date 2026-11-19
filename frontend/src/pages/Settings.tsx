@@ -14,7 +14,7 @@ import PageHeader from '../components/PageHeader'
 import { AnimatePresence, motion } from 'motion/react'
 import { formatDateTime } from '../components/WorkKit'
 import {
-  addApiConfig, clearApiLogs, deleteApiConfig, resetDemoData, saveApiConfig, saveGeneral, saveLdap, SOURCE_LABEL, useDb,
+  addApiConfig, apiFetch, ApiError, backend, clearApiLogs, deleteApiConfig, resetDemoData, saveApiConfig, saveGeneral, saveLdap, SOURCE_LABEL, useDb,
 } from '../data/store'
 import type { ApiServiceConfig, GeneralConfig, LdapConfig } from '../data/types'
 import { useDocumentTitle } from '../hooks/useDocumentTitle'
@@ -73,12 +73,13 @@ function LdapTab() {
     if (missing.length) { enqueueSnackbar(`Eksik alan: ${missing.join(', ')}`, { variant: 'warning' }); return }
     setTesting(true)
     try {
-      // Backend uç noktası: POST /api/settings/ldap/test → { success, message }
-      const res = await fetch('/api/settings/ldap/test', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(form) })
-      const d = await res.json()
-      enqueueSnackbar(d.message ?? `HTTP ${res.status}`, { variant: d.success ? 'success' : 'error' })
-    } catch {
-      enqueueSnackbar('Bağlantı testi backend üzerinden yapılır; backend henüz bağlı değil. Ayarlar formatça geçerli.', { variant: 'info' })
+      if (backend !== 'api') throw new Error('demo')
+      // POST /api/settings/ldap/test → { success, message } (formdaki, henüz kaydedilmemiş değerlerle)
+      const d = await apiFetch<{ success: boolean; message: string }>('/settings/ldap/test', { method: 'POST', body: form })
+      enqueueSnackbar(d.message, { variant: d.success ? 'success' : 'error' })
+    } catch (e) {
+      if (e instanceof ApiError) enqueueSnackbar(e.message, { variant: 'error' })
+      else enqueueSnackbar('Bağlantı testi sunucu üzerinden yapılır; şu an demo modundasınız. Ayarlar formatça geçerli.', { variant: 'info' })
     } finally { setTesting(false) }
   }
 
@@ -206,7 +207,7 @@ function ApiServiceTab() {
           )
         })}
         </AnimatePresence>
-        <Box><Button startIcon={<AddIcon />} onClick={() => setSelId(addApiConfig().id)}>Servis ekle</Button></Box>
+        <Box><Button startIcon={<AddIcon />} onClick={() => { void addApiConfig().then((c) => setSelId(c.id)) }}>Servis ekle</Button></Box>
       </Stack>
 
       {form && (
@@ -360,8 +361,10 @@ function GeneralTab() {
       </Box>
       <Divider />
       <SectionLabel>Demo verisi</SectionLabel>
-      <Alert severity="warning" action={<Button color="inherit" size="small" onClick={() => { resetDemoData(); enqueueSnackbar('Örnek veri yüklendi', { variant: 'info' }) }}>Sıfırla</Button>}>
-        Backend bağlanana kadar veriler tarayıcıda tutulur. Sıfırla: iş/mail/toplantı kayıtlarını örnek veriye döndürür (ayarlar korunur).
+      <Alert severity="warning" action={<Button color="inherit" size="small" onClick={() => { void resetDemoData().then(() => enqueueSnackbar('Örnek veri yüklendi', { variant: 'info' })) }}>Sıfırla</Button>}>
+        {backend === 'api'
+          ? 'Veriler pod içindeki PostgreSQL veritabanında. Sıfırla: iş/mail/toplantı kayıtlarını silip örnek veriyi yeniden yükler (kullanıcılar, ayarlar ve API servisleri korunur).'
+          : 'Demo modu: sunucu bağlı değil, veriler tarayıcıda tutulur. Sıfırla: iş/mail/toplantı kayıtlarını örnek veriye döndürür (ayarlar korunur).'}
       </Alert>
     </Stack>
   )

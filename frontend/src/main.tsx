@@ -4,9 +4,13 @@ import { createRoot } from 'react-dom/client'
 import '@fontsource-variable/inter'
 import '@fontsource/jetbrains-mono/400.css'
 import App from './App.tsx'
+import { initBackend } from './data/store'
 
-createRoot(document.getElementById('root')!).render(
-  <StrictMode>
-    <App />
-  </StrictMode>,
-)
+// Sunucu (pod) varsa veriyi veritabanından yükle; yoksa demo modunda aç
+void initBackend().finally(() => {
+  createRoot(document.getElementById('root')!).render(
+    <StrictMode>
+      <App />
+    </StrictMode>,
+  )
+})
