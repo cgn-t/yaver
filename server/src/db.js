@@ -1,3 +1,4 @@
+import { mkdirSync } from 'node:fs'
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import { PGlite, types } from '@electric-sql/pglite'
@@ -10,6 +11,8 @@ import { PGlite, types } from '@electric-sql/pglite'
  */
 const DATA_DIR = process.env.DATA_DIR ?? path.resolve(import.meta.dirname, '../../data')
 const PGDATA = path.join(DATA_DIR, 'pgdata')
+// PGlite modül yüklenirken açılır; klasör yoksa (ilk açılış, boş PVC) yarış olmasın diye önceden oluşturulur
+mkdirSync(DATA_DIR, { recursive: true })
 
 export const pglite = new PGlite(PGDATA, {
   parsers: {
