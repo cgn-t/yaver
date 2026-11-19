@@ -26,7 +26,6 @@ type AskResponse = { answer: string; thread_id: string | null; mode: 'genai' | '
 const CHAT_KEY = 'yaver_ai_chat'
 const POS_KEY = 'yaver_ai_y'
 const TAB_H = 128
-const PANEL_H = 620
 const MARGIN = 12
 const read = <T,>(store: Storage, key: string, fallback: T): T => { try { const v = store.getItem(key); return v ? JSON.parse(v) as T : fallback } catch { return fallback } }
 const write = (store: Storage, key: string, v: unknown) => { try { store.setItem(key, JSON.stringify(v)) } catch { /* depolama yok */ } }
@@ -114,7 +113,6 @@ export default function YaverAi() {
   const navigate = useNavigate()
 
   const setY = useCallback((v: number) => { setYRaw(v); write(localStorage, POS_KEY, v) }, [])
-  const panelTop = clamp(y - 40, PANEL_H)
   const tabTop = clamp(y, TAB_H)
   useEffect(() => {
     const onResize = () => setYRaw((v) => clamp(v, TAB_H))
@@ -144,7 +142,6 @@ export default function YaverAi() {
   }, [open])
 
   const tabDrag = useVerticalDrag(tabTop, setY, TAB_H, () => setOpen(true))
-  const headDrag = useVerticalDrag(panelTop, (v) => setY(v + 40), PANEL_H)
 
   async function ask(q: string) {
     const question = q.trim()
@@ -191,12 +188,11 @@ export default function YaverAi() {
 
       {open && (
         <Paper elevation={0} role="dialog" aria-label="Yaver AI asistanı"
-               sx={(t) => ({ position: 'fixed', right: MARGIN, top: panelTop, zIndex: 1300, width: { xs: `calc(100vw - ${MARGIN * 2}px)`, sm: 420 },
-                             height: PANEL_H, maxHeight: `calc(100vh - ${MARGIN * 2}px)`, display: 'flex', flexDirection: 'column', overflow: 'hidden',
-                             borderRadius: 2, border: 1, borderColor: 'divider', boxShadow: t.shadows[16] })}>
-          {/* Başlık: sürükleme tutamağı */}
-          <Box {...headDrag} sx={{ display: 'flex', alignItems: 'center', gap: 1.25, px: 2, height: 56, flexShrink: 0, cursor: 'ns-resize', touchAction: 'none',
-                                   userSelect: 'none', borderBottom: 1, borderColor: 'divider', bgcolor: 'background.paper' }}>
+               sx={(t) => ({ position: 'fixed', right: 0, top: 0, bottom: 0, zIndex: 1300, width: { xs: '100vw', sm: 440 },
+                             height: '100dvh', display: 'flex', flexDirection: 'column', overflow: 'hidden',
+                             borderRadius: 0, borderLeft: 1, borderColor: 'divider', boxShadow: t.shadows[16] })}>
+          {/* Başlık: sağ kenarda tam boy panel */}
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, px: 2, height: 56, flexShrink: 0, borderBottom: 1, borderColor: 'divider', bgcolor: 'background.paper' }}>
             <Box sx={(t) => ({ width: 30, height: 30, borderRadius: 1.5, display: 'grid', placeItems: 'center', bgcolor: alpha(t.palette.primary.main, 0.1), color: 'primary.main' })}>
               <AutoAwesomeIcon sx={{ fontSize: 17 }} />
             </Box>

@@ -1,6 +1,6 @@
 # Demo iş akışı ve Yaver AI sohbet
 
-> Sürüm **0.9.4**. GenAI Studio bağlantısı: [`GENAI-ENV.md`](GENAI-ENV.md) · ayrıntı: [`GENAI-STUDIO.md`](GENAI-STUDIO.md)
+> Sürüm **0.9.5**. GenAI Studio bağlantısı: [`GENAI-ENV.md`](GENAI-ENV.md) · ayrıntı: [`GENAI-STUDIO.md`](GENAI-STUDIO.md)
 
 ## 1. Demo iş akışı
 
@@ -54,7 +54,7 @@ Rollout sonrası demoyu yeniden başlatmak için `POST /api/demo/run` (ya da ekr
 
 ## 2. Yaver AI sohbet
 
-Her sayfanın sağ kenarında **Yaver AI** sekmesi. Sekme ve açılan panel yalnız yukarı-aşağı sürüklenebilir (konum tarayıcıda hatırlanır); Esc ile kapanır.
+Her sayfanın sağ kenarında **Yaver AI** sekmesi. Sekme yalnız yukarı-aşağı sürüklenebilir (konum tarayıcıda hatırlanır). Tıklanınca asistan sağ kenarda tam boy panel olarak açılır; Esc ile kapanır. Selam verilince kendini "takımınızın iş takip asistanı" olarak tanıtır.
 Panelde serbest soru sorulur ya da önerilen sorulardan biri seçilir; cevabın altında kaynak işler ve wiki sayfaları listelenir.
 
 - `POST /api/ai/ask` `{"message": "...", "thread_id": "<önceki cevaptaki>", "history": [{"role": "user|assistant", "content": "..."}]}`
