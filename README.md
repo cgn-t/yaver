@@ -100,6 +100,8 @@ Uçtan uca test (sahte ajan ile): sunucuyu `AGENT_TOKEN`, `AGENT_WEBHOOK_URL=htt
 
 ## GenAI Studio Chat Block (v0.8)
 
+> Hangi ENV'ler yazılmalı: [`docs/GENAI-ENV.md`](docs/GENAI-ENV.md) · Secret şablonu: [`deploy/k8s/yaver-genai-secret.example.yaml`](deploy/k8s/yaver-genai-secret.example.yaml)
+
 Gelen her iş (Mail, Zoom, TFS, Jira, manuel) kurum içi GenAI Studio **Chat Block** API'sine gönderilir; cevapla iş yorumlanır,
 konu ve kategori atanır, durum / öncelik / atama önerileri onaya düşer. Bağlantı bilgileri **yalnız OpenShift Secret**
 (`yaver-genai`, `GENAI_*` değişkenleri) ile verilir; repoda ve ekranda değer yoktur.

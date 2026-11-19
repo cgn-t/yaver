@@ -1,6 +1,6 @@
 # GenAI Studio (Chat Block) Entegrasyonu
 
-> Sürüm **0.8.0**. Yaver'e gelen her iş (Mail, Zoom, TFS Kanban, Jira, manuel, API) arka planda kurum içi
+> Sürüm **0.8.1**. Yaver'e gelen her iş (Mail, Zoom, TFS Kanban, Jira, manuel, API) arka planda kurum içi
 > GenAI Studio **Chat Block** API'sine gönderilir. Dönen cevapla iş **yorumlanır**, **kategorize edilir**
 > (konu, kategori) ve gerekiyorsa **durum / öncelik / atama / son tarih** değişikliği önerilir.
 >
@@ -38,6 +38,8 @@ iş geldi (work_item.created)            mail geldi, işe bağlı değil (email.
 Hata olursa iş en fazla 4 kez (30 sn, 1 dk, 2 dk…) tekrar denenir; her deneme **Ayarlar > GenAI Çağrıları**'nda görünür.
 
 ## 2. OpenShift'te kurulum
+
+> Kısa ENV rehberi ve sorun giderme: [`GENAI-ENV.md`](GENAI-ENV.md).
 
 Değerleri GenAI Studio ortam dosyanızdan (`GENAI_STUDIO.yml`) alın ve **Secret** olarak verin:
 
