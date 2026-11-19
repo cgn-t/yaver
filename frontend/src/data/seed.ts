@@ -29,7 +29,7 @@ export const DEFAULT_LDAP: LdapConfig = {
 }
 
 export const DEFAULT_GENERAL: GeneralConfig = {
-  app_title: 'YAVER',
+  app_title: 'Yaver',
   default_assignee: '',
   sla_hours: 24,
   mailbox: 'takim@firma.com',
@@ -124,6 +124,51 @@ export function seedData() {
       status: 'in_progress', priority: 'critical', category: 'Entegrasyon', assignee: 'admin', requester: 'Jira', due_date: day(0), tags: ['entegrasyon'],
       created_at: iso(-8 * H), updated_at: iso(-1 * H), closed_at: null },
   ]
+
+  // Geçmiş 14 güne yayılmış ek kayıtlar — grafikler/trendler anlamlı görünsün diye (deterministik)
+  const TITLES = ['VPN erişim talebi', 'Rapor çıktısında hatalı toplam', 'Yeni ortam için DNS kaydı', 'Log arşivleme politikası',
+    'Kullanıcı şifre sıfırlama', 'API yanıt süresi uyarısı', 'Lisans yenileme hatırlatması', 'Test verisi maskeleme',
+    'Dashboard yetki düzenlemesi', 'Batch iş gecikmesi', 'Mobil uygulama giriş sorunu', 'Sunucu yama planı',
+    'Yedekleme doğrulaması', 'Müşteri veri çekme talebi', 'SSO entegrasyon testi', 'Kapasite raporu hazırlığı']
+  const PEOPLE = ['Deniz Arslan', 'Elif Şahin', 'Burak Çetin', 'Selin Koç', 'Murat Aydın', 'Gizem Yıldız']
+  const SRC: WorkItem['source_type'][] = ['mail', 'mail', 'mail', 'zoom', 'manual', 'api']
+  const PRI: WorkItem['priority'][] = ['normal', 'normal', 'high', 'low', 'normal', 'critical']
+  const ST: WorkItem['status'][] = ['done', 'done', 'done', 'in_progress', 'waiting', 'new', 'done', 'cancelled']
+  for (let i = 0; i < 26; i++) {
+    const id = items.length + 1
+    const ageH = 10 + ((i * 37) % 320)
+    const status = ST[i % ST.length]
+    const closed = status === 'done' || status === 'cancelled'
+    items.push({
+      id, code: `YVR-${1000 + id}`, title: TITLES[i % TITLES.length], description: 'Takıma iletilen talep.',
+      source_type: SRC[i % SRC.length], source_id: null, status, priority: PRI[(i * 5) % PRI.length],
+      category: ['Talep', 'Olay', 'Aksiyon', 'Planlama'][i % 4], assignee: i % 7 === 0 && !closed ? null : TEAM[(i * 3) % TEAM.length],
+      requester: PEOPLE[i % PEOPLE.length], due_date: day(Math.round(-ageH / 24) + 2 + (i % 4)), tags: [],
+      created_at: iso(-ageH * H), updated_at: iso(-(ageH * 0.5) * H), closed_at: closed ? iso(-(ageH * 0.4) * H) : null,
+    })
+  }
+  for (let i = 0; i < 9; i++) {
+    const p = PEOPLE[(i + 2) % PEOPLE.length]
+    emails.push({
+      id: emails.length + 1, message_id: `<gen${i}@firma.com>`, thread_id: `g${i}`, mailbox: 'takim@firma.com',
+      from_address: p.toLocaleLowerCase('tr').replace(' ', '.').replace(/ş/g, 's').replace(/ı/g, 'i').replace(/ç/g, 'c').replace(/ö/g, 'o').replace(/ü/g, 'u').replace(/ğ/g, 'g') + '@firma.com',
+      from_name: p, to_addresses: ['takim@firma.com'], cc_addresses: [], subject: TITLES[(i * 3 + 1) % TITLES.length],
+      body_preview: 'Merhaba ekip, konuyla ilgili desteğinizi rica ederim. Detaylar aşağıdadır.', importance: i % 4 === 0 ? 'high' : 'normal',
+      has_attachments: i % 3 === 0, received_at: iso(-(6 + i * 9) * H), is_read: i > 1, work_item_id: null,
+    })
+  }
+  const MEET = ['Sprint planlama', 'Mimari gözden geçirme', 'Olay sonrası değerlendirme', 'Birebir: ekip lideri', 'Ürün demo']
+  for (let i = 0; i < 6; i++) {
+    const off = [-50, -27, 5, 22, 30, 48][i]
+    meetings.push({
+      id: meetings.length + 1, zoom_meeting_id: `6${i}1 22${i} 90${i}${i}`, zoom_uuid: `gen${i}`, topic: MEET[i % MEET.length], agenda: '',
+      host_email: 'ayse.yilmaz@firma.com', host_name: ['Ayşe Yılmaz', 'Mehmet Kaya', 'Can Öztürk'][i % 3], start_time: iso(off * H),
+      duration_min: [30, 45, 60][i % 3], timezone: 'Europe/Istanbul', join_url: 'https://zoom.us/j/000', status: off < 0 ? 'ended' : 'scheduled',
+      recording_url: null, participants: [{ name: 'Ayşe Yılmaz', email: 'ayse.yilmaz@firma.com', attended: off < 0 },
+        { name: 'Zeynep Demir', email: 'zeynep.demir@firma.com', attended: off < 0 }, { name: 'Can Öztürk', email: 'can.ozturk@firma.com', attended: false }],
+      notes: '', work_item_id: null,
+    })
+  }
 
   const activities: Activity[] = items.map((w, i) => ({
     id: i + 1, work_item_id: w.id, at: w.created_at, actor: 'sistem', action: 'created' as const,

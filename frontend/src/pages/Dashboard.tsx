@@ -1,26 +1,36 @@
-import AssignmentIcon from '@mui/icons-material/Assignment'
-import MailIcon from '@mui/icons-material/Mail'
-import VideocamIcon from '@mui/icons-material/Videocam'
-import WarningAmberIcon from '@mui/icons-material/WarningAmber'
-import { Box, Button, Chip, Grid, LinearProgress, Paper, Stack, Typography } from '@mui/material'
-import { useState } from 'react'
+import AlternateEmailIcon from '@mui/icons-material/AlternateEmail'
+import ArrowForwardIcon from '@mui/icons-material/ArrowForward'
+import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutlined'
+import ReportGmailerrorredIcon from '@mui/icons-material/ReportGmailerrorred'
+import TaskAltIcon from '@mui/icons-material/TaskAlt'
+import VideocamOutlinedIcon from '@mui/icons-material/VideocamOutlined'
+import { AvatarGroup, Box, Button, ButtonBase, Grid, Paper, Typography } from '@mui/material'
+import { alpha } from '@mui/material/styles'
+import { useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { SegmentBar, StackedBars } from '../components/Charts'
 import { Stagger, StaggerItem } from '../components/Motion'
 import PageHeader from '../components/PageHeader'
 import StatCard from '../components/StatCard'
-import { NewWorkItemDialog, PriorityChip, SourceChip, StatusChip, WorkItemDrawer, formatDateTime, timeAgo } from '../components/WorkKit'
-import { isOpen, isOverdue, SOURCE_LABEL, STATUS_LABEL, useDb } from '../data/store'
-import type { SourceType, WorkItem, WorkStatus } from '../data/types'
+import { DueLabel, EmptyState, PriorityIcon, SOURCE_HEX, StatusIcon, UserAvatar, formatTime, timeAgo } from '../components/WorkKit'
+import { isOpen, isOverdue, SOURCE_LABEL, STATUS_HEX, STATUS_LABEL, STATUS_ORDER, useDb } from '../data/store'
+import type { SourceType } from '../data/types'
+import { useAuth } from '../auth/AuthContext'
 import { useDocumentTitle } from '../hooks/useDocumentTitle'
+import { SEMANTIC } from '../theme'
 
-function Section({ title, action, children }: { title: string; action?: React.ReactNode; children: React.ReactNode }) {
+const DAY = 86_400_000
+const dayKey = (d: Date) => d.toISOString().slice(0, 10)
+const greet = () => { const h = new Date().getHours(); return h < 6 ? 'İyi geceler' : h < 12 ? 'Günaydın' : h < 18 ? 'İyi günler' : 'İyi akşamlar' }
+
+function Card({ title, action, children, pad = 2.5 }: { title: string; action?: React.ReactNode; children: React.ReactNode; pad?: number }) {
   return (
-    <Paper variant="outlined" sx={{ p: 2.5, height: '100%' }}>
-      <Box sx={{ display: 'flex', alignItems: 'center', mb: 1.5 }}>
-        <Typography variant="subtitle1" sx={{ fontWeight: 700, flexGrow: 1 }}>{title}</Typography>
+    <Paper variant="outlined" sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', px: 2.5, pt: 2, pb: 1 }}>
+        <Typography variant="subtitle2" sx={{ flexGrow: 1, fontSize: 14.5 }}>{title}</Typography>
         {action}
       </Box>
-      {children}
+      <Box sx={{ px: pad, pb: 2.5, flexGrow: 1 }}>{children}</Box>
     </Paper>
   )
 }
@@ -28,126 +38,182 @@ function Section({ title, action, children }: { title: string; action?: React.Re
 export default function Dashboard() {
   useDocumentTitle('Genel Bakış')
   const db = useDb()
+  const { fullName } = useAuth()
   const navigate = useNavigate()
-  const [selected, setSelected] = useState<WorkItem | null>(null)
-  const [newOpen, setNewOpen] = useState(false)
-  const today = new Date().toISOString().slice(0, 10)
+  const open = useMemo(() => db.items.filter(isOpen), [db.items])
+  const today = dayKey(new Date())
 
-  const open = db.items.filter(isOpen)
+  // Son 14 gün: her gün gelen işler (kaynağa göre), kapananlar, açık iş sayısı
+  const stats = useMemo(() => {
+    const days = Array.from({ length: 14 }, (_, i) => new Date(Date.now() - (13 - i) * DAY))
+    const created = days.map((d) => db.items.filter((w) => w.created_at.slice(0, 10) === dayKey(d)))
+    const closed = days.map((d) => db.items.filter((w) => w.closed_at?.slice(0, 10) === dayKey(d)).length)
+    const openAt = days.map((d) => { const end = d.getTime() + DAY; return db.items.filter((w) => new Date(w.created_at).getTime() < end && (!w.closed_at || new Date(w.closed_at).getTime() >= end)).length })
+    const mails = days.map((d) => db.emails.filter((e) => e.received_at.slice(0, 10) === dayKey(d)).length)
+    const overdueAt = days.map((d) => { const k = dayKey(d); return db.items.filter((w) => w.due_date && w.due_date < k && (!w.closed_at || w.closed_at.slice(0, 10) >= k)).length })
+    const sum = (a: number[], f: number, t: number) => a.slice(f, t).reduce((x, y) => x + y, 0)
+    return {
+      chart: days.map((d, i) => ({
+        label: d.toLocaleDateString('tr-TR', { day: 'numeric' }), full: d.toLocaleDateString('tr-TR', { weekday: 'long', day: 'numeric', month: 'long' }),
+        values: (['mail', 'zoom', 'api', 'manual'] as SourceType[]).map((s) => created[i].filter((w) => w.source_type === s).length),
+      })),
+      openAt, closed, mails, overdueAt,
+      closedWeek: sum(closed, 7, 14), closedPrev: sum(closed, 0, 7),
+      inWeek: created.slice(7).flat().length,
+    }
+  }, [db.items, db.emails])
+
   const overdue = db.items.filter(isOverdue)
   const unread = db.emails.filter((e) => !e.is_read)
-  const todayMeetings = db.meetings.filter((m) => m.start_time.slice(0, 10) === today && m.status !== 'cancelled')
-  const upcoming = db.meetings.filter((m) => m.status === 'scheduled' && new Date(m.start_time).getTime() > Date.now())
-    .sort((a, b) => a.start_time.localeCompare(b.start_time)).slice(0, 4)
-  const recent = [...db.items].sort((a, b) => b.updated_at.localeCompare(a.updated_at)).slice(0, 6)
-  const statusCounts = (['new', 'in_progress', 'waiting', 'done'] as WorkStatus[]).map((s) => ({ s, n: db.items.filter((w) => w.status === s).length }))
-  const sourceCounts = (['mail', 'zoom', 'manual', 'api'] as SourceType[]).map((s) => ({ s, n: open.filter((w) => w.source_type === s).length }))
-  const byAssignee = db.general.team_members.map((u) => ({ u, n: open.filter((w) => w.assignee === u).length })).filter((x) => x.n > 0)
-  const unassigned = open.filter((w) => !w.assignee).length
-  const max = Math.max(1, ...byAssignee.map((x) => x.n), unassigned)
+  const meetingsToday = db.meetings.filter((m) => m.start_time.slice(0, 10) === today && m.status !== 'cancelled').sort((a, b) => a.start_time.localeCompare(b.start_time))
+  const dueToday = open.filter((w) => w.due_date === today)
+  const focus = [...open].sort((a, b) => ({ critical: 0, high: 1, normal: 2, low: 3 }[a.priority] - { critical: 0, high: 1, normal: 2, low: 3 }[b.priority])
+                                       || Number(isOverdue(b)) - Number(isOverdue(a)) || (a.due_date ?? '9').localeCompare(b.due_date ?? '9')).slice(0, 6)
+  const load = db.general.team_members.map((u) => ({ u, n: open.filter((w) => w.assignee === u).length, late: open.filter((w) => w.assignee === u && isOverdue(w)).length }))
+    .sort((a, b) => b.n - a.n)
+  const maxLoad = Math.max(1, ...load.map((l) => l.n))
+  const series = (['mail', 'zoom', 'api', 'manual'] as SourceType[]).map((s) => ({ key: s, label: SOURCE_LABEL[s], color: SOURCE_HEX[s] }))
+  const dateStr = new Date().toLocaleDateString('tr-TR', { weekday: 'long', day: 'numeric', month: 'long' })
 
   return (
     <Box>
-      <PageHeader title="Genel Bakış" subtitle="Takıma gelen işler, mailler ve toplantıların anlık özeti"
-                  actions={<Button variant="contained" disableElevation onClick={() => setNewOpen(true)}>Yeni İş</Button>} />
+      <PageHeader eyebrow={dateStr.charAt(0).toLocaleUpperCase('tr') + dateStr.slice(1)} title={`${greet()}, ${fullName ?? ''}`}
+                  subtitle={<>Bugün <b>{dueToday.length} işin</b> termini var, <b>{meetingsToday.length} toplantı</b> planlı ve <b>{unread.length} okunmamış mail</b> bekliyor.</>} />
+
       <Stagger>
         <Grid container spacing={2} sx={{ mb: 2 }}>
           {[
-            { icon: <AssignmentIcon />, label: 'Açık iş', value: open.length, color: '#e53946', to: '/work-items', hint: `${db.items.filter((w) => w.status === 'new').length} yeni` },
-            { icon: <WarningAmberIcon />, label: 'Termini geçen', value: overdue.length, color: '#ff9800', to: '/work-items?overdue=1', hint: overdue.length ? 'Öncelikli bakılmalı' : 'Her şey yolunda' },
-            { icon: <MailIcon />, label: 'Okunmamış mail', value: unread.length, color: '#42a5f5', to: '/emails', hint: `${db.emails.filter((e) => !e.work_item_id).length} mail işe dönüşmedi` },
-            { icon: <VideocamIcon />, label: 'Bugünkü toplantı', value: todayMeetings.length, color: '#7c4dff', to: '/meetings', hint: upcoming[0] ? `Sıradaki: ${timeAgo(upcoming[0].start_time)}` : 'Planlı toplantı yok' },
+            { icon: <TaskAltIcon />, label: 'Açık işler', value: open.length, color: '#5148E5', trend: stats.openAt, delta: stats.openAt[13] - stats.openAt[6], goodWhenUp: false, caption: 'geçen haftaya göre', to: '/work-items' },
+            { icon: <CheckCircleOutlineIcon />, label: 'Bu hafta kapanan', value: stats.closedWeek, color: SEMANTIC.success, trend: stats.closed, delta: stats.closedWeek - stats.closedPrev, caption: 'önceki 7 güne göre', to: '/work-items' },
+            { icon: <ReportGmailerrorredIcon />, label: 'Termini geçen', value: overdue.length, color: SEMANTIC.error, trend: stats.overdueAt, delta: stats.overdueAt[13] - stats.overdueAt[6], goodWhenUp: false, caption: 'geçen haftaya göre', to: '/work-items?view=overdue' },
+            { icon: <AlternateEmailIcon />, label: 'Okunmamış mail', value: unread.length, color: SEMANTIC.info, trend: stats.mails, caption: `${db.emails.filter((e) => !e.work_item_id).length} mail işe dönüşmedi`, to: '/emails' },
           ].map((c) => (
-            <Grid key={c.label} size={{ xs: 12, sm: 6, lg: 3 }}>
+            <Grid key={c.label} size={{ xs: 6, lg: 3 }}>
               <StaggerItem style={{ height: '100%' }}>
-                <StatCard icon={c.icon} label={c.label} value={c.value} color={c.color} hint={c.hint} onClick={() => navigate(c.to)} />
+                <StatCard icon={c.icon} label={c.label} value={c.value} color={c.color} trend={c.trend} delta={c.delta} goodWhenUp={c.goodWhenUp}
+                          caption={c.caption} onClick={() => navigate(c.to)} />
               </StaggerItem>
             </Grid>
           ))}
         </Grid>
       </Stagger>
+
       <Grid container spacing={2}>
         <Grid size={{ xs: 12, lg: 8 }}>
-          <Section title="Son hareket gören işler" action={<Button size="small" onClick={() => navigate('/work-items')}>Tümü</Button>}>
-            <Stagger>
-              {recent.map((w, i) => (
-                <StaggerItem key={w.id}>
-                <Box onClick={() => setSelected(w)}
-                     sx={{ display: 'flex', alignItems: 'center', gap: 1.5, py: 1.25, cursor: 'pointer', px: 1, mx: -1, borderRadius: 1.5,
-                           transition: 'background-color .15s ease, transform .2s cubic-bezier(.22,1,.36,1)',
-                           '&:hover': { bgcolor: 'action.hover', transform: 'translateX(3px)' } }}>
-                  <Typography variant="caption" color="text.secondary" sx={{ width: 72, flexShrink: 0, fontWeight: 700 }}>{w.code}</Typography>
-                  <Box sx={{ flexGrow: 1, minWidth: 0 }}>
-                    <Typography variant="body2" noWrap sx={{ fontWeight: 600 }}>{w.title}</Typography>
-                    <Typography variant="caption" color="text.secondary">{w.assignee ?? 'Atanmadı'} · {timeAgo(w.updated_at)}</Typography>
-                  </Box>
-                  <Box sx={{ display: { xs: 'none', sm: 'flex' }, gap: 0.75 }}><SourceChip source={w.source_type} /><PriorityChip priority={w.priority} /></Box>
-                  <StatusChip status={w.status} />
+          <Card title="Gelen iş akışı" action={<Typography variant="caption" color="text.secondary">Son 14 gün · bu hafta {stats.inWeek} iş</Typography>}>
+            <Box sx={{ display: 'flex', gap: 2, mb: 2, flexWrap: 'wrap' }}>
+              {series.map((s) => (
+                <Box key={s.key} sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+                  <Box sx={{ width: 8, height: 8, borderRadius: '3px', bgcolor: s.color }} />
+                  <Typography variant="caption" color="text.secondary">{s.label}</Typography>
                 </Box>
-                {i < recent.length - 1 && <Box sx={{ borderTop: 1, borderColor: 'divider' }} />}
+              ))}
+            </Box>
+            <StackedBars days={stats.chart} series={series} height={200} />
+          </Card>
+        </Grid>
+
+        <Grid size={{ xs: 12, lg: 4 }}>
+          <Card title="Bugün" action={<Button size="small" endIcon={<ArrowForwardIcon sx={{ fontSize: '14px !important' }} />} onClick={() => navigate('/meetings')}>Ajanda</Button>}>
+            {meetingsToday.length === 0 && dueToday.length === 0 && <EmptyState icon={<CheckCircleOutlineIcon />} title="Bugün sakin" hint="Toplantı ya da termini bugün olan iş yok." />}
+            <Box sx={{ position: 'relative' }}>
+              {meetingsToday.map((m) => {
+                const start = new Date(m.start_time).getTime()
+                const live = Date.now() >= start && Date.now() <= start + m.duration_min * 60_000
+                const past = Date.now() > start + m.duration_min * 60_000
+                return (
+                  <ButtonBase key={m.id} onClick={() => navigate(`/meetings?open=${m.id}`)}
+                              sx={{ display: 'flex', width: '100%', textAlign: 'left', gap: 1.5, p: 1, mx: -1, borderRadius: 2, opacity: past ? 0.55 : 1, '&:hover': { bgcolor: 'action.hover' } }}>
+                    <Box sx={{ width: 44, flexShrink: 0 }}>
+                      <Typography variant="body2" sx={{ fontWeight: 600 }}>{formatTime(m.start_time)}</Typography>
+                      <Typography variant="caption" color="text.disabled">{m.duration_min} dk</Typography>
+                    </Box>
+                    <Box sx={(t) => ({ flexGrow: 1, minWidth: 0, pl: 1.5, py: 0.5, borderLeft: `3px solid ${live ? t.palette.success.main : SEMANTIC.violet}`,
+                                       bgcolor: alpha(live ? t.palette.success.main : SEMANTIC.violet, 0.06), borderRadius: '0 8px 8px 0' })}>
+                      <Typography variant="body2" noWrap sx={{ fontWeight: 600 }}>{m.topic}</Typography>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.25 }}>
+                        <AvatarGroup max={4} sx={(t) => ({ '& .MuiAvatar-root': { width: 20, height: 20, fontSize: 9, border: `2px solid ${t.palette.background.paper}`, ml: '-6px' } })}>
+                          {m.participants.map((p) => <UserAvatar key={p.email} name={p.name} size={20} />)}
+                        </AvatarGroup>
+                        {live && <Typography variant="caption" color="success.main" sx={{ fontWeight: 600 }}>● Şu an</Typography>}
+                      </Box>
+                    </Box>
+                  </ButtonBase>
+                )
+              })}
+            </Box>
+            {dueToday.length > 0 && (
+              <>
+                <Typography variant="caption" color="text.disabled" sx={{ display: 'block', mt: 2, mb: 0.5, fontWeight: 600 }}>Termini bugün</Typography>
+                {dueToday.map((w) => (
+                  <ButtonBase key={w.id} onClick={() => navigate(`/work-items?open=${w.id}`)}
+                              sx={{ display: 'flex', width: '100%', gap: 1.25, p: 1, mx: -1, borderRadius: 2, textAlign: 'left', '&:hover': { bgcolor: 'action.hover' } }}>
+                    <StatusIcon status={w.status} size={14} />
+                    <Typography variant="body2" noWrap sx={{ flexGrow: 1, fontWeight: 500 }}>{w.title}</Typography>
+                    <UserAvatar name={w.assignee} size={20} />
+                  </ButtonBase>
+                ))}
+              </>
+            )}
+          </Card>
+        </Grid>
+
+        <Grid size={{ xs: 12, lg: 8 }}>
+          <Card title="Odak listesi" pad={1.25} action={<Button size="small" endIcon={<ArrowForwardIcon sx={{ fontSize: '14px !important' }} />} onClick={() => navigate('/work-items')}>Tüm işler</Button>}>
+            <Stagger>
+              {focus.map((w) => (
+                <StaggerItem key={w.id}>
+                  <ButtonBase onClick={() => navigate(`/work-items?open=${w.id}`)}
+                              sx={{ display: 'flex', width: '100%', textAlign: 'left', alignItems: 'center', gap: 1.5, px: 1.25, py: 1.1, borderRadius: 2,
+                                    transition: 'background-color .12s ease', '&:hover': { bgcolor: 'action.hover' }, '&:hover .go': { opacity: 1, transform: 'none' } }}>
+                    <PriorityIcon priority={w.priority} />
+                    <Typography variant="caption" color="text.disabled" sx={{ width: 64, flexShrink: 0, fontWeight: 600 }}>{w.code}</Typography>
+                    <StatusIcon status={w.status} size={14} />
+                    <Box sx={{ flexGrow: 1, minWidth: 0 }}>
+                      <Typography variant="body2" noWrap sx={{ fontWeight: 550 }}>{w.title}</Typography>
+                    </Box>
+                    <Box sx={{ display: { xs: 'none', sm: 'block' } }}><DueLabel item={w} /></Box>
+                    <UserAvatar name={w.assignee} size={22} />
+                    <ArrowForwardIcon className="go" sx={{ fontSize: 16, color: 'text.disabled', opacity: 0, transform: 'translateX(-4px)', transition: 'all .15s ease' }} />
+                  </ButtonBase>
                 </StaggerItem>
               ))}
             </Stagger>
-          </Section>
+          </Card>
         </Grid>
+
         <Grid size={{ xs: 12, lg: 4 }}>
-          <Section title="Yaklaşan toplantılar" action={<Button size="small" onClick={() => navigate('/meetings')}>Tümü</Button>}>
-            {upcoming.length === 0 && <Typography variant="body2" color="text.secondary">Planlanmış toplantı yok.</Typography>}
-            <Stack spacing={1.5}>
-              {upcoming.map((m) => (
-                <Box key={m.id} sx={{ display: 'flex', gap: 1.5 }}>
-                  <Box sx={{ width: 4, borderRadius: 1, bgcolor: 'secondary.main', flexShrink: 0 }} />
-                  <Box sx={{ minWidth: 0 }}>
-                    <Typography variant="body2" noWrap sx={{ fontWeight: 600 }}>{m.topic}</Typography>
-                    <Typography variant="caption" color="text.secondary">{formatDateTime(m.start_time)} · {m.duration_min} dk · {m.host_name}</Typography>
-                  </Box>
-                </Box>
-              ))}
-            </Stack>
-          </Section>
-        </Grid>
-        <Grid size={{ xs: 12, md: 4 }}>
-          <Section title="Durumlara göre">
-            <Stack spacing={1.25}>
-              {statusCounts.map(({ s, n }) => (
-                <Box key={s} sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <StatusChip status={s} /><Typography sx={{ fontWeight: 700 }}>{n}</Typography>
-                </Box>
-              ))}
-              <Typography variant="caption" color="text.secondary">Toplam {db.items.length} kayıt · {STATUS_LABEL.cancelled}: {db.items.filter((w) => w.status === 'cancelled').length}</Typography>
-            </Stack>
-          </Section>
-        </Grid>
-        <Grid size={{ xs: 12, md: 4 }}>
-          <Section title="Açık işler — kaynağa göre">
-            <Stack spacing={1.25}>
-              {sourceCounts.map(({ s, n }) => (
-                <Box key={s} sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <Chip size="small" variant="outlined" label={SOURCE_LABEL[s]} /><Typography sx={{ fontWeight: 700 }}>{n}</Typography>
-                </Box>
-              ))}
-            </Stack>
-          </Section>
-        </Grid>
-        <Grid size={{ xs: 12, md: 4 }}>
-          <Section title="Açık işler — kişiye göre">
-            <Stack spacing={1.25}>
-              {[...byAssignee, ...(unassigned ? [{ u: 'Atanmadı', n: unassigned }] : [])].map(({ u, n }) => (
-                <Box key={u}>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <Typography variant="body2">{u}</Typography><Typography variant="body2" sx={{ fontWeight: 700 }}>{n}</Typography>
-                  </Box>
-                  <LinearProgress variant="determinate" value={(n / max) * 100}
-                                  sx={{ height: 6, borderRadius: 3, mt: 0.5, '& .MuiLinearProgress-bar': { borderRadius: 3, transition: 'transform .8s cubic-bezier(.22,1,.36,1)' } }}
-                                  color={u === 'Atanmadı' ? 'warning' : 'primary'} />
-                </Box>
-              ))}
-            </Stack>
-          </Section>
+          <Grid container spacing={2} sx={{ height: '100%' }}>
+            <Grid size={12}>
+              <Card title="Durum dağılımı">
+                <SegmentBar parts={STATUS_ORDER.filter((s) => s !== 'cancelled').map((s) => ({ label: STATUS_LABEL[s], value: db.items.filter((w) => w.status === s).length, color: STATUS_HEX[s] }))} />
+              </Card>
+            </Grid>
+            <Grid size={12}>
+              <Card title="Ekip yükü" action={<Typography variant="caption" color="text.secondary">açık iş</Typography>}>
+                {load.map((l) => (
+                  <ButtonBase key={l.u} onClick={() => navigate(`/work-items?assignee=${l.u}`)}
+                              sx={{ display: 'flex', width: '100%', alignItems: 'center', gap: 1.25, py: 0.75, px: 1, mx: -1, borderRadius: 2, '&:hover': { bgcolor: 'action.hover' } }}>
+                    <UserAvatar name={l.u} size={24} />
+                    <Box sx={{ flexGrow: 1, minWidth: 0 }}>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <Typography variant="body2" noWrap sx={{ fontWeight: 500 }}>{l.u}</Typography>
+                        <Typography variant="body2" sx={{ fontWeight: 600 }}>{l.n}{l.late > 0 && <Box component="span" sx={{ color: 'error.main', fontWeight: 600, ml: 0.5 }}>· {l.late} gecikmiş</Box>}</Typography>
+                      </Box>
+                      <Box sx={{ height: 5, borderRadius: 3, bgcolor: 'action.hover', mt: 0.6, overflow: 'hidden' }}>
+                        <Box sx={{ width: `${(l.n / maxLoad) * 100}%`, height: '100%', borderRadius: 3, bgcolor: l.late ? 'error.main' : 'primary.main', transition: 'width .8s cubic-bezier(.22,1,.36,1)' }} />
+                      </Box>
+                    </Box>
+                  </ButtonBase>
+                ))}
+              </Card>
+            </Grid>
+          </Grid>
         </Grid>
       </Grid>
-      <WorkItemDrawer item={selected} onClose={() => setSelected(null)} />
-      <NewWorkItemDialog open={newOpen} onClose={() => setNewOpen(false)} />
+      <Typography variant="caption" color="text.disabled" sx={{ display: 'block', mt: 3, textAlign: 'center' }}>
+        Son güncelleme {timeAgo(db.items.reduce((m, w) => (w.updated_at > m ? w.updated_at : m), ''))} · <VideocamOutlinedIcon sx={{ fontSize: 12, verticalAlign: '-2px' }} /> {db.meetings.length} toplantı · {db.emails.length} mail · {db.items.length} iş kaydı
+      </Typography>
     </Box>
   )
 }

@@ -16,14 +16,23 @@ Giriş: **admin / admin**
 
 Backend hazır olduğunda: `VITE_API_TARGET=http://localhost:8000 npm run dev` (`/api` istekleri oraya yönlenir).
 
-## Tasarım
+## Tasarım (v0.2)
 
-Jumbo'nun kurumsal görünümü korunup üzerine [freshtechbro/claudedesignskills](https://github.com/freshtechbro/claudedesignskills)
-`modern-web-design` + `motion-framer` ilkeleri uygulandı (`motion` kütüphanesi): sayfa geçişleri, kademeli
-(stagger) girişler, sayarak gelen KPI'lar, buton/kart mikro-etkileşimleri, giriş ekranında akan gradyan ve cam
-(glassmorphism) kartlar, etkin API servisi için canlı nabız göstergesi. İşletim sisteminde "hareketi azalt"
-açıksa animasyonlar kapanır. Repodaki 3D/WebGL (Three.js, Babylon…) ve scroll-hikâye beceri setleri bir iç yönetim
-uygulamasına uymadığı için kullanılmadı.
+Kendi görsel kimliği olan modern bir SaaS arayüzü (Linear / Vercel çizgisi):
+
+- **Tasarım sistemi** (`frontend/src/theme.ts`): nötr gri yüzeyler + tek vurgu rengi (indigo `#5148E5`),
+  Inter Variable, 1px ince çizgiler, yumuşak gölgeler, odakta 3px halka; tam açık/koyu tema.
+- **Yerleşim:** hafif kenar menü (sayaçlar, kayıtlı görünümler, canlı senkron kartı), kenarlıklı içerik paneli,
+  yarı saydam üst çubuk (konum, tema, bildirimler, Yeni iş).
+- **Hızlı arama ⌘K / Ctrl+K:** iş, mail, toplantı ve sayfalar arasında klavyeyle gezinme. **C** tuşu: yeni iş.
+- **Genel Bakış:** kişisel karşılama, 14 günlük trend çizgili KPI kartları, kaynağa göre gelen iş grafiği,
+  "Bugün" ajandası, odak listesi, durum dağılımı, ekip yükü.
+- **İşler:** duruma göre gruplanmış liste **veya** sürükle-bırak Kanban pano; öncelik/durum simgeleri, avatarlar.
+- **Gelen kutusu:** iki panelli okuma düzeni (liste + okuma paneli), tek tıkla işe dönüştürme.
+- **Toplantılar:** güne göre ajanda (Bugün, Yarın…), "Şu an" göstergesi, Katıl düğmesi.
+- **Giriş:** sade form + ürünü gösteren süzülen önizleme kartları.
+- Hareket: [freshtechbro/claudedesignskills](https://github.com/freshtechbro/claudedesignskills) `modern-web-design`
+  ilkeleriyle (`motion`), "hareketi azalt" ayarına saygılı.
 
 ## Ekranlar
 

@@ -1,11 +1,11 @@
 import AddIcon from '@mui/icons-material/Add'
 import DeleteIcon from '@mui/icons-material/Delete'
-import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import PlayArrowIcon from '@mui/icons-material/PlayArrow'
 import {
-  Alert, Box, Button, ButtonBase, Chip, CircularProgress, Collapse, Divider, FormControlLabel, Grid, MenuItem, Paper,
+  Alert, Box, Button, ButtonBase, Chip, CircularProgress, Divider, FormControlLabel, Grid, MenuItem, Paper,
   Stack, Switch, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Typography,
 } from '@mui/material'
+import { alpha } from '@mui/material/styles'
 import { useSnackbar } from 'notistack'
 import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
@@ -49,7 +49,7 @@ function Toggle<T extends object>({ form, setForm, field, label, disabled, extra
 }
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
-  return <Typography variant="overline" color="text.secondary" sx={{ mt: 1, display: 'block' }}>{children}</Typography>
+  return <Typography sx={{ mt: 2, mb: 1.75, display: 'block', fontSize: 13, fontWeight: 650, color: 'text.primary', letterSpacing: '-0.005em' }}>{children}</Typography>
 }
 
 /** Saniyede bir yeniden çizim (geri sayım için) */
@@ -185,7 +185,7 @@ function ApiServiceTab() {
                          transition: 'border-color .2s ease, box-shadow .2s ease',
                          '&:hover': { boxShadow: '0 6px 20px rgba(0,0,0,0.06)' },
                          borderColor: selId === c.id ? 'primary.main' : 'divider',
-                         boxShadow: selId === c.id ? '0 0 0 1px #e53946' : 'none' }}>
+                         boxShadow: (t) => (selId === c.id ? `0 0 0 1px ${t.palette.primary.main}, 0 8px 24px -12px ${t.palette.primary.main}` : 'none') }}>
               <Switch checked={c.enabled} onClick={(e) => e.stopPropagation()} onChange={(e) => toggleEnabled(c, e.target.checked)}
                       slotProps={{ input: { 'aria-label': `${c.name} etkin` } }} />
               <LiveDot active={c.enabled} color={c.last_status === 'error' ? '#f44336' : '#4caf50'} />
@@ -388,56 +388,39 @@ export default function Settings() {
   const [params, setParams] = useSearchParams()
   const active = ALL_ITEMS.some((i) => i.key === params.get('tab')) ? params.get('tab')! : 'api'
   const setActive = (k: string) => setParams({ tab: k }, { replace: true })
-  const groupOf = (k: string) => NAV_GROUPS.find((g) => g.items.some((i) => i.key === k))?.title ?? ''
-  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(() => Object.fromEntries(NAV_GROUPS.map((g) => [g.title, true])))
   const activeItem = ALL_ITEMS.find((i) => i.key === active)
 
   return (
     <Box>
-      <PageHeader title="Ayarlar" subtitle="API çağrı servisi, LDAP entegrasyonu ve genel ayarlar" />
-      <Paper sx={{ display: 'flex', alignItems: 'stretch', minHeight: 600, overflow: 'hidden', flexDirection: { xs: 'column', sm: 'row' } }}>
-        <Box component="nav" sx={(t) => ({ flexShrink: 0, borderBottom: `1px solid ${t.palette.divider}`,
-                                           [t.breakpoints.up('sm')]: { borderBottom: 0, borderRight: `1px solid ${t.palette.divider}` },
-                                           width: { xs: '100%', sm: 248 }, py: 1.5, bgcolor: 'action.hover' })}>
-          {NAV_GROUPS.map((g) => {
-            const open = !!openGroups[g.title]
-            const hasActive = groupOf(active) === g.title
-            return (
-              <Box key={g.title} sx={{ mb: 0.25 }}>
-                <ButtonBase focusRipple onClick={() => setOpenGroups((o) => ({ ...o, [g.title]: !o[g.title] }))}
-                            sx={{ display: 'flex', width: '100%', justifyContent: 'space-between', px: 2, py: 1, '&:hover': { bgcolor: 'action.selected' } }}>
-                  <Typography variant="overline" sx={{ color: !open && hasActive ? 'primary.main' : 'text.secondary', fontWeight: 700, fontSize: 10.5, letterSpacing: '0.1em', lineHeight: 1.6 }}>{g.title}</Typography>
-                  <ExpandMoreIcon sx={{ fontSize: 18, color: 'text.disabled', transition: 'transform .2s', transform: open ? 'none' : 'rotate(-90deg)' }} />
-                </ButtonBase>
-                <Collapse in={open} unmountOnExit>
-                  <Box sx={{ pb: 0.5 }}>
-                    {g.items.map((it) => {
-                      const selected = active === it.key
-                      return (
-                        <ButtonBase key={it.key} focusRipple onClick={() => setActive(it.key)}
-                                    sx={{ display: 'block', width: '100%', textAlign: 'left', pl: 2.5, pr: 1.5, py: 0.85,
-                                          borderLeft: '3px solid', borderColor: selected ? 'primary.main' : 'transparent',
-                                          bgcolor: selected ? 'background.paper' : 'transparent',
-                                          '&:hover': { bgcolor: selected ? 'background.paper' : 'action.selected' } }}>
-                          <Typography noWrap sx={{ fontSize: 13.5, fontWeight: selected ? 700 : 500, color: selected ? 'primary.main' : 'text.primary' }}>{it.label}</Typography>
-                        </ButtonBase>
-                      )
-                    })}
-                  </Box>
-                </Collapse>
-              </Box>
-            )
-          })}
+      <PageHeader title="Ayarlar" subtitle="Entegrasyonlar, kimlik doğrulama ve genel tercihler" />
+      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '220px 1fr' }, gap: { xs: 2, md: 5 }, alignItems: 'start' }}>
+        {/* Bölüm menüsü — masaüstünde yapışkan dikey liste, mobilde yatay kaydırılabilir */}
+        <Box component="nav" aria-label="Ayar bölümleri"
+             sx={{ position: { md: 'sticky' }, top: { md: 80 }, display: { xs: 'flex', md: 'block' }, gap: 0.5, overflowX: { xs: 'auto', md: 'visible' }, mx: { xs: -2, md: 0 }, px: { xs: 2, md: 0 } }}>
+          {NAV_GROUPS.map((g) => (
+            <Box key={g.title} sx={{ display: { xs: 'contents', md: 'block' }, mb: 2 }}>
+              <Typography variant="caption" color="text.disabled" sx={{ display: { xs: 'none', md: 'block' }, fontWeight: 600, px: 1.25, mb: 0.5 }}>{g.title}</Typography>
+              {g.items.map((it) => {
+                const sel = active === it.key
+                return (
+                  <ButtonBase key={it.key} onClick={() => setActive(it.key)}
+                              sx={(t) => ({ display: 'flex', width: { md: '100%' }, flexShrink: 0, justifyContent: 'flex-start', px: 1.25, height: 34, borderRadius: 2, mb: 0.25, fontSize: 14,
+                                            whiteSpace: 'nowrap', fontWeight: sel ? 600 : 500, color: sel ? 'primary.main' : 'text.secondary',
+                                            bgcolor: sel ? alpha(t.palette.primary.main, 0.08) : 'transparent', '&:hover': { bgcolor: sel ? alpha(t.palette.primary.main, 0.1) : 'action.hover', color: sel ? 'primary.main' : 'text.primary' } })}>
+                    {it.label}
+                  </ButtonBase>
+                )
+              })}
+            </Box>
+          ))}
         </Box>
-        <Box sx={{ flexGrow: 1, minWidth: 0, overflowX: 'auto' }}>
-          <Box sx={{ maxWidth: activeItem?.wide ? 'none' : 880, px: { xs: 2.5, md: 4 }, py: 3.5 }}>
-            <Typography variant="h6" sx={{ fontWeight: 700, lineHeight: 1.25 }}>{activeItem?.label}</Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, mb: 2.5 }}>{activeItem?.desc}</Typography>
-            <Divider sx={{ mb: 3 }} />
-            <Box key={active}>{activeItem?.el}</Box>
-          </Box>
+        <Box sx={{ minWidth: 0, maxWidth: activeItem?.wide ? 'none' : 860 }}>
+          <Typography sx={{ fontSize: 18, fontWeight: 650, letterSpacing: '-0.015em' }}>{activeItem?.label}</Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, mb: 2.5 }}>{activeItem?.desc}</Typography>
+          <Divider sx={{ mb: 3 }} />
+          <Box key={active}>{activeItem?.el}</Box>
         </Box>
-      </Paper>
+      </Box>
     </Box>
   )
 }

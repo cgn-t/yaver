@@ -1,49 +1,46 @@
+import ArrowDownwardIcon from '@mui/icons-material/SouthEast'
+import ArrowUpwardIcon from '@mui/icons-material/NorthEast'
 import { Box, Paper, Typography } from '@mui/material'
 import { alpha } from '@mui/material/styles'
 import type { ReactNode } from 'react'
+import { Sparkline } from './Charts'
 import { CountUp } from './Motion'
 
-/** KPI kartı: tint'li ikon kutusu, sayarak gelen değer, üzerine gelince hafif yükselme + ikon büyümesi. */
-export default function StatCard({ icon, label, value, color, onClick, hint }: {
-  icon?: ReactNode
-  label: string
-  value: number | string
-  color: string
-  onClick?: () => void
-  hint?: string
+/**
+ * KPI kartı: etiket + ikon, büyük sayı, önceki döneme göre değişim, 14 günlük trend çizgisi.
+ * `goodWhenUp=false` → artış kötü (ör. geciken işler) → kırmızı gösterilir.
+ */
+export default function StatCard({ icon, label, value, color, onClick, trend, delta, goodWhenUp = true, caption }: {
+  icon?: ReactNode; label: string; value: number; color: string; onClick?: () => void
+  trend?: number[]; delta?: number; goodWhenUp?: boolean; caption?: string
 }) {
+  const up = (delta ?? 0) > 0
+  const good = delta === 0 || delta === undefined ? null : up === goodWhenUp
   return (
-    <Paper
-      variant="outlined" onClick={onClick} role={onClick ? 'button' : undefined} tabIndex={onClick ? 0 : undefined}
-      onKeyDown={(e) => { if (onClick && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); onClick() } }}
-      sx={{
-        p: 2.5, display: 'flex', alignItems: 'center', gap: 2, height: '100%', position: 'relative', overflow: 'hidden',
-        cursor: onClick ? 'pointer' : 'default',
-        transition: 'border-color .2s ease, transform .2s ease, box-shadow .2s ease',
-        // Sağ üstte rengin çok hafif bir halesi — düz kartlara derinlik verir
-        '&::after': { content: '""', position: 'absolute', right: -40, top: -40, width: 120, height: 120, borderRadius: '50%',
-                      background: `radial-gradient(circle, ${alpha(color, 0.12)}, transparent 70%)`, pointerEvents: 'none' },
-        ...(onClick && {
-          '&:hover, &:focus-visible': { borderColor: color, transform: 'translateY(-3px)', boxShadow: `0 10px 28px ${alpha(color, 0.2)}`, outline: 'none' },
-          '&:hover .stat-icon': { transform: 'scale(1.08) rotate(-4deg)' },
-          '&:active': { transform: 'translateY(-1px) scale(0.99)' },
-        }),
-      }}
-    >
-      {icon && (
-        <Box className="stat-icon" sx={{ flexShrink: 0, width: 50, height: 50, borderRadius: 2.5, display: 'grid', placeItems: 'center',
-                                         color, bgcolor: alpha(color, 0.14), transition: 'transform .25s cubic-bezier(.22,1,.36,1)' }}>
-          {icon}
-        </Box>
-      )}
-      <Box sx={{ minWidth: 0 }}>
-        <Typography sx={{ fontWeight: 800, fontSize: 30, lineHeight: 1.05, letterSpacing: '-0.02em', color: icon ? 'text.primary' : color }}>
-          {typeof value === 'number' ? <CountUp value={value} /> : value}
-        </Typography>
-        <Typography variant="caption" color="text.secondary" sx={{ textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600 }}>
-          {label}
-        </Typography>
-        {hint && <Typography variant="caption" color="text.disabled" component="div" sx={{ mt: 0.25 }}>{hint}</Typography>}
+    <Paper variant="outlined" onClick={onClick} role={onClick ? 'button' : undefined} tabIndex={onClick ? 0 : undefined}
+           onKeyDown={(e) => { if (onClick && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); onClick() } }}
+           sx={(t) => ({ p: { xs: 1.75, sm: 2.25 }, height: '100%', minWidth: 0, cursor: onClick ? 'pointer' : 'default', outline: 'none',
+                         transition: 'box-shadow .2s ease, transform .2s cubic-bezier(.22,1,.36,1), border-color .2s ease',
+                         ...(onClick && { '&:hover, &:focus-visible': { transform: 'translateY(-2px)', borderColor: alpha(color, 0.4),
+                                                                         boxShadow: `0 12px 28px -12px ${alpha(color, t.palette.mode === 'dark' ? 0.5 : 0.35)}` } }) })}>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
+        {icon && <Box sx={{ width: 26, height: 26, borderRadius: 1.75, display: 'grid', placeItems: 'center', color, bgcolor: alpha(color, 0.12), '& svg': { fontSize: 16 } }}>{icon}</Box>}
+        <Typography variant="body2" color="text.secondary" noWrap sx={{ fontWeight: 550 }}>{label}</Typography>
+      </Box>
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
+        <Typography sx={{ fontSize: { xs: 26, sm: 32 }, fontWeight: 700, letterSpacing: '-0.035em', lineHeight: 1 }}><CountUp value={value} /></Typography>
+        {trend && <Box sx={{ display: { xs: 'none', sm: 'block' }, flexShrink: 0, width: '45%', maxWidth: 120, '& svg': { width: '100%' } }}><Sparkline data={trend} color={color} width={120} height={34} /></Box>}
+      </Box>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mt: 1.25, minHeight: 20, minWidth: 0 }}>
+        {delta !== undefined && (
+          <Box component="span" sx={(t) => ({ display: 'inline-flex', alignItems: 'center', gap: 0.25, px: 0.6, height: 20, borderRadius: 1.25, fontSize: 12, fontWeight: 600, flexShrink: 0,
+                                               color: good === null ? 'text.secondary' : good ? 'success.main' : 'error.main',
+                                               bgcolor: good === null ? 'action.hover' : alpha(good ? t.palette.success.main : t.palette.error.main, 0.1) })}>
+            {delta > 0 ? <ArrowUpwardIcon sx={{ fontSize: 12 }} /> : delta < 0 ? <ArrowDownwardIcon sx={{ fontSize: 12 }} /> : null}
+            {delta > 0 ? '+' : ''}{delta}
+          </Box>
+        )}
+        {caption && <Typography variant="caption" color="text.secondary" noWrap sx={{ display: { xs: 'none', sm: 'block' } }}>{caption}</Typography>}
       </Box>
     </Paper>
   )

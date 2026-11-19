@@ -23,7 +23,7 @@ export interface Db {
   general: GeneralConfig
 }
 
-const KEY = 'yaver_db_v1'
+const KEY = 'yaver_db_v2'
 const MAX_LOGS = 500
 
 function initial(): Db {
@@ -74,7 +74,9 @@ export const STATUS_COLOR: Record<WorkStatus, 'info' | 'primary' | 'warning' | '
   new: 'info', in_progress: 'primary', waiting: 'warning', done: 'success', cancelled: 'default',
 }
 export const PRIORITY_LABEL: Record<Priority, string> = { low: 'Düşük', normal: 'Normal', high: 'Yüksek', critical: 'Kritik' }
-export const PRIORITY_COLOR: Record<Priority, string> = { low: '#90a4ae', normal: '#42a5f5', high: '#ff9800', critical: '#e53946' }
+export const PRIORITY_COLOR: Record<Priority, string> = { low: '#9A9EA8', normal: '#2E90FA', high: '#F79009', critical: '#F04438' }
+export const STATUS_HEX: Record<WorkStatus, string> = { new: '#2E90FA', in_progress: '#5148E5', waiting: '#F79009', done: '#12B76A', cancelled: '#9A9EA8' }
+export const STATUS_ORDER: WorkStatus[] = ['new', 'in_progress', 'waiting', 'done', 'cancelled']
 export const SOURCE_LABEL: Record<SourceType, string> = { mail: 'E-posta', zoom: 'Zoom', manual: 'Manuel', api: 'API' }
 
 export const isOpen = (w: WorkItem) => w.status !== 'done' && w.status !== 'cancelled'

@@ -1,43 +1,38 @@
-import AssignmentIcon from '@mui/icons-material/Assignment'
-import DarkModeIcon from '@mui/icons-material/DarkMode'
-import DashboardIcon from '@mui/icons-material/Dashboard'
+import AddIcon from '@mui/icons-material/Add'
+import AlternateEmailIcon from '@mui/icons-material/AlternateEmail'
+import DarkModeOutlinedIcon from '@mui/icons-material/DarkModeOutlined'
 import KeyboardDoubleArrowLeftIcon from '@mui/icons-material/KeyboardDoubleArrowLeft'
-import KeyboardDoubleArrowRightIcon from '@mui/icons-material/KeyboardDoubleArrowRight'
-import LightModeIcon from '@mui/icons-material/LightMode'
+import LightModeOutlinedIcon from '@mui/icons-material/LightModeOutlined'
 import LogoutIcon from '@mui/icons-material/Logout'
-import MailIcon from '@mui/icons-material/Mail'
 import MenuIcon from '@mui/icons-material/Menu'
-import SettingsIcon from '@mui/icons-material/Settings'
-import SyncIcon from '@mui/icons-material/Sync'
+import NotificationsNoneIcon from '@mui/icons-material/NotificationsNone'
+import PersonOutlineIcon from '@mui/icons-material/PersonOutlined'
+import ReportGmailerrorredIcon from '@mui/icons-material/ReportGmailerrorred'
+import SearchIcon from '@mui/icons-material/Search'
+import SettingsOutlinedIcon from '@mui/icons-material/SettingsOutlined'
+import DashboardOutlinedIcon from '@mui/icons-material/SpaceDashboardOutlined'
+import TaskAltIcon from '@mui/icons-material/TaskAlt'
 import UnfoldMoreIcon from '@mui/icons-material/UnfoldMore'
-import VideocamIcon from '@mui/icons-material/Videocam'
+import VideocamOutlinedIcon from '@mui/icons-material/VideocamOutlined'
 import {
-  AppBar, Avatar, Badge, Box, ButtonBase, Chip, Container, Divider, Drawer, IconButton, List, ListItemButton,
-  ListItemIcon, ListItemText, ListSubheader, Menu, MenuItem, Switch, Toolbar, Tooltip, Typography,
+  Badge, Box, Button, ButtonBase, Divider, Drawer, IconButton, ListItemIcon, ListItemText, Menu, MenuItem, Popover,
+  Tooltip, Typography,
 } from '@mui/material'
-import { useState, type ComponentType } from 'react'
+import { alpha } from '@mui/material/styles'
+import { useCallback, useEffect, useState, type ComponentType } from 'react'
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useThemeMode } from '../App'
 import { useAuth } from '../auth/AuthContext'
-import { PageTransition } from '../components/Motion'
-import { useDb } from '../data/store'
+import { BrandMark, Kbd } from '../components/Brand'
+import CommandPalette from '../components/CommandPalette'
+import { LiveDot, PageTransition } from '../components/Motion'
+import { NewWorkItemDialog, StatusIcon, UserAvatar, timeAgo } from '../components/WorkKit'
+import { isOpen, isOverdue, useDb, type NewWorkItem } from '../data/store'
 import { useApiPoller } from '../services/apiPoller'
-import { BRAND_GRADIENT } from '../theme'
+import { UiContext } from './ui'
 
-type NavLink = { to: string; label: string; icon: ComponentType<{ fontSize?: 'small' }> }
-const NAV: { title?: string; items: NavLink[] }[] = [
-  { items: [{ to: '/', label: 'Genel Bakış', icon: DashboardIcon }] },
-  { title: 'Takip', items: [
-    { to: '/work-items', label: 'İşler', icon: AssignmentIcon },
-    { to: '/emails', label: 'E-postalar', icon: MailIcon },
-    { to: '/meetings', label: 'Zoom Toplantıları', icon: VideocamIcon },
-  ] },
-  { title: 'Yönetim', items: [{ to: '/settings', label: 'Ayarlar', icon: SettingsIcon }] },
-]
-
+type NavLink = { to: string; label: string; icon: ComponentType<{ sx?: object }>; count?: number; tone?: 'accent' | 'warn' }
 const NAV_W = 248
-const NAV_W_COMPACT = 68
-const COLLAPSE_KEY = 'yaver.nav.collapsed'
 
 export default function AppLayout() {
   const { username, fullName, logout } = useAuth()
@@ -46,163 +41,208 @@ export default function AppLayout() {
   const { running } = useApiPoller()
   const location = useLocation()
   const navigate = useNavigate()
-  const [anchor, setAnchor] = useState<HTMLElement | null>(null)
-  const [drawerOpen, setDrawerOpen] = useState(false)
-  const [collapsed, setCollapsed] = useState(() => { try { return localStorage.getItem(COLLAPSE_KEY) === '1' } catch { return false } })
-  const toggleCollapsed = () => setCollapsed((c) => {
-    try { localStorage.setItem(COLLAPSE_KEY, c ? '0' : '1') } catch { /* gizli pencere */ }
-    return !c
-  })
+  const [userMenu, setUserMenu] = useState<HTMLElement | null>(null)
+  const [bell, setBell] = useState<HTMLElement | null>(null)
+  const [mobileOpen, setMobileOpen] = useState(false)
+  const [palette, setPalette] = useState(false)
+  const [newInit, setNewInit] = useState<Partial<NewWorkItem> | undefined>()
+  const [newOpen, setNewOpen] = useState(false)
 
-  const badgeFor = (to: string) =>
-    to === '/emails' ? db.emails.filter((e) => !e.is_read).length
-      : to === '/work-items' ? db.items.filter((w) => w.status === 'new').length : 0
-  const isActive = (to: string) => (to === '/' ? location.pathname === '/' : location.pathname.startsWith(to))
-  const enabledServices = db.apiConfigs.filter((c) => c.enabled).length
-  const initial = (fullName || username || '?')[0]?.toUpperCase()
+  const openNew = useCallback((initial?: Partial<NewWorkItem>) => { setNewInit(initial); setNewOpen(true) }, [])
+  const openPalette = useCallback(() => setPalette(true), [])
 
-  const navItem = (item: NavLink, compact: boolean) => {
-    const Icon = item.icon
-    const badge = badgeFor(item.to)
-    const button = (
-      <ListItemButton key={item.to} component={Link} to={item.to} selected={isActive(item.to)} onClick={() => setDrawerOpen(false)}
-                      sx={{ mx: 1.25, my: 0.25, borderRadius: '10px', minHeight: 40, position: 'relative',
-                            pl: 1.5, pr: compact ? 1.5 : 1, justifyContent: compact ? 'center' : 'flex-start',
-                            color: 'rgba(255,255,255,0.74)', transition: 'background-color 150ms, color 150ms',
-                            '&:hover': { bgcolor: 'rgba(255,255,255,0.08)', color: '#fff' },
-                            '&.Mui-selected, &.Mui-selected:hover': { bgcolor: 'rgba(255,255,255,0.14)', color: '#fff',
-                                                                     boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.10)' },
-                            '&.Mui-selected::before': { content: '""', position: 'absolute', left: -10, top: 9, bottom: 9,
-                                                        width: 3, borderRadius: 2, bgcolor: '#fff' } }}>
-        <ListItemIcon sx={{ minWidth: compact ? 0 : 36, color: 'inherit' }}>
-          <Badge color="warning" badgeContent={compact ? badge : 0} max={99}><Icon fontSize="small" /></Badge>
-        </ListItemIcon>
-        {!compact && (
-          <>
-            <ListItemText primary={item.label}
-                          slotProps={{ primary: { noWrap: true, sx: { fontSize: 14, fontWeight: isActive(item.to) ? 700 : 500 } } }} />
-            {badge > 0 && <Chip size="small" color="warning" label={badge} sx={{ height: 20 }} />}
-          </>
+  // Klavye kısayolları: ⌘K / Ctrl+K arama, "c" yeni iş (yazı alanında değilken)
+  useEffect(() => {
+    const h = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); setPalette((p) => !p) }
+      const tag = (e.target as HTMLElement)?.tagName
+      if (e.key === 'c' && !e.metaKey && !e.ctrlKey && !['INPUT', 'TEXTAREA', 'SELECT'].includes(tag) && !(e.target as HTMLElement)?.isContentEditable
+          && !document.querySelector('.MuiDialog-root, .MuiDrawer-modal')) { e.preventDefault(); openNew() }
+    }
+    window.addEventListener('keydown', h)
+    return () => window.removeEventListener('keydown', h)
+  }, [openNew])
+
+  const me = username ?? ''
+  const unread = db.emails.filter((e) => !e.is_read)
+  const overdue = db.items.filter(isOverdue)
+  const mine = db.items.filter((w) => isOpen(w) && w.assignee === me).length
+  const unassigned = db.items.filter((w) => isOpen(w) && !w.assignee).length
+  const enabled = db.apiConfigs.filter((c) => c.enabled)
+  const lastError = enabled.some((c) => c.last_status === 'error')
+  const notifCount = unread.length + overdue.length
+
+  const MAIN: NavLink[] = [
+    { to: '/', label: 'Genel Bakış', icon: DashboardOutlinedIcon },
+    { to: '/work-items', label: 'İşler', icon: TaskAltIcon, count: db.items.filter((w) => w.status === 'new').length },
+    { to: '/emails', label: 'Gelen kutusu', icon: AlternateEmailIcon, count: unread.length, tone: 'accent' },
+    { to: '/meetings', label: 'Toplantılar', icon: VideocamOutlinedIcon },
+  ]
+  const VIEWS: NavLink[] = [
+    { to: '/work-items?view=mine', label: 'Bana atananlar', icon: PersonOutlineIcon, count: mine },
+    { to: '/work-items?view=overdue', label: 'Termini geçenler', icon: ReportGmailerrorredIcon, count: overdue.length, tone: 'warn' },
+    { to: '/work-items?view=unassigned', label: 'Atanmamış', icon: TaskAltIcon, count: unassigned },
+  ]
+  const here = location.pathname + location.search
+  const crumb = [...VIEWS, ...MAIN, { to: '/settings', label: 'Ayarlar' }].find((n) => (n.to.includes('?') ? here.startsWith(n.to) : n.to === location.pathname))?.label ?? ''
+  const isActive = (to: string) => (to.includes('?') ? here === to : to === '/' ? location.pathname === '/' : location.pathname === to && !location.search.includes('view='))
+
+  const item = (n: NavLink) => {
+    const active = isActive(n.to)
+    const Icon = n.icon
+    return (
+      <ButtonBase key={n.to} component={Link} to={n.to} onClick={() => setMobileOpen(false)}
+                  sx={(t) => ({ width: '100%', justifyContent: 'flex-start', gap: 1.25, px: 1.25, height: 34, borderRadius: 2, mb: 0.25,
+                                color: active ? 'text.primary' : 'text.secondary', fontSize: 14, fontWeight: active ? 600 : 500,
+                                bgcolor: active ? 'background.paper' : 'transparent',
+                                boxShadow: active ? (t.palette.mode === 'dark' ? '0 0 0 1px #25272F' : '0 1px 2px rgba(16,18,24,0.06), 0 0 0 1px rgba(16,18,24,0.05)') : 'none',
+                                transition: 'background-color .12s ease, color .12s ease',
+                                '&:hover': { bgcolor: active ? 'background.paper' : 'action.hover', color: 'text.primary' } })}>
+        <Icon sx={{ fontSize: 18, color: active ? 'primary.main' : 'inherit' }} />
+        <Box component="span" sx={{ flexGrow: 1, textAlign: 'left' }}>{n.label}</Box>
+        {!!n.count && (
+          <Box component="span" sx={(t) => ({ minWidth: 20, height: 20, px: 0.6, borderRadius: 1.5, fontSize: 11.5, fontWeight: 600, display: 'grid', placeItems: 'center',
+                                                bgcolor: n.tone === 'warn' ? alpha(t.palette.warning.main, 0.14) : n.tone === 'accent' ? 'primary.main' : 'action.hover',
+                                                color: n.tone === 'warn' ? 'warning.main' : n.tone === 'accent' ? '#fff' : 'text.secondary' })}>{n.count}</Box>
         )}
-      </ListItemButton>
+      </ButtonBase>
     )
-    return compact ? <Tooltip key={item.to} title={item.label} placement="right">{button}</Tooltip> : button
   }
 
-  const navContent = (compact: boolean) => (
-    <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', color: '#fff', background: BRAND_GRADIENT }}>
-      <Box sx={{ display: 'flex', flexDirection: compact ? 'column' : 'row', alignItems: 'center', gap: compact ? 0.5 : 0,
-                 px: compact ? 1 : 2, pr: 1, py: compact ? 1.25 : 1.75 }}>
-        <Box component={Link} to="/" onClick={() => setDrawerOpen(false)}
-             sx={{ display: 'flex', alignItems: 'center', gap: 1.25, minWidth: 0, flexGrow: compact ? 0 : 1,
-                   textDecoration: 'none', color: 'inherit', '&:hover': { opacity: 0.9 } }}>
-          <Box component="img" src="/favicon.svg" alt="YAVER" sx={{ width: 36, height: 36, display: 'block', borderRadius: 2 }} />
-          {!compact && (
-            <Box sx={{ minWidth: 0 }}>
-              <Typography variant="h6" sx={{ lineHeight: 1.1 }}>{db.general.app_title || 'YAVER'}</Typography>
-              <Typography variant="caption" noWrap component="div" sx={{ opacity: 0.8 }}>Takım İş Takibi</Typography>
-            </Box>
-          )}
+  const sidebar = (
+    <Box sx={{ width: NAV_W, height: '100%', display: 'flex', flexDirection: 'column', px: 1.5, py: 1.5, bgcolor: 'background.default' }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, px: 0.75, height: 40, mb: 1 }}>
+        <BrandMark size={28} />
+        <Box sx={{ flexGrow: 1, minWidth: 0 }}>
+          <Typography sx={{ fontWeight: 700, fontSize: 15, letterSpacing: '-0.02em', lineHeight: 1.1 }}>{db.general.app_title || 'Yaver'}</Typography>
+          <Typography variant="caption" color="text.secondary" sx={{ lineHeight: 1.2 }}>Takım iş takibi</Typography>
         </Box>
-        <Tooltip title={compact ? 'Menüyü genişlet' : 'Menüyü daralt'} placement="right">
-          <IconButton size="small" onClick={toggleCollapsed} aria-label={compact ? 'Menüyü genişlet' : 'Menüyü daralt'}
-                      sx={{ display: { xs: 'none', md: 'inline-flex' }, color: 'rgba(255,255,255,0.75)',
-                            '&:hover': { color: '#fff', bgcolor: 'rgba(255,255,255,0.08)' } }}>
-            {compact ? <KeyboardDoubleArrowRightIcon fontSize="small" /> : <KeyboardDoubleArrowLeftIcon fontSize="small" />}
-          </IconButton>
-        </Tooltip>
+        <IconButton size="small" sx={{ display: { md: 'none' } }} onClick={() => setMobileOpen(false)} aria-label="Menüyü kapat"><KeyboardDoubleArrowLeftIcon fontSize="small" /></IconButton>
       </Box>
-      <Divider sx={{ borderColor: 'rgba(255,255,255,0.10)' }} />
-      <List sx={{ py: 1, flexGrow: 1, overflowY: 'auto', overflowX: 'hidden' }}>
-        {NAV.map((g, i) => (
-          <Box key={g.title ?? i}>
-            {g.title && (compact
-              ? <Divider sx={{ my: 1, mx: 1.5, borderColor: 'rgba(255,255,255,0.15)' }} />
-              : <ListSubheader component="div" sx={{ bgcolor: 'transparent', mt: 1, pl: 2.75, lineHeight: '30px', position: 'static',
-                                                     color: 'rgba(255,255,255,0.5)', fontSize: 11, fontWeight: 600,
-                                                     letterSpacing: '.08em', textTransform: 'uppercase' }}>{g.title}</ListSubheader>)}
-            {g.items.map((it) => navItem(it, compact))}
-          </Box>
-        ))}
-      </List>
-      {/* API servisi durumu — tıklayınca Ayarlar'daki servise gider */}
-      <Tooltip title={`${enabledServices} etkin API servisi${running.length ? ' · çağrı sürüyor' : ''}`} placement="right">
-        <ButtonBase onClick={() => { setDrawerOpen(false); navigate('/settings?tab=api') }}
-                    sx={{ mx: 1.25, mb: 0.5, px: 1.5, py: 0.75, borderRadius: '10px', gap: 1, justifyContent: compact ? 'center' : 'flex-start',
-                          color: 'rgba(255,255,255,0.7)', fontSize: 12.5, '&:hover': { bgcolor: 'rgba(255,255,255,0.08)', color: '#fff' } }}>
-          <SyncIcon fontSize="small" sx={{ animation: running.length ? 'spin 1s linear infinite' : 'none',
-                                           '@keyframes spin': { to: { transform: 'rotate(360deg)' } } }} />
-          {!compact && <span>API servisi: {enabledServices ? `${enabledServices} etkin` : 'kapalı'}</span>}
-        </ButtonBase>
-      </Tooltip>
-      <Divider sx={{ borderColor: 'rgba(255,255,255,0.10)' }} />
-      <Tooltip title={compact ? `${fullName || username}` : ''} placement="right">
-        <ButtonBase onClick={(e) => setAnchor(e.currentTarget)} aria-label="Kullanıcı menüsü"
-                    sx={{ mx: 1.25, my: 1, px: compact ? 0.5 : 1, py: 0.75, borderRadius: '10px', gap: 1.25,
-                          justifyContent: compact ? 'center' : 'flex-start', textAlign: 'left', color: '#fff',
-                          '&:hover': { bgcolor: 'rgba(255,255,255,0.08)' } }}>
-          <Avatar sx={{ width: 34, height: 34, bgcolor: 'rgba(255,255,255,0.16)', color: '#fff', fontSize: 15, fontWeight: 700 }}>{initial}</Avatar>
-          {!compact && (
-            <>
-              <Box sx={{ minWidth: 0, flexGrow: 1 }}>
-                <Typography variant="body2" noWrap sx={{ fontWeight: 700, lineHeight: 1.3 }}>{fullName || username}</Typography>
-                <Typography variant="caption" noWrap component="div" sx={{ color: 'rgba(255,255,255,0.65)', lineHeight: 1.3 }}>{username}</Typography>
-              </Box>
-              <UnfoldMoreIcon fontSize="small" sx={{ color: 'rgba(255,255,255,0.6)' }} />
-            </>
-          )}
-        </ButtonBase>
-      </Tooltip>
+
+      <ButtonBase onClick={() => { setMobileOpen(false); setPalette(true) }}
+                  sx={{ width: '100%', justifyContent: 'flex-start', gap: 1, px: 1.25, height: 34, borderRadius: 2, mb: 2, border: 1, borderColor: 'divider',
+                        bgcolor: 'background.paper', color: 'text.disabled', fontSize: 13.5, '&:hover': { borderColor: 'text.disabled' } }}>
+        <SearchIcon sx={{ fontSize: 17 }} /><Box component="span" sx={{ flexGrow: 1, textAlign: 'left' }}>Ara…</Box><Kbd>⌘K</Kbd>
+      </ButtonBase>
+
+      <Box component="nav" aria-label="Ana menü">{MAIN.map(item)}</Box>
+      <Typography variant="caption" color="text.disabled" sx={{ px: 1.25, mt: 2.5, mb: 0.75, fontWeight: 600, display: 'block' }}>Görünümler</Typography>
+      <Box component="nav" aria-label="Kayıtlı görünümler">{VIEWS.map(item)}</Box>
+
+      <Box sx={{ flexGrow: 1 }} />
+      {/* API servisi durumu */}
+      <ButtonBase component={Link} to="/settings?tab=api" onClick={() => setMobileOpen(false)}
+                  sx={{ display: 'block', textAlign: 'left', p: 1.5, mb: 1, borderRadius: 2.5, border: 1, borderColor: 'divider', bgcolor: 'background.paper',
+                        transition: 'border-color .15s ease', '&:hover': { borderColor: 'text.disabled' } }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <LiveDot active={enabled.length > 0} color={lastError ? '#F04438' : '#12B76A'} />
+          <Typography variant="body2" sx={{ fontWeight: 600, flexGrow: 1 }}>{enabled.length ? (running.length ? 'Senkronize ediliyor…' : 'Senkron açık') : 'Senkron kapalı'}</Typography>
+        </Box>
+        <Typography variant="caption" color="text.secondary" component="div" sx={{ mt: 0.5 }}>
+          {enabled.length ? `${enabled.length} API servisi · ${lastError ? 'son çağrıda hata' : 'sorun yok'}` : 'API servisini Ayarlar\'dan açın'}
+        </Typography>
+      </ButtonBase>
+      {item({ to: '/settings', label: 'Ayarlar', icon: SettingsOutlinedIcon })}
+      <Divider sx={{ my: 1 }} />
+      <ButtonBase onClick={(e) => setUserMenu(e.currentTarget)} aria-label="Kullanıcı menüsü"
+                  sx={{ width: '100%', justifyContent: 'flex-start', gap: 1.25, p: 0.75, borderRadius: 2, '&:hover': { bgcolor: 'action.hover' } }}>
+        <UserAvatar name={me} size={30} />
+        <Box sx={{ minWidth: 0, flexGrow: 1, textAlign: 'left' }}>
+          <Typography variant="body2" noWrap sx={{ fontWeight: 600 }}>{fullName || me}</Typography>
+          <Typography variant="caption" color="text.secondary" noWrap component="div">{me}@lokal</Typography>
+        </Box>
+        <UnfoldMoreIcon sx={{ fontSize: 16, color: 'text.disabled' }} />
+      </ButtonBase>
     </Box>
   )
 
   return (
-    <Box sx={{ minHeight: '100vh', bgcolor: 'background.default', display: 'flex' }}>
-      <Box component="nav" aria-label="Ana menü"
-           sx={{ display: { xs: 'none', md: 'block' }, width: collapsed ? NAV_W_COMPACT : NAV_W, flexShrink: 0,
-                 position: 'sticky', top: 0, height: '100vh', transition: 'width 150ms ease' }}>
-        {navContent(collapsed)}
-      </Box>
-      <Box sx={{ flexGrow: 1, minWidth: 0 }}>
-        <AppBar position="sticky" elevation={0} color="inherit"
-                sx={{ display: { xs: 'block', md: 'none' }, bgcolor: 'background.paper', borderBottom: 1, borderColor: 'divider' }}>
-          <Toolbar variant="dense" sx={{ gap: 1, minHeight: 56 }}>
-            <IconButton color="inherit" edge="start" aria-label="Menüyü aç" onClick={() => setDrawerOpen(true)}><MenuIcon /></IconButton>
-            <Typography variant="h6" sx={{ fontSize: 17 }}>YAVER</Typography>
-          </Toolbar>
-        </AppBar>
-        <Menu anchorEl={anchor} open={!!anchor} onClose={() => setAnchor(null)}
-              anchorOrigin={{ vertical: 'top', horizontal: 'left' }} transformOrigin={{ vertical: 'bottom', horizontal: 'left' }}
-              slotProps={{ paper: { sx: { width: 260, mt: -1 } } }}>
-          <Box sx={{ px: 2, py: 1.5, display: 'flex', alignItems: 'center', gap: 1.5 }}>
-            <Avatar sx={{ bgcolor: 'primary.main' }}>{initial}</Avatar>
-            <Box sx={{ minWidth: 0 }}>
-              <Typography variant="subtitle2" noWrap>{fullName || username}</Typography>
-              <Chip size="small" label="Lokal hesap" sx={{ mt: 0.5 }} />
+    <UiContext.Provider value={{ openNew, openPalette }}>
+      <Box sx={{ minHeight: '100vh', bgcolor: 'background.default', display: 'flex' }}>
+        <Box sx={{ display: { xs: 'none', md: 'block' }, width: NAV_W, flexShrink: 0, position: 'sticky', top: 0, height: '100vh' }}>{sidebar}</Box>
+        <Drawer open={mobileOpen} onClose={() => setMobileOpen(false)} sx={{ display: { md: 'none' } }}
+                slotProps={{ paper: { sx: { border: 0 } } }}>{sidebar}</Drawer>
+
+        {/* İçerik paneli: tuvalden ayrışan, kenarlıklı yüzey */}
+        <Box sx={{ flexGrow: 1, minWidth: 0, p: { xs: 0, md: 1 }, pl: { md: 0 } }}>
+          <Box sx={(t) => ({ minHeight: { xs: '100vh', md: 'calc(100vh - 16px)' }, bgcolor: 'background.paper', borderRadius: { xs: 0, md: 3.5 },
+                             border: { xs: 0, md: `1px solid ${t.palette.divider}` }, boxShadow: { md: t.shadows[1] }, display: 'flex', flexDirection: 'column' })}>
+            <Box component="header" sx={{ position: 'sticky', top: { xs: 0, md: 8 }, zIndex: 10, display: 'flex', alignItems: 'center', gap: 1, px: { xs: 1.5, md: 3 }, height: 56,
+                                          borderBottom: 1, borderColor: 'divider', bgcolor: (t) => alpha(t.palette.background.paper, 0.82), backdropFilter: 'blur(12px)',
+                                          borderTopLeftRadius: { md: 14 }, borderTopRightRadius: { md: 14 } }}>
+              <IconButton sx={{ display: { md: 'none' } }} onClick={() => setMobileOpen(true)} aria-label="Menüyü aç"><MenuIcon /></IconButton>
+              <Box sx={{ display: { xs: 'flex', md: 'none' }, alignItems: 'center', gap: 1 }}><BrandMark size={22} /><Typography sx={{ fontWeight: 700 }}>Yaver</Typography></Box>
+              <Box sx={{ display: { xs: 'none', md: 'flex' }, alignItems: 'center', gap: 1, fontSize: 13.5, color: 'text.secondary' }}>
+                <span>{db.general.app_title || 'Yaver'}</span><Box component="span" sx={{ color: 'text.disabled' }}>/</Box>
+                <Box component="span" sx={{ color: 'text.primary', fontWeight: 600 }}>{crumb}</Box>
+              </Box>
+              <Box sx={{ flexGrow: 1 }} />
+              <Tooltip title="Ara (⌘K)"><IconButton onClick={() => setPalette(true)} sx={{ display: { md: 'none' } }} aria-label="Ara"><SearchIcon fontSize="small" /></IconButton></Tooltip>
+              <Tooltip title={mode === 'dark' ? 'Açık tema' : 'Koyu tema'}>
+                <IconButton onClick={toggle} aria-label="Temayı değiştir">{mode === 'dark' ? <LightModeOutlinedIcon fontSize="small" /> : <DarkModeOutlinedIcon fontSize="small" />}</IconButton>
+              </Tooltip>
+              <Tooltip title="Bildirimler">
+                <IconButton onClick={(e) => setBell(e.currentTarget)} aria-label="Bildirimler">
+                  <Badge color="error" variant="dot" invisible={!notifCount}><NotificationsNoneIcon fontSize="small" /></Badge>
+                </IconButton>
+              </Tooltip>
+              <Button variant="contained" startIcon={<AddIcon />} onClick={() => openNew()} sx={{ ml: 0.5 }}>
+                <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>Yeni iş</Box>
+                <Box component="span" sx={{ display: { xs: 'none', lg: 'inline-flex' }, ml: 1, opacity: 0.7, fontSize: 12, border: '1px solid rgba(255,255,255,0.35)', borderRadius: '4px', px: 0.5 }}>C</Box>
+              </Button>
+            </Box>
+            <Box component="main" sx={{ flexGrow: 1, px: { xs: 2, md: 4 }, py: { xs: 2.5, md: 3.5 }, maxWidth: 1440, width: '100%', mx: 'auto' }}>
+              <PageTransition id={location.pathname}><Outlet /></PageTransition>
             </Box>
           </Box>
-          <Divider />
-          <MenuItem disableRipple sx={{ cursor: 'default', '&:hover': { bgcolor: 'transparent' } }}>
-            <ListItemIcon>{mode === 'dark' ? <DarkModeIcon fontSize="small" /> : <LightModeIcon fontSize="small" />}</ListItemIcon>
-            <ListItemText>Koyu tema</ListItemText>
-            <Switch edge="end" checked={mode === 'dark'} onChange={toggle} />
-          </MenuItem>
-          <Divider />
-          <MenuItem onClick={() => { setAnchor(null); setDrawerOpen(false); navigate('/settings') }}>
-            <ListItemIcon><SettingsIcon fontSize="small" /></ListItemIcon><ListItemText>Ayarlar</ListItemText>
-          </MenuItem>
-          <MenuItem onClick={() => { setAnchor(null); logout(); navigate('/login') }}>
-            <ListItemIcon><LogoutIcon fontSize="small" /></ListItemIcon><ListItemText>Çıkış Yap</ListItemText>
-          </MenuItem>
-        </Menu>
-        <Drawer anchor="left" open={drawerOpen} onClose={() => setDrawerOpen(false)} ModalProps={{ keepMounted: true }}
-                sx={{ display: { md: 'none' } }}>
-          <Box sx={{ width: NAV_W, height: '100%' }} role="presentation">{navContent(false)}</Box>
-        </Drawer>
-        <Container maxWidth={false} sx={{ py: 3 }}>
-          <PageTransition id={location.pathname}><Outlet /></PageTransition>
-        </Container>
+        </Box>
       </Box>
-    </Box>
+
+      <Menu anchorEl={userMenu} open={!!userMenu} onClose={() => setUserMenu(null)}
+            anchorOrigin={{ vertical: 'top', horizontal: 'left' }} transformOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+            slotProps={{ paper: { sx: { width: 224 } } }}>
+        <MenuItem onClick={() => { setUserMenu(null); toggle() }}>
+          <ListItemIcon>{mode === 'dark' ? <LightModeOutlinedIcon fontSize="small" /> : <DarkModeOutlinedIcon fontSize="small" />}</ListItemIcon>
+          <ListItemText>{mode === 'dark' ? 'Açık tema' : 'Koyu tema'}</ListItemText>
+        </MenuItem>
+        <MenuItem onClick={() => { setUserMenu(null); setMobileOpen(false); navigate('/settings') }}>
+          <ListItemIcon><SettingsOutlinedIcon fontSize="small" /></ListItemIcon><ListItemText>Ayarlar</ListItemText>
+        </MenuItem>
+        <Divider />
+        <MenuItem onClick={() => { setUserMenu(null); logout(); navigate('/login') }}>
+          <ListItemIcon><LogoutIcon fontSize="small" /></ListItemIcon><ListItemText>Çıkış yap</ListItemText>
+        </MenuItem>
+      </Menu>
+
+      <Popover open={!!bell} anchorEl={bell} onClose={() => setBell(null)} anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+               transformOrigin={{ vertical: 'top', horizontal: 'right' }} slotProps={{ paper: { sx: { width: 360, mt: 1, maxHeight: 440 } } }}>
+        <Box sx={{ px: 2, py: 1.5, borderBottom: 1, borderColor: 'divider' }}><Typography variant="subtitle2">Bildirimler</Typography></Box>
+        {notifCount === 0 && <Typography variant="body2" color="text.secondary" sx={{ p: 3, textAlign: 'center' }}>Her şey yolunda 🎉</Typography>}
+        {overdue.slice(0, 5).map((w) => (
+          <ButtonBase key={`o${w.id}`} onClick={() => { setBell(null); navigate(`/work-items?open=${w.id}`) }}
+                      sx={{ display: 'flex', width: '100%', textAlign: 'left', gap: 1.5, px: 2, py: 1.25, '&:hover': { bgcolor: 'action.hover' } }}>
+            <StatusIcon status={w.status} size={14} />
+            <Box sx={{ minWidth: 0, flexGrow: 1 }}>
+              <Typography variant="body2" noWrap sx={{ fontWeight: 550 }}>{w.title}</Typography>
+              <Typography variant="caption" color="error.main">Termini geçti · {w.code}</Typography>
+            </Box>
+          </ButtonBase>
+        ))}
+        {unread.slice(0, 5).map((e) => (
+          <ButtonBase key={`e${e.id}`} onClick={() => { setBell(null); navigate(`/emails?open=${e.id}`) }}
+                      sx={{ display: 'flex', width: '100%', textAlign: 'left', gap: 1.5, px: 2, py: 1.25, '&:hover': { bgcolor: 'action.hover' } }}>
+            <UserAvatar name={e.from_name} size={24} />
+            <Box sx={{ minWidth: 0, flexGrow: 1 }}>
+              <Typography variant="body2" noWrap sx={{ fontWeight: 550 }}>{e.subject}</Typography>
+              <Typography variant="caption" color="text.secondary">{e.from_name} · {timeAgo(e.received_at)}</Typography>
+            </Box>
+          </ButtonBase>
+        ))}
+      </Popover>
+
+      <CommandPalette open={palette} onClose={() => setPalette(false)} onNewItem={() => openNew()} onToggleTheme={toggle} />
+      <NewWorkItemDialog open={newOpen} initial={newInit} onClose={() => setNewOpen(false)} />
+    </UiContext.Provider>
   )
 }
