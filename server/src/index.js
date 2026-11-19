@@ -5,6 +5,7 @@ import { migrateAndSeed, query, waitForDb } from './db.js'
 import { bootstrapAgentToken, login } from './auth.js'
 import { startPoller } from './poller.js'
 import { apiRouter, errorHandler } from './routes.js'
+import { loadDemoHistory } from './demo.js'
 import { startDispatcher, startEventCleanup, startEventListener } from './events.js'
 
 const PORT = Number(process.env.PORT ?? 8080)
@@ -83,6 +84,7 @@ await waitForDb()
 startupError = 'tablolar hazırlanıyor'
 await migrateAndSeed({ seed: process.env.SEED !== 'false' })
 await bootstrapAgentToken()
+if (process.env.SEED !== 'false') await loadDemoHistory().catch((e) => console.error('[demo]', e))
 await startEventListener()
 ready = true
 startPoller()

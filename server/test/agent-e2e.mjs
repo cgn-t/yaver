@@ -209,6 +209,40 @@ const oboPr = await call('PATCH', `/api/work-items/${created.json.id}`, { token:
 assert.equal(oboPr.status, 200); ok('kullanıcı adına token: on_behalf_of + chat_direct_apply')
 assert.equal((await call('GET', '/api/settings/agent', { token: obo })).status, 403)
 
+// ---------- v0.6: geçmiş bağlamı, ajan yorumu, toplu mail ----------
+const wiki = (await call('GET', '/api/wiki', { token: A })).json.pages
+assert.ok(wiki.length >= 10)
+assert.ok((await call('GET', `/api/wiki/${wiki[0].slug}`, { token: A })).json.body.length > 0); ok('wiki okuma')
+assert.ok((await call('GET', '/api/contacts', { token: A })).json.contacts.some((c) => c.mgmt_level === 'gm')); ok('kişi rehberi (unvan/seviye)')
+const bulk = await call('POST', '/api/bulk-send-mail', { token: ADMIN, body: { mails: [
+  { from_address: 'hakan.erdem@firma.com', subject: 'ACİL: Bütçe raporunda toplamlar tutmuyor', body: 'Bugün içinde düzeltilmeli, rapordaki toplamlar hatalı.' },
+  { from_address: 'yeni.kisi@dis.com', from_name: 'Yeni Kişi', subject: 'Portala giriş yapamıyorum', body: 'Şifre sıfırlama çalışmıyor.' },
+] } })
+assert.equal(bulk.status, 201)
+assert.equal(bulk.json.count, 2)
+const [gm, other] = bulk.json.work_items
+assert.equal(gm.mgmt_level, 'gm')
+assert.ok(gm.keywords.includes('acil') && gm.keywords.includes('rapor'))
+assert.equal(other.mgmt_level, 'diger')
+assert.ok(other.keywords.includes('erisim')); ok('bulk-send-mail: mail + iş + üst yönetim + anahtar kelime')
+const ctx = (await call('GET', `/api/work-items/${gm.id}/context`, { token: A })).json
+assert.equal(ctx.contact.mgmt_level, 'gm')
+assert.ok(ctx.similar_items.length > 0 && ctx.wiki_pages.length > 0)
+assert.ok(ctx.similar_items.some((s) => s.status === 'done' && s.resolved_in_days !== null)); ok('bağlam: benzer geçmiş işler + wiki')
+const intr = (await call('POST', `/api/work-items/${gm.id}/interpret`, { token: ADMIN })).json
+assert.match(intr.agent_comment, /Üst yönetim talebi/)
+assert.ok(intr.agent_sources.some((s) => s.type === 'wiki') && intr.agent_sources.some((s) => s.type === 'db'))
+assert.equal(intr.agent_suggestion.priority, 'critical'); ok('örnek yorumlayıcı: geçmişe dayalı yorum + kaynaklar')
+const ac = await call('PUT', `/api/work-items/${other.id}/agent-comment`, { token: A,
+  body: { comment: 'LLM yorumu', sources: [{ type: 'wiki', id: 1, ref: 'x', title: 'x' }], confidence: 0.7, suggestion: { priority: 'normal' } } })
+assert.equal(ac.status, 200)
+assert.equal(ac.json.agent_comment, 'LLM yorumu')
+assert.equal(ac.json.agent_comment_by, 'yaver-ajan'); ok('ajan yorumunu API ile yazar')
+const gen = await call('POST', '/api/bulk-send-mail', { token: A, body: { count: 3 } })
+assert.equal(gen.json.count, 3); ok('bulk-send-mail örnek üretim (ajan token\'ı ile)')
+const st = (await call('GET', '/api/state', { token: ADMIN })).json
+assert.ok(st.keywordRules.length >= 6 && st.items.some((w) => w.mgmt_level === 'gmy')); ok('/state: anahtar kelime kuralları + seviyeler')
+
 console.log(`\nTüm testler geçti (${n}).`)
 mock.close()
 process.exit(0)

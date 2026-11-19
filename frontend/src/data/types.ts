@@ -23,7 +23,23 @@ export interface WorkItem {
   created_at: string
   updated_at: string
   closed_at: string | null
+  // ---- v0.6: geçmişe dayalı yorum (sunucu modunda dolu; demo modunda boş olabilir) ----
+  version?: number
+  requester_email?: string | null
+  mgmt_level?: MgmtLevel        // talep edenin seviyesi (contact.mgmt_level)
+  keywords?: string[]           // maildeki anahtar kelimeler (keyword_rule.key)
+  agent_comment?: string | null // ajanın geçmişe (DB, wiki, mail) bakarak yazdığı yorum
+  agent_sources?: AgentSource[]
+  agent_confidence?: number | null
+  agent_suggestion?: AgentSuggestion | null
+  agent_comment_by?: string | null
+  agent_comment_at?: string | null
 }
+
+export type MgmtLevel = 'gm' | 'gmy' | 'direktor' | 'mudur' | 'diger'
+export interface AgentSource { type: 'db' | 'wiki' | 'mail' | 'meeting'; id: number; ref: string; title: string; url?: string }
+export interface AgentSuggestion { priority?: Priority; assignee?: string | null; eta_days?: number; sla?: string | null }
+export interface KeywordRule { key: string; label: string; terms: string[]; color: string; sort_order: number }
 
 /** email — posta kutusundan çekilen mailler */
 export interface Email {

@@ -75,7 +75,7 @@ spec:
       terminationGracePeriodSeconds: 30   # kapanırken veritabanı dosyaları düzgün kapatılır
       containers:
         - name: yaver
-          image: ghcr.io/cgn-t/yaver:0.5.0
+          image: ghcr.io/cgn-t/yaver:0.6.0
           imagePullPolicy: IfNotPresent
           env:
             - name: TOKEN_SECRET

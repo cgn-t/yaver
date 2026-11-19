@@ -4,6 +4,8 @@ import { resetDemoData, query } from './db.js'
 import * as S from './state.js'
 import * as A from './agent.js'
 import * as C from './chat.js'
+import * as I from './intel.js'
+import { loadDemoHistory } from './demo.js'
 import { DELIVERY, claimEvents, openSse, toEnvelope } from './events.js'
 import { runNow } from './poller.js'
 
@@ -84,7 +86,10 @@ export function apiRouter() {
     const b = req.body ?? {}
     await A.validateItemPatch(b, { create: true })
     await A.assertDirect(req.user, ['create'])
-    res.status(201).json(await S.createWorkItem({ ...b, title: String(b.title).trim() }, req.user))
+    const item = await S.createWorkItem({ ...b, title: String(b.title).trim() }, req.user)
+    // Örnek yorumlayıcı (gerçek ajan bağlıysa kapalı): arka planda geçmişe bakıp yorum yazar
+    if (I.DEMO_INTERPRETER && req.user.role !== 'agent') I.interpret(item.id).catch((e) => console.warn('[intel]', e.message))
+    res.status(201).json(item)
   }))
   api.patch('/work-items/:id', scope('items:write'), h(async (req, res) => {
     const b = req.body ?? {}
@@ -105,6 +110,44 @@ export function apiRouter() {
     await A.assertDirect(req.user, ['link'])
     res.status(201).json(await A.linkToWorkItem(id(req), { email_id: Number(req.body?.email_id) || null, meeting_id: Number(req.body?.meeting_id) || null }, req.user))
   }))
+
+  // =================== Geçmiş bağlamı ve ajan yorumu ===================
+  /** Ajanın yorum yaparken bakacağı geçmiş: benzer işler (DB), wiki, göndericinin mailleri, kişi, ekip yükü */
+  api.get('/work-items/:id/context', scope('items:read'), h(async (req, res) => {
+    const r = await I.buildContext(id(req))
+    r ? res.json(r) : notFound(res, 'İş')
+  }))
+  api.put('/work-items/:id/agent-comment', scope('items:write'), h(async (req, res) => {
+    const r = await I.setAgentComment(id(req), req.body ?? {}, req.user)
+    r ? res.json(r) : notFound(res, 'İş')
+  }))
+  /** Örnek yorumlayıcıyı bu iş için yeniden çalıştırır */
+  api.post('/work-items/:id/interpret', scope('items:write'), h(async (req, res) => {
+    const r = await I.interpret(id(req))
+    r ? res.json(r) : notFound(res, 'İş')
+  }))
+
+  // =================== Toplu mail ===================
+  /**
+   * Toplu mail girişi: gövde {mails: [{from_address, from_name?, subject, body, importance?, received_at?, message_id?}],
+   * create_items?: true, interpret?: true} ya da örnek mail üretmek için {count: 5}. Her mail → email + iş + ajan yorumu.
+   */
+  api.post('/bulk-send-mail', scope('emails:write'), h(async (req, res) => {
+    if ((req.body ?? {}).create_items !== false) await A.assertDirect(req.user, ['create'])
+    res.status(201).json(await I.bulkSendMail(req.body ?? {}, req.user))
+  }))
+
+  // =================== Wiki ve kişiler ===================
+  api.get('/wiki', scope('items:read'), h(async (req, res) => res.json(await I.listWiki(req.query))))
+  api.get('/wiki/:slug', scope('items:read'), h(async (req, res) => {
+    const r = await I.getWiki(req.params.slug)
+    r ? res.json(r) : notFound(res, 'Wiki sayfası')
+  }))
+  api.put('/wiki/:slug', humanOnly, h(async (req, res) => res.json(await I.upsertWiki({ ...req.body, slug: req.params.slug, updated_by: req.user.username }))))
+  api.get('/contacts', scope('users:read'), h(async (_req, res) => res.json(await I.listContacts())))
+  api.put('/contacts', humanOnly, h(async (req, res) => res.json(await I.upsertContact(req.body ?? {}))))
+  api.get('/settings/keywords', scope('items:read'), h(async (_req, res) => res.json({ rules: await I.keywordRules() })))
+  api.put('/settings/keywords', adminOnly, h(async (req, res) => res.json({ rules: await I.saveKeywordRules(req.body?.rules) })))
 
   // =================== Mail ===================
   api.get('/emails', scope('emails:read'), h(async (req, res) => res.json(await A.listEmails(req.query))))
@@ -236,7 +279,11 @@ export function apiRouter() {
     res.status(201).json(await createApiToken({ name: b.name, username: b.username, scopes: b.scopes, expiresDays: b.expires_days ?? null, createdBy: req.user.id }))
   }))
   api.delete('/admin/tokens/:id', adminOnly, h(async (req, res) => { (await A.revokeToken(id(req))) ? res.status(204).end() : notFound(res, 'Token') }))
-  api.post('/admin/reset-demo', humanOnly, h(async (_req, res) => { await resetDemoData(); res.json({ ok: true }) }))
+  api.post('/admin/reset-demo', humanOnly, h(async (_req, res) => {
+    await resetDemoData()
+    await loadDemoHistory({ force: true })
+    res.json({ ok: true })
+  }))
 
   return api
 }

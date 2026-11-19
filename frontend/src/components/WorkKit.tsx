@@ -16,6 +16,7 @@ import {
 } from '../data/store'
 import type { Priority, SourceType, WorkItem, WorkStatus } from '../data/types'
 import { avatarColor, initials } from '../theme'
+import { AgentCommentBox, AgeLabel, KeywordChips, MgmtChip } from './AgentKit'
 
 export const CATEGORIES = ['Talep', 'Olay', 'Aksiyon', 'Planlama', 'Entegrasyon', 'Diğer']
 
@@ -194,7 +195,7 @@ function Prop({ label, children }: { label: string; children: ReactNode }) {
 const bare = { '& .MuiOutlinedInput-notchedOutline': { border: 0 }, '&:hover': { bgcolor: 'action.hover' }, borderRadius: 2, ml: -1.25,
                '& .MuiSelect-select': { py: 0.75, pl: 1.25 } }
 
-export function WorkItemDrawer({ item, onClose }: { item: WorkItem | null; onClose: () => void }) {
+export function WorkItemDrawer({ item, onClose, onOpenItem }: { item: WorkItem | null; onClose: () => void; onOpenItem?: (id: number) => void }) {
   const db = useDb()
   const [comment, setComment] = useState('')
   const live = item ? db.items.find((w) => w.id === item.id) ?? item : null
@@ -242,9 +243,17 @@ export function WorkItemDrawer({ item, onClose }: { item: WorkItem | null; onClo
                            sx={{ ...bare, '& input': { py: 0.75, pl: 1.25, fontSize: 13.5 }, '& .MuiOutlinedInput-root': { bgcolor: 'transparent' } }} />
               </Prop>
               <Prop label="Kategori"><Chip size="small" variant="outlined" label={live.category} /></Prop>
-              <Prop label="Talep eden"><Typography variant="body2">{live.requester ?? '—'}</Typography></Prop>
+              <Prop label="Talep eden">
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Typography variant="body2">{live.requester ?? '—'}</Typography><MgmtChip item={live} always={!!live.mgmt_level && live.mgmt_level !== 'diger'} />
+                </Box>
+              </Prop>
+              <Prop label="Anahtar kelime"><Box sx={{ display: 'flex', gap: 0.75, flexWrap: 'wrap' }}><KeywordChips item={live} max={6} /></Box></Prop>
+              <Prop label="Süre"><AgeLabel item={live} /></Prop>
               <Prop label="Oluşturma"><Typography variant="body2" color="text.secondary">{formatDateTime(live.created_at)}</Typography></Prop>
             </Box>
+
+            <AgentCommentBox item={live} onOpenItem={onOpenItem} />
 
             {(email || meeting) && (
               <Box sx={{ mt: 2, p: 1.75, borderRadius: 3, border: 1, borderColor: 'divider', display: 'flex', gap: 1.5 }}>
