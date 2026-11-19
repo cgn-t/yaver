@@ -116,6 +116,19 @@ Chat Block cevabının şekli kuruma göre değişebileceği için Yaver esnek o
 }
 ```
 
+### Playground'da görülen gerçek cevap ve Yaver'in okuması
+
+GenAI Studio Playground'da model cevabı **düz JSON** olarak döndü (kod bloğu yok). Şemadan farkları ve Yaver'in yaptığı:
+
+| Gerçek cevapta | Yaver ne yapar |
+|---|---|
+| `sources[]` içinde `id` yok, `ref: "25"` (mail id), `type: "mail"` | `ref` sayıysa id kabul edilir; `mail-25`, `YVR-1033`, wiki slug da çözülür. Bağlamda yoksa atılır, uyarı yazılır |
+| Konu değişikliği `{"kind": "edit", "payload": {"topic_keys": ["mq", "failed"]}}` | `edit` içindeki alanlar türlerine bölünür: `topic_keys` → konu, `status` → durum, `priority` → öncelik, `assignee` → atama, `category`, `tags`, `title`/`requester` → düzenleme |
+| Öncelik ve durum yalnız `suggestion` içinde (`"priority": "high", "status": "waiting"`), `changes`'te yok | `promote_suggestion` (varsayılan açık): `changes`'te olmayan öncelik/durum/atama/son tarih, genel güvenle **öneri** yapılır (onaya düşer) |
+| `"high"`, `"waiting"`, `"diger"` | Yaver değerleriyle aynı. Türkçe yazımlar da çevrilir: `Yüksek`/`Kritik`, `İşlemde`/`Bekliyor`/`Tamamlandı`/`İptal` |
+| `classification.mgmt_level: "diger"` + `warnings: ["Yönetici seviyesi (mgmt_level) belirlenemedi"]` | seviye kişi rehberinden gelir, AI değiştiremez. Farklıysa uyarı eklenir; uyarılar yorumun sonunda görünür |
+| `classification.category` yok | kategori değişmez |
+
 `classification.category` bu sürümde eklendi: `Olay`, `Talep`, `Değişiklik` ya da sistemde kullanılan diğer kategorilerden biri.
 
 ## 5. Cevap nasıl uygulanır
@@ -144,7 +157,7 @@ Güvenlik kuralları (Yaver tarafında, modelden bağımsız):
 
 - Hangi ortam değişkeninin tanımlı olduğu (değerler gösterilmez).
 - **Bağlantı testi**: SSO'dan token alır, Chat Block'a test mesajı gönderir, cevabı gösterir.
-- Davranış: etkin/duraklat, her yeni işi yorumlat, maili/Zoom'u işe çevir, konuyu AI belirlesin, önerileri gönder,
+- Davranış: etkin/duraklat, her yeni işi yorumlat, maili/Zoom'u işe çevir, konuyu AI belirlesin, önerileri gönder, suggestion'dakileri de öner,
   en düşük güven, zaman aşımı, thread modu, bağlam üst sınırı, deneme sayısı, eşzamanlı çağrı, ek talimatlar.
 - **Yorumu olmayan açık işleri yorumlat**: mevcut işleri toplu kuyruğa alır.
 

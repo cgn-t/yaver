@@ -21,6 +21,7 @@ export interface GenaiConfig {
   auto_from_zoom: boolean
   apply_topic: boolean
   apply_changes: boolean
+  promote_suggestion: boolean
   min_confidence: number
   max_context_chars: number
   max_attempts: number
@@ -141,6 +142,7 @@ export function GenaiTab() {
           <Grid size={{ xs: 12, sm: 6 }}><Sw label="İşe bağlı olmayan Zoom toplantısını işe çevir" checked={form.auto_from_zoom} onChange={(v) => set('auto_from_zoom', v)} /></Grid>
           <Grid size={{ xs: 12, sm: 6 }}><Sw label="Konuyu AI belirlesin (MQ, Decom, …)" checked={form.apply_topic} onChange={(v) => set('apply_topic', v)} /></Grid>
           <Grid size={{ xs: 12, sm: 6 }}><Sw label="Durum / öncelik / atama önerilerini gönder" checked={form.apply_changes} onChange={(v) => set('apply_changes', v)} /></Grid>
+          <Grid size={{ xs: 12, sm: 6 }}><Sw label="suggestion'daki öncelik/durum/atamayı da öner" checked={form.promote_suggestion} onChange={(v) => set('promote_suggestion', v)} disabled={!form.apply_changes} /></Grid>
         </Grid>
         <Typography variant="body2" color="text.secondary" sx={{ mt: 1, mb: 2 }}>
           Öneriler Ajan politikasına göre uygulanır: varsayılanda durum, öncelik, atama ve son tarih onaya düşer; kategori ve etiket doğrudan yazılır.

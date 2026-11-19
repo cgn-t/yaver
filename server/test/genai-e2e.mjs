@@ -17,6 +17,27 @@ const tokenCalls = []
 const chatCalls = []
 let issued = 0
 
+/** GenAI Studio Playground'da görülen gerçek cevap biçimi: düz JSON, kaynakta id yok (ref = mail id),
+ *  konu değişikliği kind "edit" + payload.topic_keys, öncelik/durum yalnız suggestion içinde. */
+function realFormatAnswer(msg) {
+  const id = Number(msg.match(/work_item_id=(\d+)/)?.[1])
+  const version = Number(msg.match(/work_item_version=(\d+)/)?.[1])
+  const ctx = JSON.parse(msg.slice(msg.lastIndexOf('<baglam>') + 8, msg.lastIndexOf('</baglam>')))
+  const ai = {
+    schema_version: '1.0', work_item_id: id, work_item_version: version,
+    summary: 'Ödeme MQ kuyruğunun dolması nedeniyle EFT gecikmesi',
+    comment: 'Ödeme MQ kuyruğundaki doluluk ve EFT gecikmesi bildiriliyor.',
+    classification: { topic_keys: ['mq', 'failed'], mgmt_level: 'diger', is_actionable: true },
+    sources: [{ ref: String(ctx.mail.id), title: ctx.mail.subject, type: 'mail', used_for: 'problem tanımı' }],
+    confidence: 0.8,
+    suggestion: { priority: 'high', status: 'waiting' },
+    changes: [{ kind: 'edit', payload: { topic_keys: ['mq', 'failed'] }, confidence: 0.8, reasoning: 'Başlıkta MQ kuyruğunun dolduğu belirtiliyor', needs_human: false }],
+    questions: [],
+    warnings: ['Yönetici seviyesi (mgmt_level) belirlenemedi'],
+  }
+  return { thread_id: `thr-${id}`, msg: JSON.stringify(ai, null, 2) }
+}
+
 /** Sahte LLM: bağlamdan AiYorumYaniti üretir ve Chat Block gibi {thread_id, msg} içinde ```json bloğu olarak döner. */
 function fakeAnswer(msg) {
   const id = Number(msg.match(/work_item_id=(\d+)/)?.[1])
@@ -68,7 +89,8 @@ const mock = http.createServer((req, res) => {
       if (!/^Bearer tok-\d+$/.test(req.headers.authorization ?? '')) return res.writeHead(401).end('{"error":"unauthorized"}')
       if (req.headers['app-id'] !== APP_ID || req.headers['app-identifier'] !== APP_IDENT) return res.writeHead(403).end('{"error":"app"}')
       if (body.request_context?.test) return res.writeHead(200, { 'Content-Type': 'application/json' }).end(JSON.stringify({ thread_id: 'thr-test', msg: 'Merhaba! Size nasıl yardımcı olabilirim?' }))
-      return res.writeHead(200, { 'Content-Type': 'application/json' }).end(JSON.stringify(fakeAnswer(body.msg)))
+      const real = /GERCEK-FORMAT/.test(body.msg)
+      return res.writeHead(200, { 'Content-Type': 'application/json' }).end(JSON.stringify(real ? realFormatAnswer(body.msg) : fakeAnswer(body.msg)))
     }
     res.writeHead(404).end()
   })
@@ -163,6 +185,22 @@ try {
   assert.equal(it2.source_type, 'mail')
   assert.deepEqual(it2.keywords, ['decom'])
   step('işe bağlı olmayan mail → iş açıldı → yorumlandı')
+
+  // 5b) Playground'daki gerçek cevap biçimi
+  const m3 = await call('POST', '/api/bulk-send-mail', admin, { mails: [{
+    from_address: 'dis.kullanici@ornek.com', from_name: 'Dış Kullanıcı', subject: 'GERCEK-FORMAT Ödeme MQ kuyruğu yine doluyor, EFT gecikiyor',
+    body: 'PAYMENT.IN kuyruğu doldu, EFT gecikiyor.', message_id: '<genai-e2e-3@ornek.com>' }] })
+  assert.equal(m3.status, 201, m3.text)
+  const id3 = m3.body.work_items[0].id
+  const mail3 = m3.body.emails[0].id
+  const it3 = await waitFor(async () => { const r = await call('GET', `/api/work-items/${id3}`, admin); return r.body.agent_comment_by === 'GenAI Studio' && r.body })
+  assert.deepEqual([...it3.keywords].sort(), ['failed', 'mq'], 'edit + payload.topic_keys konu olarak uygulanmalı')
+  assert.ok(it3.agent_sources.some((x) => x.type === 'mail' && x.id === mail3), `ref ile verilen mail kaynağı çözülmeli: ${JSON.stringify(it3.agent_sources)}`)
+  assert.match(it3.agent_comment, /Uyarı: Yönetici seviyesi/)
+  const a3 = (await call('GET', `/api/agent/actions?work_item_id=${id3}&status=pending`, admin)).body
+  const k3 = (a3.actions ?? a3).map((a) => `${a.kind}:${JSON.stringify(a.payload)}`).sort()
+  assert.deepEqual(k3, ['priority:{"priority":"high"}', 'status:{"status":"waiting"}'], `suggestion → öneri: ${k3}`)
+  step('gerçek cevap biçimi: edit/topic_keys → konu, ref → kaynak, suggestion → öneri')
 
   // 6) Çağrı geçmişi
   const jobs = (await call('GET', `/api/genai/jobs?work_item_id=${itemId}`, admin)).body.jobs
