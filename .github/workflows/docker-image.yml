@@ -55,9 +55,24 @@ jobs:
           ITEMS=$(curl -sf localhost:8080/api/state -H "Authorization: Bearer $TOKEN" | node -pe 'JSON.parse(require("fs").readFileSync(0)).items.length')
           echo "örnek iş sayısı: $ITEMS"; test "$ITEMS" -gt 0
           curl -sf localhost:8080/ | grep -q '<div id="root">'
+      - name: Ajan API uçtan uca testi (sahte LangGraph ajanı ile)
+        env:
+          DATA_DIR: ${{ runner.temp }}/yaver-agent-data
+          PORT: 8081
+          YAVER_URL: http://127.0.0.1:8081
+          PUBLIC_URL: http://127.0.0.1:8081
+          DEMO_FEEDS: "false"
+          AGENT_TOKEN: yvr_ci_token_1234567890abcdef
+          AGENT_WEBHOOK_URL: http://127.0.0.1:9099/hook
+          AGENT_WEBHOOK_SECRET: s3cret
+          AGENT_CHAT_URL: http://127.0.0.1:9099/chat
+        run: |
+          node server/src/index.js > agent-server.log 2>&1 &
+          for i in $(seq 1 40); do curl -sf localhost:8081/api/health && break; sleep 1; done
+          node server/test/agent-e2e.mjs
       - name: Sunucu logu
         if: always()
-        run: cat server.log || true
+        run: cat server.log agent-server.log || true
 
   image:
     needs: check

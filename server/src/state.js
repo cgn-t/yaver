@@ -1,21 +1,29 @@
 import { query, tx } from './db.js'
+import { emit } from './events.js'
+import { enrichItem, keywordRules } from './intel.js'
 
 // Arayüzdeki tiplerle (frontend/src/data/types.ts) birebir şekil üretir.
 
 export const MASK = '********'
+/** Durum kodlu hata: rotalar bunu {detail, code} olarak döndürür. */
+export const httpError = (status, code, detail, extra = {}) => Object.assign(new Error(detail), { status, code, ...extra })
 const STATUS_LABEL = { new: 'Yeni', in_progress: 'Devam Ediyor', waiting: 'Beklemede', done: 'Tamamlandı', cancelled: 'İptal' }
 const PRIORITY_LABEL = { low: 'Düşük', normal: 'Normal', high: 'Yüksek', critical: 'Kritik' }
 const LOG_LIMIT = 300
+const FIELD_LABEL = { title: 'başlık', description: 'açıklama', category: 'kategori', requester: 'talep eden', due_date: 'son tarih', tags: 'etiketler' }
 
-const ITEM_SQL = `
+export const ITEM_SQL = `
   SELECT w.id, w.code, w.title, coalesce(w.description, '') AS description, w.source_type, w.source_id,
          w.status, w.priority, coalesce(w.category, '') AS category, u.username AS assignee, w.requester,
-         w.due_date, w.created_at, w.updated_at, w.closed_at, w.external_ref,
+         w.due_date, w.created_at, w.updated_at, w.closed_at, w.external_ref, w.version,
+         w.requester_email, w.mgmt_level, w.keywords, w.agent_comment, w.agent_sources, w.agent_confidence, w.agent_suggestion,
+         w.agent_comment_by, w.agent_comment_at,
          coalesce((SELECT array_agg(t.tag ORDER BY t.tag) FROM work_item_tag t WHERE t.work_item_id = w.id), '{}') AS tags
   FROM work_item w LEFT JOIN app_user u ON u.id = w.assignee_id`
 
-const toItem = (r) => {
+export const toItem = (r) => {
   const { external_ref, ...rest } = r
+  if (rest.agent_confidence !== undefined && rest.agent_confidence !== null) rest.agent_confidence = Number(rest.agent_confidence)
   return { ...rest, tags: external_ref && !r.tags.includes(`ext:${external_ref}`) ? [...r.tags, `ext:${external_ref}`] : r.tags }
 }
 
@@ -51,7 +59,7 @@ export async function getLdap() {
 
 export async function getGeneral() {
   const o = await settings('general')
-  const { rows } = await query(`SELECT username FROM app_user WHERE is_active ORDER BY (role = 'admin') DESC, id`)
+  const { rows } = await query(`SELECT username FROM app_user WHERE is_active AND role <> 'agent' ORDER BY (role = 'admin') DESC, id`)
   return {
     app_title: o.app_title ?? 'Yaver', default_assignee: o.default_assignee ?? '', sla_hours: Number(o.sla_hours ?? 24),
     mailbox: o.mailbox ?? '', team_members: rows.map((r) => r.username),
@@ -93,6 +101,7 @@ export async function getState() {
     apiConfigs: cfgs.rows.map((r) => toApiConfig(r)),
     apiLogs: logs.rows,
     ldap, general,
+    keywordRules: await keywordRules(),
   }
 }
 
@@ -104,66 +113,99 @@ async function userId(c, username) {
      ON CONFLICT (username) DO UPDATE SET username = EXCLUDED.username RETURNING id`, [username])
   return r.rows[0].id
 }
-const activity = (c, itemId, actorId, action, comment, oldV = null, newV = null) =>
-  c.query(`INSERT INTO work_item_activity (work_item_id, actor_id, action, old_value, new_value, comment)
-           VALUES ($1, $2, $3, $4, $5, $6)`, [itemId, actorId, action, oldV, newV, comment])
+/** actor = req.user ({ id, onBehalfOf, runId }) veya null (sistem). */
+export const activity = (c, itemId, actor, action, comment, oldV = null, newV = null) =>
+  c.query(`INSERT INTO work_item_activity (work_item_id, actor_id, action, old_value, new_value, comment, on_behalf_of, agent_run_id)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+    [itemId, actor?.id ?? null, action, oldV, newV, comment, actor?.onBehalfOf?.id ?? null, actor?.runId ?? null])
 
 // ---------- İşler ----------
 export async function createWorkItem(input, actor) {
   return tx(async (c) => {
     const r = await c.query(
-      `INSERT INTO work_item (title, description, source_type, source_id, priority, category, assignee_id, requester, due_date, created_by)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id`,
+      `INSERT INTO work_item (title, description, source_type, source_id, priority, category, assignee_id, requester, due_date, created_by, requester_email)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING id`,
       [input.title, input.description ?? '', input.source_type ?? 'manual', input.source_id ?? null, input.priority ?? 'normal',
-       input.category ?? null, await userId(c, input.assignee), input.requester ?? actor.username, input.due_date || null, actor.id])
+       input.category ?? null, await userId(c, input.assignee), input.requester ?? actor.onBehalfOf?.username ?? actor.username, input.due_date || null, actor.id,
+       input.requester_email ?? null])
     const id = r.rows[0].id
     for (const t of input.tags ?? []) await c.query('INSERT INTO work_item_tag VALUES ($1, $2) ON CONFLICT DO NOTHING', [id, t])
     if (input.source_type === 'mail' && input.source_id) await c.query('UPDATE email SET work_item_id = $1 WHERE id = $2', [id, input.source_id])
     if (input.source_type === 'zoom' && input.source_id)
       await c.query('UPDATE meeting SET work_item_id = coalesce(work_item_id, $1) WHERE id = $2', [id, input.source_id])
-    await activity(c, id, actor.id, 'created', 'Kayıt oluşturuldu')
-    return (await c.query(`${ITEM_SQL} WHERE w.id = $1`, [id])).rows.map(toItem)[0]
+    await enrichItem(c, id)   // anahtar kelimeler + talep edenin üst yönetim seviyesi
+    await activity(c, id, actor, 'created', actor?.role === 'agent' ? 'Kayıt ajan tarafından oluşturuldu' : 'Kayıt oluşturuldu')
+    const item = (await c.query(`${ITEM_SQL} WHERE w.id = $1`, [id])).rows.map(toItem)[0]
+    await emit(c, 'work_item.created', 'work_item', id,
+      { code: item.code, title: item.title, source_type: item.source_type, source_id: item.source_id }, actor)
+    return item
   })
 }
 
-export async function updateWorkItem(id, patch, actor) {
+/** expectedVersion verilirse (If-Match) ve kayıt o arada değiştiyse 409 conflict fırlatır. */
+export async function updateWorkItem(id, patch, actor, expectedVersion = null) {
   return tx(async (c) => {
     const old = (await c.query(`${ITEM_SQL} WHERE w.id = $1 FOR UPDATE OF w`, [id])).rows[0]
     if (!old) return null
+    if (expectedVersion !== null && expectedVersion !== old.version)
+      throw httpError(409, 'conflict', 'Kayıt bu arada değişti; yeniden okuyup tekrar deneyin', { current_version: old.version })
+    const changes = {}
     const sets = []
     const vals = []
     const set = (col, v) => { vals.push(v); sets.push(`${col} = $${vals.length}`) }
-    for (const k of ['title', 'description', 'category', 'requester']) if (patch[k] !== undefined) set(k, patch[k])
-    if (patch.due_date !== undefined) set('due_date', patch.due_date || null)
+    const edited = []
+    for (const k of ['title', 'description', 'category', 'requester'])
+      if (patch[k] !== undefined && patch[k] !== old[k]) { set(k, patch[k]); changes[k] = [old[k], patch[k]]; edited.push(k) }
+    if (patch.due_date !== undefined && (patch.due_date || null) !== old.due_date) {
+      set('due_date', patch.due_date || null); changes.due_date = [old.due_date, patch.due_date || null]; edited.push('due_date')
+    }
     if (patch.priority && patch.priority !== old.priority) {
       set('priority', patch.priority)
-      await activity(c, id, actor.id, 'priority', `Öncelik: ${PRIORITY_LABEL[patch.priority]}`, old.priority, patch.priority)
+      changes.priority = [old.priority, patch.priority]
+      await activity(c, id, actor, 'priority', `Öncelik: ${PRIORITY_LABEL[patch.priority]}`, old.priority, patch.priority)
     }
     if (patch.assignee !== undefined && (patch.assignee || null) !== old.assignee) {
       set('assignee_id', await userId(c, patch.assignee || null))
-      await activity(c, id, actor.id, 'assign', `Atanan: ${patch.assignee || '—'}`, old.assignee, patch.assignee || null)
+      changes.assignee = [old.assignee, patch.assignee || null]
+      await activity(c, id, actor, 'assign', `Atanan: ${patch.assignee || '—'}`, old.assignee, patch.assignee || null)
     }
     if (patch.status && patch.status !== old.status) {
       set('status', patch.status)
+      changes.status = [old.status, patch.status]
       sets.push(['done', 'cancelled'].includes(patch.status) ? 'closed_at = now()' : 'closed_at = NULL')
-      await activity(c, id, actor.id, 'status', `Durum: ${STATUS_LABEL[old.status]} → ${STATUS_LABEL[patch.status]}`, old.status, patch.status)
+      await activity(c, id, actor, 'status', `Durum: ${STATUS_LABEL[old.status]} → ${STATUS_LABEL[patch.status]}`, old.status, patch.status)
     }
     if (Array.isArray(patch.tags)) {
-      await c.query('DELETE FROM work_item_tag WHERE work_item_id = $1', [id])
-      for (const t of patch.tags.filter((t) => !t.startsWith('ext:')))
-        await c.query('INSERT INTO work_item_tag VALUES ($1, $2) ON CONFLICT DO NOTHING', [id, t])
+      const next = [...new Set(patch.tags.map(String).filter((t) => t && !t.startsWith('ext:')))].sort()
+      const prev = old.tags.filter((t) => !t.startsWith('ext:'))
+      if (next.join('|') !== prev.join('|')) {
+        await c.query('DELETE FROM work_item_tag WHERE work_item_id = $1', [id])
+        for (const t of next) await c.query('INSERT INTO work_item_tag VALUES ($1, $2) ON CONFLICT DO NOTHING', [id, t])
+        changes.tags = [prev, next]
+        edited.push('tags')
+      }
     }
-    sets.push('updated_at = now()')
+    if (edited.length) await activity(c, id, actor, 'edit', `Güncellendi: ${edited.map((k) => FIELD_LABEL[k] ?? k).join(', ')}`)
+    sets.push('updated_at = now()', 'version = version + 1')
     vals.push(id)
     await c.query(`UPDATE work_item SET ${sets.join(', ')} WHERE id = $${vals.length}`, vals)
+    if (Object.keys(changes).length) await emit(c, 'work_item.updated', 'work_item', id, { code: old.code, changes }, actor)
     return (await c.query(`${ITEM_SQL} WHERE w.id = $1`, [id])).rows.map(toItem)[0]
   })
 }
 
+/** Ajan yazdığında 'agent_note' olarak işaretlenir (arayüzde ajan notu). */
 export async function addComment(id, text, actor) {
-  await tx(async (c) => {
-    await activity(c, id, actor.id, 'comment', text)
-    await c.query('UPDATE work_item SET updated_at = now() WHERE id = $1', [id])
+  return tx(async (c) => {
+    const ok = (await c.query('UPDATE work_item SET updated_at = now() WHERE id = $1 RETURNING code', [id])).rows[0]
+    if (!ok) return null
+    const action = actor?.role === 'agent' ? 'agent_note' : 'comment'
+    const r = await c.query(
+      `INSERT INTO work_item_activity (work_item_id, actor_id, action, comment, on_behalf_of, agent_run_id)
+       VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, created_at`,
+      [id, actor?.id ?? null, action, text, actor?.onBehalfOf?.id ?? null, actor?.runId ?? null])
+    await emit(c, 'work_item.commented', 'work_item', id, { code: ok.code, activity_id: r.rows[0].id, kind: action, text: text.slice(0, 500) }, actor)
+    return { id: r.rows[0].id, action, created_at: r.rows[0].created_at }
   })
 }
 
@@ -202,7 +244,7 @@ export async function saveGeneral(general, actor) {
   await tx(async (c) => {
     for (const u of team_members) await c.query(
       `INSERT INTO app_user (username, auth_source) VALUES ($1, 'ldap') ON CONFLICT (username) DO UPDATE SET is_active = TRUE`, [u])
-    await c.query(`UPDATE app_user SET is_active = (username = ANY($1)) WHERE role <> 'admin'`, [team_members])
+    await c.query(`UPDATE app_user SET is_active = (username = ANY($1)) WHERE role NOT IN ('admin', 'agent')`, [team_members])
   })
 }
 

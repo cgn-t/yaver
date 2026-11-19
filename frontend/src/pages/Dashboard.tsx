@@ -4,16 +4,19 @@ import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutlined'
 import ReportGmailerrorredIcon from '@mui/icons-material/ReportGmailerrorred'
 import TaskAltIcon from '@mui/icons-material/TaskAlt'
 import VideocamOutlinedIcon from '@mui/icons-material/VideocamOutlined'
-import { AvatarGroup, Box, Button, ButtonBase, Grid, Paper, Typography } from '@mui/material'
+import ForwardToInboxOutlinedIcon from '@mui/icons-material/ForwardToInboxOutlined'
+import { AvatarGroup, Box, Button, ButtonBase, Grid, Paper, ToggleButton, ToggleButtonGroup, Typography } from '@mui/material'
 import { alpha } from '@mui/material/styles'
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { SegmentBar, StackedBars } from '../components/Charts'
 import { Stagger, StaggerItem } from '../components/Motion'
 import PageHeader from '../components/PageHeader'
 import StatCard from '../components/StatCard'
 import { DueLabel, EmptyState, PriorityIcon, SOURCE_HEX, StatusIcon, UserAvatar, formatTime, timeAgo } from '../components/WorkKit'
-import { isOpen, isOverdue, SOURCE_LABEL, STATUS_HEX, STATUS_LABEL, STATUS_ORDER, useDb } from '../data/store'
+import { bulkSendMail, isOpen, isOverdue, rulesOf, SOURCE_LABEL, useDb } from '../data/store'
+import { AgeLabel, AgentSnippet, KeywordChips, MgmtChip } from '../components/AgentKit'
+import { GROUP_BY_LABEL, groupOf, groupsFor, type GroupBy } from '../data/groups'
 import type { SourceType } from '../data/types'
 import { useAuth } from '../auth/AuthContext'
 import { useDocumentTitle } from '../hooks/useDocumentTitle'
@@ -42,6 +45,13 @@ export default function Dashboard() {
   const navigate = useNavigate()
   const open = useMemo(() => db.items.filter(isOpen), [db.items])
   const today = dayKey(new Date())
+  const rules = rulesOf(db)
+  const [groupBy, setGroupBy] = useState<GroupBy>('mgmt')
+  const [sending, setSending] = useState(false)
+  // Gelen işler: en yeni açık işler, ajan yorumuyla
+  const incoming = useMemo(() => [...open].sort((a, b) => b.created_at.localeCompare(a.created_at)).slice(0, 6), [open])
+  const dist = groupsFor(groupBy, rules).map((g) => ({ ...g, value: open.filter((w) => groupOf(w, groupBy, rules) === g.key).length }))
+    .filter((g) => groupBy !== 'keyword' || g.value > 0)
 
   // Son 14 gün: her gün gelen işler (kaynağa göre), kapananlar, açık iş sayısı
   const stats = useMemo(() => {
@@ -99,6 +109,42 @@ export default function Dashboard() {
       </Stagger>
 
       <Grid container spacing={2}>
+        <Grid size={12}>
+          <Card title="Gelen işler · ajan yorumu" pad={1.25}
+                action={<Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                  <Typography variant="caption" color="text.secondary" sx={{ display: { xs: 'none', sm: 'block' } }}>Ajan; geçmiş işlere, wiki ve maillere bakarak yorumlar</Typography>
+                  <Button size="small" variant="outlined" disabled={sending} startIcon={<ForwardToInboxOutlinedIcon sx={{ fontSize: '16px !important' }} />}
+                          onClick={async () => { setSending(true); await bulkSendMail(5); setSending(false) }}>
+                    {sending ? 'Gönderiliyor…' : 'Toplu mail gönder (5)'}
+                  </Button>
+                </Box>}>
+            {incoming.length === 0 && <EmptyState icon={<CheckCircleOutlineIcon />} title="Açık iş yok" />}
+            <Grid container spacing={1}>
+              {incoming.map((w) => (
+                <Grid key={w.id} size={{ xs: 12, md: 6 }}>
+                  <ButtonBase onClick={() => navigate(`/work-items?open=${w.id}`)}
+                              sx={{ display: 'block', width: '100%', textAlign: 'left', p: 1.25, borderRadius: 2, border: 1, borderColor: 'divider', height: '100%',
+                                    transition: 'background-color .12s ease', '&:hover': { bgcolor: 'action.hover' } }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap' }}>
+                      <PriorityIcon priority={w.priority} />
+                      <Typography variant="caption" color="text.disabled" sx={{ fontWeight: 600 }}>{w.code}</Typography>
+                      <MgmtChip item={w} />
+                      <KeywordChips item={w} />
+                      <Box sx={{ flexGrow: 1 }} />
+                      <AgeLabel item={w} />
+                    </Box>
+                    <Typography variant="body2" noWrap sx={{ fontWeight: 600, mt: 0.5 }}>{w.title}</Typography>
+                    <Typography variant="caption" color="text.secondary">{w.requester ?? '—'}</Typography>
+                    {w.agent_comment ? <AgentSnippet item={w} lines={3} /> : (
+                      <Typography variant="caption" color="text.disabled" sx={{ display: 'block', mt: 1 }}>Ajan yorumu bekleniyor…</Typography>
+                    )}
+                  </ButtonBase>
+                </Grid>
+              ))}
+            </Grid>
+          </Card>
+        </Grid>
+
         <Grid size={{ xs: 12, lg: 8 }}>
           <Card title="Gelen iş akışı" action={<Typography variant="caption" color="text.secondary">Son 14 gün · bu hafta {stats.inWeek} iş</Typography>}>
             <Box sx={{ display: 'flex', gap: 2, mb: 2, flexWrap: 'wrap' }}>
@@ -185,8 +231,16 @@ export default function Dashboard() {
         <Grid size={{ xs: 12, lg: 4 }}>
           <Grid container spacing={2} sx={{ height: '100%' }}>
             <Grid size={12}>
-              <Card title="Durum dağılımı">
-                <SegmentBar parts={STATUS_ORDER.filter((s) => s !== 'cancelled').map((s) => ({ label: STATUS_LABEL[s], value: db.items.filter((w) => w.status === s).length, color: STATUS_HEX[s] }))} />
+              <Card title="Açık işler" action={
+                <ToggleButtonGroup exclusive size="small" value={groupBy} onChange={(_, v) => v && setGroupBy(v)} aria-label="Gruplama"
+                                   sx={{ '& .MuiToggleButton-root': { py: 0.25, px: 1, fontSize: 12 } }}>
+                  {(Object.keys(GROUP_BY_LABEL) as GroupBy[]).map((g) => <ToggleButton key={g} value={g}>{GROUP_BY_LABEL[g]}</ToggleButton>)}
+                </ToggleButtonGroup>}>
+                <SegmentBar parts={dist.map((g) => ({ label: g.label, value: g.value, color: g.color }))} />
+                <Button size="small" sx={{ mt: 1 }} endIcon={<ArrowForwardIcon sx={{ fontSize: '14px !important' }} />}
+                        onClick={() => { try { localStorage.setItem('yaver.items.group', groupBy); localStorage.setItem('yaver.items.layout', 'board') } catch { /* yok */ } navigate(`/work-items?group=${groupBy}`) }}>
+                  Panoda aç
+                </Button>
               </Card>
             </Grid>
             <Grid size={12}>

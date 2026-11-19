@@ -13,8 +13,10 @@ import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import PageHeader from '../components/PageHeader'
 import { DueLabel, EmptyState, PriorityIcon, SourceChip, StatusIcon, UserAvatar, WorkItemDrawer, formatDate } from '../components/WorkKit'
-import { isOpen, isOverdue, PRIORITY_LABEL, SOURCE_LABEL, STATUS_HEX, STATUS_LABEL, STATUS_ORDER, updateWorkItem, useDb } from '../data/store'
-import type { WorkItem, WorkStatus } from '../data/types'
+import { AgeLabel, AgentSnippet, KeywordChips, MgmtChip } from '../components/AgentKit'
+import { GROUP_BY_LABEL, groupOf, groupsFor, type GroupBy } from '../data/groups'
+import { isOpen, isOverdue, PRIORITY_LABEL, rulesOf, SOURCE_LABEL, STATUS_LABEL, useDb } from '../data/store'
+import type { WorkItem } from '../data/types'
 import { useAuth } from '../auth/AuthContext'
 import { useDocumentTitle } from '../hooks/useDocumentTitle'
 import { useUi } from '../layouts/ui'
@@ -35,9 +37,14 @@ export default function WorkItems() {
   const [priority, setPriority] = useState('')
   const [assignee, setAssignee] = useState(params.get('assignee') ?? '')
   const [showClosed, setShowClosed] = useState(false)
-  const [collapsed, setCollapsed] = useState<string[]>(['cancelled'])
+  const [collapsed, setCollapsed] = useState<string[]>([])
   const [selected, setSelected] = useState<WorkItem | null>(null)
-  const [dragOver, setDragOver] = useState<WorkStatus | null>(null)
+  const [groupBy, setGroupBy] = useState<GroupBy>(() => {
+    const g = (params.get('group') ?? localStorage.getItem('yaver.items.group')) as GroupBy
+    return g in GROUP_BY_LABEL ? g : 'mgmt'
+  })
+  const setGroupSaved = (g: GroupBy) => { setGroupBy(g); try { localStorage.setItem('yaver.items.group', g) } catch { /* yok */ } }
+  const rules = rulesOf(db)
 
   useEffect(() => { setAssignee(params.get('assignee') ?? '') }, [params])
   // ?open=ID → detay panelini aç (arama/bildirimden gelinir)
@@ -61,7 +68,9 @@ export default function WorkItems() {
       .sort((a, b) => PRIORITY_ORDER[a.priority] - PRIORITY_ORDER[b.priority] || b.created_at.localeCompare(a.created_at))
   }, [db.items, q, source, priority, assignee, view, username])
 
-  const statuses = STATUS_ORDER.filter((s) => showClosed || (s !== 'done' && s !== 'cancelled'))
+  const visible = rows.filter((w) => showClosed || isOpen(w))
+  const groups = groupsFor(groupBy, rules)
+  const inGroup = (key: string) => visible.filter((w) => groupOf(w, groupBy, rules) === key)
   const filterCount = [source, priority, assignee].filter(Boolean).length
 
   const filterSelect = (value: string, set: (v: string) => void, label: string, opts: [string, string][]) => (
@@ -83,8 +92,11 @@ export default function WorkItems() {
         <Typography variant="caption" color="text.disabled" sx={{ width: 64, flexShrink: 0, fontWeight: 600 }}>{w.code}</Typography>
         <StatusIcon status={w.status} size={14} />
         <Typography variant="body2" noWrap sx={{ fontWeight: 500, minWidth: 0, flexShrink: 1, color: w.status === 'done' || w.status === 'cancelled' ? 'text.secondary' : 'text.primary' }}>{w.title}</Typography>
-        <Chip size="small" variant="outlined" label={w.category} sx={{ display: { xs: 'none', md: 'inline-flex' }, height: 22, color: 'text.secondary' }} />
+        {groupBy !== 'mgmt' && <MgmtChip item={w} />}
+        <Box sx={{ display: { xs: 'none', md: 'flex' }, gap: 0.5 }}>{groupBy !== 'keyword' ? <KeywordChips item={w} /> : <Chip size="small" variant="outlined" label={w.category} sx={{ height: 22, color: 'text.secondary' }} />}</Box>
         <Box sx={{ flexGrow: 1 }} />
+        {w.agent_comment && <Box sx={{ display: { xs: 'none', lg: 'block' }, maxWidth: 320, minWidth: 0 }}><AgentLine item={w} /></Box>}
+        <Box sx={{ width: 56, textAlign: 'right', display: { xs: 'none', sm: 'block' } }}><AgeLabel item={w} /></Box>
         <Box sx={{ display: { xs: 'none', sm: 'block' } }}><SourceChip source={w.source_type} iconOnly /></Box>
         <Box sx={{ width: 110, textAlign: 'right', display: { xs: 'none', md: 'block' } }}><DueLabel item={w} /></Box>
         <UserAvatar name={w.assignee} size={22} />
@@ -94,20 +106,26 @@ export default function WorkItems() {
 
   const card = (w: WorkItem) => (
     <motion.div key={w.id} layout layoutId={`card-${w.id}`} transition={{ type: 'spring', stiffness: 500, damping: 40 }}>
-      <Paper variant="outlined" draggable onDragStart={(e) => { e.dataTransfer.setData('text/plain', String(w.id)); e.dataTransfer.effectAllowed = 'move' }}
-             onClick={() => setSelected(w)}
-             sx={{ p: 1.5, mb: 1, borderRadius: 2.5, cursor: 'grab', bgcolor: 'background.paper', transition: 'box-shadow .15s ease, border-color .15s ease',
-                   '&:hover': { borderColor: 'text.disabled', boxShadow: '0 6px 16px -8px rgba(16,18,24,0.2)' }, '&:active': { cursor: 'grabbing' } }}>
+      <Paper variant="outlined" onClick={() => setSelected(w)}
+             sx={{ p: 1.5, mb: 1, borderRadius: 2.5, cursor: 'pointer', bgcolor: 'background.paper', transition: 'box-shadow .15s ease, border-color .15s ease',
+                   '&:hover': { borderColor: 'text.disabled', boxShadow: '0 6px 16px -8px rgba(16,18,24,0.2)' } }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.75 }}>
-          <Typography variant="caption" color="text.disabled" sx={{ fontWeight: 600, flexGrow: 1 }}>{w.code}</Typography>
+          <StatusIcon status={w.status} size={13} />
+          <Typography variant="caption" color="text.disabled" sx={{ fontWeight: 600, flexGrow: 1 }}>{w.code} · {STATUS_LABEL[w.status]}</Typography>
           <SourceChip source={w.source_type} iconOnly />
           <UserAvatar name={w.assignee} size={20} />
         </Box>
         <Typography variant="body2" sx={{ fontWeight: 550, lineHeight: 1.4 }}>{w.title}</Typography>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mt: 1, flexWrap: 'wrap' }}>
+          {groupBy !== 'mgmt' && <MgmtChip item={w} />}
+          {groupBy !== 'keyword' && <KeywordChips item={w} />}
+        </Box>
+        <AgentSnippet item={w} />
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 1.25 }}>
           <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5, px: 0.75, height: 22, borderRadius: 1.5, border: 1, borderColor: 'divider' }}>
             <PriorityIcon priority={w.priority} /><Typography variant="caption" color="text.secondary">{PRIORITY_LABEL[w.priority]}</Typography>
           </Box>
+          <AgeLabel item={w} />
           {w.due_date && <Box sx={{ ml: 'auto', '& span': { fontSize: '12px !important' } }}><DueLabel item={w} /></Box>}
         </Box>
       </Paper>
@@ -119,6 +137,9 @@ export default function WorkItems() {
       <PageHeader title={VIEW_TITLE[view] ?? 'İşler'}
                   subtitle={`${rows.filter(isOpen).length} açık · ${rows.filter((w) => !isOpen(w)).length} kapalı · mail, Zoom, API ve manuel kaynaklardan`}
                   actions={<>
+                    <ToggleButtonGroup exclusive size="small" value={groupBy} onChange={(_, v) => v && setGroupSaved(v)} aria-label="Gruplama">
+                      {(Object.keys(GROUP_BY_LABEL) as GroupBy[]).map((g) => <ToggleButton key={g} value={g}>{GROUP_BY_LABEL[g]}</ToggleButton>)}
+                    </ToggleButtonGroup>
                     <ToggleButtonGroup exclusive size="small" value={layout} onChange={(_, v) => v && setLayoutSaved(v)} aria-label="Görünüm">
                       <ToggleButton value="list" aria-label="Liste"><FormatListBulletedIcon sx={{ fontSize: 17, mr: 0.75 }} />Liste</ToggleButton>
                       <ToggleButton value="board" aria-label="Pano"><ViewKanbanOutlinedIcon sx={{ fontSize: 17, mr: 0.75 }} />Pano</ToggleButton>
@@ -138,25 +159,26 @@ export default function WorkItems() {
         </Button>
       </Box>
 
-      {rows.length === 0 ? (
+      {visible.length === 0 ? (
         <Paper variant="outlined"><EmptyState icon={<TaskAltIcon />} title="Bu görünümde iş yok" hint="Filtreleri değiştirin ya da yeni bir iş oluşturun." /></Paper>
       ) : layout === 'list' ? (
         <Paper variant="outlined" sx={{ overflow: 'hidden' }}>
-          {statuses.map((s) => {
-            const group = rows.filter((w) => w.status === s)
+          {groups.map((g) => {
+            const group = inGroup(g.key)
             if (!group.length) return null
-            const closed = collapsed.includes(s)
+            const key = `${groupBy}:${g.key}`
+            const closed = collapsed.includes(key)
             return (
-              <Box key={s}>
-                <Box sx={(t) => ({ display: 'flex', alignItems: 'center', gap: 1, px: 2, height: 38, bgcolor: alpha(STATUS_HEX[s], t.palette.mode === 'dark' ? 0.08 : 0.04),
+              <Box key={key}>
+                <Box sx={(t) => ({ display: 'flex', alignItems: 'center', gap: 1, px: 2, height: 38, bgcolor: alpha(g.color, t.palette.mode === 'dark' ? 0.08 : 0.04),
                                     borderBottom: 1, borderColor: 'divider' })}>
-                  <IconButton size="small" onClick={() => setCollapsed((c) => (closed ? c.filter((x) => x !== s) : [...c, s]))} aria-label={closed ? 'Aç' : 'Kapat'}
+                  <IconButton size="small" onClick={() => setCollapsed((c) => (closed ? c.filter((x) => x !== key) : [...c, key]))} aria-label={closed ? 'Aç' : 'Kapat'}
                               sx={{ p: 0.25, transform: closed ? 'rotate(-90deg)' : 'none', transition: 'transform .15s ease' }}><ExpandMoreIcon sx={{ fontSize: 18 }} /></IconButton>
-                  <StatusIcon status={s} size={14} />
-                  <Typography variant="body2" sx={{ fontWeight: 600 }}>{STATUS_LABEL[s]}</Typography>
+                  <Box sx={{ width: 10, height: 10, borderRadius: '3px', bgcolor: g.color }} />
+                  <Typography variant="body2" sx={{ fontWeight: 600 }}>{g.label}</Typography>
                   <Typography variant="body2" color="text.disabled">{group.length}</Typography>
+                  {g.hint && <Typography variant="caption" color="text.secondary" sx={{ ml: 1 }}>{g.hint}</Typography>}
                   <Box sx={{ flexGrow: 1 }} />
-                  {s === 'new' && <IconButton size="small" onClick={() => openNew()} aria-label="Yeni iş"><AddIcon sx={{ fontSize: 18 }} /></IconButton>}
                 </Box>
                 <AnimatePresence initial={false}>{!closed && group.map(listRow)}</AnimatePresence>
               </Box>
@@ -166,32 +188,39 @@ export default function WorkItems() {
       ) : (
         <Box sx={{ display: 'grid', gridAutoFlow: 'column', gridAutoColumns: { xs: '86%', sm: 'minmax(272px, 1fr)' }, gap: 1.5, overflowX: 'auto', pb: 1, mx: { xs: -2, md: 0 }, px: { xs: 2, md: 0 },
                    scrollSnapType: { xs: 'x mandatory', sm: 'none' } }}>
-          {statuses.map((s) => {
-            const col = rows.filter((w) => w.status === s)
-            const over = dragOver === s
+          {groups.map((g) => {
+            const col = inGroup(g.key)
+            if (groupBy === 'keyword' && !col.length) return null
             return (
-              <Box key={s} onDragOver={(e) => { e.preventDefault(); setDragOver(s) }} onDragLeave={() => setDragOver((d) => (d === s ? null : d))}
-                   onDrop={(e) => { e.preventDefault(); setDragOver(null); const id = Number(e.dataTransfer.getData('text/plain')); if (id) updateWorkItem(id, { status: s }) }}
-                   sx={(t) => ({ scrollSnapAlign: 'start', borderRadius: 3, p: 1, minHeight: 420, transition: 'background-color .15s ease, box-shadow .15s ease',
-                                 bgcolor: over ? alpha(STATUS_HEX[s], 0.08) : t.palette.background.default,
-                                 boxShadow: over ? `inset 0 0 0 2px ${alpha(STATUS_HEX[s], 0.5)}` : 'none' })}>
+              <Box key={g.key} sx={(t) => ({ scrollSnapAlign: 'start', borderRadius: 3, p: 1, minHeight: 420, bgcolor: t.palette.background.default,
+                                            borderTop: `3px solid ${g.color}` })}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, px: 0.75, py: 0.75, mb: 0.5 }}>
-                  <StatusIcon status={s} size={14} />
-                  <Typography variant="body2" sx={{ fontWeight: 600 }}>{STATUS_LABEL[s]}</Typography>
+                  <Box sx={{ width: 10, height: 10, borderRadius: '3px', bgcolor: g.color }} />
+                  <Typography variant="body2" noWrap sx={{ fontWeight: 600 }} title={g.hint}>{g.label}</Typography>
                   <Typography variant="body2" color="text.disabled" sx={{ flexGrow: 1 }}>{col.length}</Typography>
                   <IconButton size="small" onClick={() => openNew()} aria-label="Yeni iş"><AddIcon sx={{ fontSize: 17 }} /></IconButton>
                 </Box>
                 {col.map(card)}
-                {col.length === 0 && <Typography variant="caption" color="text.disabled" sx={{ display: 'block', textAlign: 'center', py: 4 }}>Kartı buraya sürükleyin</Typography>}
+                {col.length === 0 && <Typography variant="caption" color="text.disabled" sx={{ display: 'block', textAlign: 'center', py: 4 }}>Bu grupta iş yok</Typography>}
               </Box>
             )
           })}
         </Box>
       )}
       <Typography variant="caption" color="text.disabled" sx={{ display: 'block', mt: 1.5 }}>
-        İpucu: Pano görünümünde kartları sürükleyerek durum değiştirebilirsiniz · son güncelleme {formatDate(new Date().toISOString())}
+        Gruplama: {GROUP_BY_LABEL[groupBy]} · durum, kartın üstünde ve detay panelinde değiştirilir · son güncelleme {formatDate(new Date().toISOString())}
       </Typography>
-      <WorkItemDrawer item={selected} onClose={closeDrawer} />
+      <WorkItemDrawer item={selected} onClose={closeDrawer} onOpenItem={(id) => { const w = db.items.find((x) => x.id === id); if (w) setSelected(w) }} />
     </Box>
+  )
+}
+
+/** Liste satırında ajan önerisinin tek satırlık özeti */
+function AgentLine({ item }: { item: WorkItem }) {
+  const line = (item.agent_comment ?? '').split('\n').find((l) => l.includes('Öneri')) ?? ''
+  return (
+    <Typography variant="caption" color="primary.main" noWrap sx={{ display: 'block', fontWeight: 500 }} title={line.replace(/\*\*/g, '')}>
+      ✦ {line.replace(/\*\*/g, '').replace(/^Öneri:\s*/, '')}
+    </Typography>
   )
 }

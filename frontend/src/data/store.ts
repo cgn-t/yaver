@@ -2,9 +2,10 @@ import { useSyncExternalStore } from 'react'
 import { enqueueSnackbar } from 'notistack'
 import { DEFAULT_GENERAL, DEFAULT_LDAP, newApiConfig, seedApiConfigs, seedData } from './seed'
 import type {
-  Activity, ApiCallLog, ApiServiceConfig, Email, GeneralConfig, LdapConfig, Meeting, Priority, SourceType,
+  Activity, ApiCallLog, ApiServiceConfig, Email, GeneralConfig, KeywordRule, LdapConfig, Meeting, Priority, SourceType,
   WorkItem, WorkStatus,
 } from './types'
+import { DEFAULT_KEYWORD_RULES } from './groups'
 
 /**
  * Önyüz veri katmanı — iki modda çalışır:
@@ -24,7 +25,10 @@ export interface Db {
   apiLogs: ApiCallLog[]
   ldap: LdapConfig
   general: GeneralConfig
+  keywordRules?: KeywordRule[]   // sunucu modunda keyword_rule tablosundan
 }
+
+export const rulesOf = (d: Db) => (d.keywordRules?.length ? d.keywordRules : DEFAULT_KEYWORD_RULES)
 
 const KEY = 'yaver_db_v2'
 const MAX_LOGS = 500
@@ -142,6 +146,38 @@ export const getDb = () => db
 export async function resetDemoData() {
   if (backend === 'api') { await sync(() => apiFetch('/admin/reset-demo', { method: 'POST' })); return }
   commit({ ...initial(), ldap: db.ldap, general: db.general, apiConfigs: db.apiConfigs })
+}
+
+// ---------- Toplu mail (bulk-send-mail) ----------
+export interface BulkResult { count: number; interpreted: boolean; work_items: WorkItem[] }
+
+/** Sunucuya örnek mailler gönderir: her biri mail + iş + ajan yorumu olarak eklenir. Demo modunda tarayıcıda eklenir. */
+export async function bulkSendMail(count = 5): Promise<BulkResult | undefined> {
+  if (backend === 'api') {
+    const r = await sync(() => apiFetch<BulkResult>('/bulk-send-mail', { method: 'POST', body: { count } }))
+    if (r) enqueueSnackbar(`${r.count} mail eklendi${r.interpreted ? ', ajan yorumları yazıldı' : ''}`, { variant: 'success' })
+    return r
+  }
+  const SAMPLES: [string, string, string][] = [
+    ['Hakan Erdem', 'Bütçe raporunda toplamlar tutmuyor', 'Acil: yarınki toplantı için rapordaki toplamlar hatalı.'],
+    ['Selin Koç', 'Fatura servisi hata veriyor', 'Prod ortamında fatura servisi 500 hatası veriyor.'],
+    ['Elif Şahin', 'Yeni çalışan için VPN', 'Yeni başlayan arkadaş için VPN ve hesap açılması rica olunur.'],
+    ['Murat Aydın', 'Batch işi gecikti', 'Gece batch işi yine geç bitti.'],
+  ]
+  const made: WorkItem[] = []
+  for (let i = 0; i < count; i++) {
+    const [who, title, desc] = SAMPLES[i % SAMPLES.length]
+    made.push(createWorkItemLocal({ title, description: desc, priority: 'normal', category: 'Talep', assignee: null, due_date: null,
+                                    source_type: 'mail', requester: who }))
+  }
+  enqueueSnackbar(`${count} örnek mail eklendi (demo modu)`, { variant: 'success' })
+  return { count, interpreted: false, work_items: made }
+}
+
+/** Ajanın örnek yorumlayıcısını bu iş için yeniden çalıştırır (yalnız sunucu modunda). */
+export async function reinterpret(id: number) {
+  if (backend !== 'api') return
+  await sync(() => apiFetch(`/work-items/${id}/interpret`, { method: 'POST' }))
 }
 
 const now = () => new Date().toISOString()

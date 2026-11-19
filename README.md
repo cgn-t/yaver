@@ -68,6 +68,31 @@ kubectl -n yaver describe pod -l app=yaver       # Events: imaj çekme, disk ba�
 | Logda `EACCES` / `permission denied` (`/data`) | Disk node kullanıcısına (1000) yazılabilir değil | Manifestteki `fsGroup: 1000` kalsın; NFS ise sunucuda `no_root_squash` ya da başka storage class |
 | `ImagePullBackOff` | ghcr.io paketi gizli ve çekme secret'ı yok | Manifestteki adım 1 (ghcr-pull) ya da paketi public yapın |
 
+## LangGraph ajanı entegrasyonu (v0.5)
+
+Mail/toplantı/iş olayları ajana **webhook** (HMAC imzalı) ya da **pull** (`GET /api/agent/events`) ile gider; ajan Yaver'e
+**REST** ile bağlanıp okur, iş açar, not yazar, öneri verir. Öncelik/atama/durum gibi riskli değişiklikler **öneri** olarak
+kullanıcı onayına düşer. Chat, ajandan **SSE** ile akıtılır. Akış rehberi ve tüm uçlar: **[docs/AJAN-API.md](docs/AJAN-API.md)**.
+
+```bash
+T=yvr_...   # AGENT_TOKEN
+curl -H "Authorization: Bearer $T" "http://localhost:8080/api/work-items?open=true&sort=priority&limit=5"
+```
+
+Uçtan uca test (sahte ajan ile): sunucuyu `AGENT_TOKEN`, `AGENT_WEBHOOK_URL=http://127.0.0.1:9099/hook`,
+`AGENT_WEBHOOK_SECRET=s3cret`, `AGENT_CHAT_URL=http://127.0.0.1:9099/chat` ile açıp `node server/test/agent-e2e.mjs`.
+
+### Geçmişe dayalı ajan yorumu ve gruplama (v0.6)
+
+- **Pano / İşler** durum yerine **Üst Yönetim** (GM / GMY / Direktör / Diğer), **Anahtar kelime** (maildeki kelimeler)
+  veya **Süre** (açık kalma süresi) ile gruplanır.
+- Her gelen işte **Ajan yorumu** alanı: ajan `GET /api/work-items/{id}/context` ile benzer eski işlere (DB), wiki sayfalarına
+  ve göndericinin geçmiş maillerine bakar, `PUT /api/work-items/{id}/agent-comment` ile yorumunu yazar. LLM bağlı değilken
+  pod içindeki örnek yorumlayıcı aynı paketten kural tabanlı yorum üretir (`AGENT_DEMO_INTERPRETER`).
+- **`POST /api/bulk-send-mail`**: toplu mail girişi; her mail pod içindeki veriye mail + iş (+ ajan yorumu) olarak eklenir.
+  `{"count": 5}` örnek mail üretir. Genel Bakış'taki "Toplu mail gönder" düğmesi bunu çağırır.
+- Örnek veri: kişi rehberi (GM, GMY, direktör…), 10 wiki sayfası, 12 kapanmış geçmiş iş, üst yönetimden 5 açık iş.
+
 ## Yalnız arayüz (geliştirme)
 
 ```bash
@@ -92,7 +117,7 @@ Kendi görsel kimliği olan modern bir SaaS arayüzü (Linear / Vercel çizgisi)
 - **Hızlı arama ⌘K / Ctrl+K:** iş, mail, toplantı ve sayfalar arasında klavyeyle gezinme. **C** tuşu: yeni iş.
 - **Genel Bakış:** kişisel karşılama, 14 günlük trend çizgili KPI kartları, kaynağa göre gelen iş grafiği,
   "Bugün" ajandası, odak listesi, durum dağılımı, ekip yükü.
-- **İşler:** duruma göre gruplanmış liste **veya** sürükle-bırak Kanban pano; öncelik/durum simgeleri, avatarlar.
+- **İşler:** Üst Yönetim / Anahtar kelime / Süre'ye göre gruplanmış liste **veya** pano (v0.6); öncelik/durum simgeleri, avatarlar.
 - **Gelen kutusu:** iki panelli okuma düzeni (liste + okuma paneli), tek tıkla işe dönüştürme.
 - **Toplantılar:** güne göre ajanda (Bugün, Yarın…), "Şu an" göstergesi, Katıl düğmesi.
 - **Giriş:** sade form + ürünü gösteren süzülen önizleme kartları.
