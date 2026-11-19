@@ -51,6 +51,24 @@ Kubernetes olmadan aynı ikiliyi denemek için: `docker compose up --build` → 
 Örnek veri SQL'i arayüzün demo verisinden üretilir: `node --experimental-strip-types db/tools/gen-seed.ts > db/postgres/02-seed.sql`.
 Tarihler `now()`'a görelidir, hangi gün yüklenirse pano dolu görünür.
 
+### Sorun giderme: "veritabanı bekleniyor"
+
+Yaver konteyneri açılınca aynı pod'daki Postgres'e bağlanmayı dener. Bağlanamazsa logda nedeni yazar:
+
+```bash
+kubectl -n yaver get pods,pvc                    # pod Running mi, PVC Bound mu?
+kubectl -n yaver logs deploy/yaver -c yaver      # "[db] veritabanı bekleniyor… <kod>" satırı + öneri
+kubectl -n yaver logs deploy/yaver -c postgres   # Postgres neden açılmıyor?
+kubectl -n yaver describe pod -l app=yaver       # Events: imaj çekme, disk bağlama, izin hataları
+```
+
+| Logdaki kod | Neden | Çözüm |
+|---|---|---|
+| `ECONNREFUSED` | **En sık:** Postgres konteyneri açılmadı/çöktü | `logs -c postgres` ve `describe pod`. PVC `Pending` → manifestte `storageClassName`'i kümenizdeki sınıfla açın (`kubectl get storageclass`). `Permission denied` / `Operation not permitted` → disk izinleri (NFS ise `no_root_squash` ya da başka storage class). `ImagePullBackOff` → `postgres:16-alpine` çekilemiyor (Docker Hub limiti / iç ağ) → imajı kendi registry'nize kopyalayıp manifestte adresi değiştirin |
+| `28P01` | Şifre hatalı (yalnız harici bir DB kullanıyorsanız; pod içi DB localhost'a şifresiz güvenir) | `PGPASSWORD` / Secret değerini DB'deki şifreyle eşleyin |
+| `57P03` | Postgres açılıyor | Bekleyin |
+| `ENOTFOUND` / `ETIMEDOUT` | Yanlış DB adresi | Tek pod kurulumunda `PGHOST=127.0.0.1` olmalı |
+
 ## Yalnız arayüz (geliştirme)
 
 ```bash

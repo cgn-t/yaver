@@ -62,10 +62,15 @@ spec:
         - name: ghcr-pull         # ghcr.io paketi public ise bu iki satırı silin
       securityContext:
         fsGroup: 70               # postgres (alpine) grubu → PVC yazılabilir
+        fsGroupChangePolicy: OnRootMismatch
       containers:
         # ---------- 1) Veritabanı ----------
         - name: postgres
           image: postgres:16-alpine
+          securityContext:          # doğrudan postgres kullanıcısıyla çalış (root yasak kümelerde de açılır)
+            runAsUser: 70
+            runAsGroup: 70
+            allowPrivilegeEscalation: false
           env:
             - { name: POSTGRES_DB, value: yaver }
             - { name: POSTGRES_USER, value: yaver }
@@ -91,12 +96,16 @@ spec:
 
         # ---------- 2) Uygulama: arayüz + API ----------
         - name: yaver
-          image: ghcr.io/cgn-t/yaver:0.3.0    # CI'ın ürettiği sürümlü imaj; güncellemek için etiketi değiştirip apply
+          image: ghcr.io/cgn-t/yaver:0.3.1    # CI'ın ürettiği sürümlü imaj; güncellemek için etiketi değiştirip apply
           imagePullPolicy: IfNotPresent
           env:
-            - name: POSTGRES_PASSWORD
+            # DB bağlantısı ayrı değişkenlerle: şifrede @ : / # olsa da bozulmaz
+            - { name: PGHOST, value: "127.0.0.1" }
+            - { name: PGPORT, value: "5432" }
+            - { name: PGUSER, value: yaver }
+            - { name: PGDATABASE, value: yaver }
+            - name: PGPASSWORD
               valueFrom: { secretKeyRef: { name: yaver-secrets, key: POSTGRES_PASSWORD } }
-            - { name: DATABASE_URL, value: "postgres://yaver:$(POSTGRES_PASSWORD)@127.0.0.1:5432/yaver" }
             - name: TOKEN_SECRET
               valueFrom: { secretKeyRef: { name: yaver-secrets, key: TOKEN_SECRET } }
             - { name: SEED, value: "true" }          # ilk açılışta örnek veri; boş kurulum için "false"
@@ -104,10 +113,10 @@ spec:
             - { name: TZ, value: Europe/Istanbul }
           ports:
             - { name: http, containerPort: 8080 }
-          startupProbe:                              # DB hazır + şema yüklenene kadar bekler
+          startupProbe:                              # DB hazır + şema yüklenene kadar bekler (en çok 5 dk)
             httpGet: { path: /api/health, port: http }
             periodSeconds: 3
-            failureThreshold: 40
+            failureThreshold: 100
           readinessProbe:
             httpGet: { path: /api/health, port: http }
             periodSeconds: 10

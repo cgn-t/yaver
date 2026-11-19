@@ -7,9 +7,16 @@ pg.types.setTypeParser(1082, (v) => v)
 // BIGINT (id'ler) JS number olarak dönsün — değerler 2^53'ün çok altında
 pg.types.setTypeParser(20, (v) => Number(v))
 
+// Bağlantı: DATABASE_URL verilirse o, yoksa ayrı PGHOST/PGPORT/PGUSER/PGPASSWORD/PGDATABASE değişkenleri.
+// Ayrı değişkenler önerilir: şifrede @ : / # gibi karakterler olsa da URL bozulmaz.
+const env = process.env
 export const pool = new pg.Pool({
-  connectionString: process.env.DATABASE_URL ?? 'postgres://yaver:yaver@localhost:5432/yaver',
-  max: Number(process.env.DB_POOL_MAX ?? 10),
+  ...(env.DATABASE_URL
+    ? { connectionString: env.DATABASE_URL }
+    : { host: env.PGHOST ?? '127.0.0.1', port: Number(env.PGPORT ?? 5432), user: env.PGUSER ?? 'yaver',
+        password: env.PGPASSWORD ?? 'yaver', database: env.PGDATABASE ?? 'yaver' }),
+  max: Number(env.DB_POOL_MAX ?? 10),
+  connectionTimeoutMillis: 5000,
 })
 
 // Postgres konteyneri yeniden başlarsa boştaki bağlantılar düşer; uygulama çökmesin, havuz yeniden bağlansın
@@ -32,13 +39,31 @@ export async function tx(fn) {
   }
 }
 
-/** Aynı pod'daki Postgres konteyneri hazır olana kadar bekler. */
-export async function waitForDb(timeoutSec = 90) {
-  const until = Date.now() + timeoutSec * 1000
+// Bekleme sırasında hatanın gerçek nedenini ve çözümünü yaz (loglarda "neden bekliyor" görünsün)
+const DB_HINTS = {
+  ECONNREFUSED: 'Postgres henüz dinlemiyor ya da çöktü → postgres konteynerinin loguna bakın (kubectl logs ... -c postgres).',
+  ENOTFOUND: 'DB adresi çözülemedi → PGHOST / DATABASE_URL değerini kontrol edin (tek pod kurulumunda 127.0.0.1).',
+  ETIMEDOUT: 'DB adresine ulaşılamıyor → PGHOST / port değerini kontrol edin.',
+  '28P01': 'ŞİFRE HATALI. Secret\'taki POSTGRES_PASSWORD, veritabanı İLK oluşturulurken kullanılan şifreyle aynı değil. '
+         + 'Postgres şifreyi yalnız ilk açılışta (boş diskte) ayarlar; sonradan Secret\'ı değiştirmek DB\'yi değiştirmez.',
+  '3D000': 'Veritabanı yok → POSTGRES_DB ile PGDATABASE aynı olmalı (yaver).',
+  '57P03': 'Postgres açılıyor (startup/recovery), birkaç saniye içinde düzelir.',
+}
+
+/** Aynı pod'daki Postgres konteyneri hazır olana kadar bekler (süresiz; her 15 sn'de bir nedeni loglar). */
+export async function waitForDb() {
+  const started = Date.now()
+  let last = ''
+  let lastLog = 0
   for (;;) {
-    try { await query('SELECT 1'); return } catch (e) {
-      if (Date.now() > until) throw e
-      console.log('[db] veritabanı bekleniyor…', e.code ?? e.message)
+    try {
+      await query('SELECT 1')
+      console.log(`[db] bağlantı tamam (${Math.round((Date.now() - started) / 1000)} sn)`)
+      return
+    } catch (e) {
+      const code = e.code ?? (e.message?.includes('timeout') ? 'ETIMEDOUT' : 'HATA')
+      const msg = `[db] veritabanı bekleniyor… ${code}: ${e.message}${DB_HINTS[code] ? `\n     → ${DB_HINTS[code]}` : ''}`
+      if (msg !== last || Date.now() - lastLog > 15000) { console.log(msg); last = msg; lastLog = Date.now() }
       await new Promise((r) => setTimeout(r, 2000))
     }
   }
