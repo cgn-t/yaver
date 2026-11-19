@@ -16,10 +16,19 @@ Pod içinde iki konteyner vardır: **postgres:16-alpine** ve **yaver** (arayüz 
 `localhost:5432` üzerinden konuşurlar; veritabanı dışarı açılmaz. İlk açılışta yaver konteyneri tabloları
 oluşturur ve örnek veriyi yükler; veriler PVC'de kalır.
 
+İmaj GitHub Actions ile otomatik derlenir (`.github/workflows/docker-image.yml`):
+
+| Olay | Ne olur | Etiket |
+|---|---|---|
+| `main`'e push | test + derleme + ghcr.io'ya gönderme | `ghcr.io/cgn-t/yaver:latest`, `:sha-abc1234` |
+| `v0.3.0` gibi etiket | aynı + sürüm etiketi | `:0.3.0`, `:0.3` |
+| Pull request | test + derleme (gönderilmez) | — |
+
+CI önce arayüzü derler, şema + örnek veriyi gerçek bir PostgreSQL'e yükler, sunucuyu açıp `admin/admin` girişini dener;
+hepsi geçerse imajı derleyip gönderir. Ek secret gerekmez (`GITHUB_TOKEN` yeterli).
+
 ```bash
-docker build -t <registry>/yaver:0.3.0 .
-docker push <registry>/yaver:0.3.0
-# deploy/k8s/yaver.yaml içinde image ve Secret şifrelerini düzenleyin
+# deploy/k8s/yaver.yaml içinde Secret şifrelerini düzenleyin (ghcr paketi gizliyse çekme secret'ı: dosyadaki adım 1)
 kubectl apply -f deploy/k8s/yaver.yaml
 kubectl -n yaver port-forward svc/yaver 8080:80     # http://localhost:8080  →  admin / admin
 ```

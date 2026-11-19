@@ -1,0 +1,108 @@
+# Yaver Docker imajı: her push/PR'da derlenir, main ve v* etiketlerinde ghcr.io'ya gönderilir.
+#   ghcr.io/<owner>/yaver:latest      ← main
+#   ghcr.io/<owner>/yaver:0.3.0       ← v0.3.0 etiketi
+#   ghcr.io/<owner>/yaver:sha-abc1234 ← her commit
+name: Docker image
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: docker-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository_owner }}/yaver
+
+jobs:
+  # Hızlı kontroller: tip kontrolü + arayüz derlemesi, SQL şema/örnek veri gerçek PostgreSQL'de
+  check:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: yaver
+          POSTGRES_USER: yaver
+          POSTGRES_PASSWORD: yaver
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U yaver" --health-interval 5s --health-timeout 5s --health-retries 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            frontend/package-lock.json
+            server/package-lock.json
+      - name: Arayüz — tip kontrolü ve derleme
+        working-directory: frontend
+        run: npm ci && npm run build
+      - name: Sunucu bağımlılıkları
+        working-directory: server
+        run: npm ci --omit=dev
+      - name: Şema + örnek veri PostgreSQL'e yüklenebiliyor mu
+        env:
+          PGPASSWORD: yaver
+        run: |
+          psql -v ON_ERROR_STOP=1 -h localhost -U yaver -d yaver -f db/postgres/01-schema.sql -f db/postgres/02-seed.sql
+          psql -h localhost -U yaver -d yaver -tAc "SELECT count(*) FROM work_item" | grep -qv '^0$'
+      - name: Sunucu açılıyor mu (giriş testi)
+        env:
+          DATABASE_URL: postgres://yaver:yaver@localhost:5432/yaver
+          PORT: 8080
+          STATIC_DIR: ${{ github.workspace }}/frontend/dist
+        run: |
+          node server/src/index.js > server.log 2>&1 &
+          for i in $(seq 1 30); do curl -sf localhost:8080/api/health && break; sleep 1; done
+          curl -sf -X POST localhost:8080/api/auth/login -H 'Content-Type: application/json' \
+               -d '{"username":"admin","password":"admin"}' | grep -q token
+          curl -sf localhost:8080/ | grep -q '<div id="root">'
+      - name: Sunucu logu
+        if: failure()
+        run: cat server.log || true
+
+  image:
+    needs: check
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: ghcr.io girişi
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Etiketler
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=sha,prefix=sha-
+            type=ref,event=pr
+      - name: Derle ve gönder
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: ${{ github.event_name != 'pull_request' }}   # PR'da yalnız derlenir
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

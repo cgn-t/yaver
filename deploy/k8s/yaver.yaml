@@ -6,9 +6,12 @@
 #   Veriler PVC'de kalıcıdır; pod yeniden başlasa da kaybolmaz.
 #
 # Kurulum:
-#   1) İmajı derleyip kendi registry'nize gönderin:
-#        docker build -t <registry>/yaver:0.3.0 .  &&  docker push <registry>/yaver:0.3.0
-#   2) Aşağıdaki "image: yaver:0.3.0" satırını kendi adresinizle değiştirin, Secret şifrelerini değiştirin.
+#   1) İmaj GitHub Actions ile otomatik derlenir: ghcr.io/cgn-t/yaver:latest (.github/workflows/docker-image.yml)
+#      Paket gizliyse (varsayılan) kümeye çekme izni verin:
+#        kubectl -n yaver create secret docker-registry ghcr-pull --docker-server=ghcr.io \
+#          --docker-username=<github-kullanıcı> --docker-password=<read:packages yetkili PAT>
+#      Paketi GitHub'da "public" yaptıysanız bu adıma ve aşağıdaki imagePullSecrets'a gerek yok.
+#   2) Secret şifrelerini değiştirin. Sürüm sabitlemek için :latest yerine :0.3.0 gibi bir etiket kullanın.
 #   3) kubectl apply -f deploy/k8s/yaver.yaml
 #   4) kubectl -n yaver port-forward svc/yaver 8080:80   →  http://localhost:8080  (admin / admin)
 # =====================================================================
@@ -55,6 +58,8 @@ spec:
     metadata:
       labels: { app: yaver }
     spec:
+      imagePullSecrets:
+        - name: ghcr-pull         # ghcr.io paketi public ise bu iki satırı silin
       securityContext:
         fsGroup: 70               # postgres (alpine) grubu → PVC yazılabilir
       containers:
@@ -86,8 +91,8 @@ spec:
 
         # ---------- 2) Uygulama: arayüz + API ----------
         - name: yaver
-          image: yaver:0.3.0      # ← kendi registry adresiniz
-          imagePullPolicy: IfNotPresent
+          image: ghcr.io/cgn-t/yaver:latest   # CI'ın ürettiği imaj
+          imagePullPolicy: Always
           env:
             - name: POSTGRES_PASSWORD
               valueFrom: { secretKeyRef: { name: yaver-secrets, key: POSTGRES_PASSWORD } }
