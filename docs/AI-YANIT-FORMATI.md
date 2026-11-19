@@ -6,6 +6,7 @@
 >
 > Dayandığı sürüm: **0.7.0** (iş kaynakları Mail/Zoom/TFS/Jira, talep eden seviyeleri, IT ops konuları).
 > İlgili belge: [`AJAN-API.md`](AJAN-API.md) (A4 triyaj, A7 ajan yorumu, B4 politika, B5 uçlar). MCP yok; her şey REST.
+> Uçtan uca örnek istek/yanıtlar: [`AI-ORNEK-ISTEK-YANIT.md`](AI-ORNEK-ISTEK-YANIT.md).
 
 ---
 

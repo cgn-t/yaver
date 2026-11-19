@@ -1,0 +1,31 @@
+{
+  "_aciklama": "Yaver → AI servisi. AGENT_WEBHOOK_URL adresine POST edilir.",
+  "method": "POST",
+  "url": "<AGENT_WEBHOOK_URL>",
+  "headers": {
+    "content-type": "application/json",
+    "x-yaver-event": "work_item.created",
+    "x-yaver-delivery": "25",
+    "x-yaver-timestamp": "1795093219",
+    "x-yaver-signature": "sha256=<AGENT_WEBHOOK_SECRET verilmişse HMAC>"
+  },
+  "body": {
+    "id": 25,
+    "type": "work_item.created",
+    "entity": "work_item",
+    "entity_id": 56,
+    "payload": {
+      "code": "YVR-1056",
+      "title": "Ödeme MQ kuyruğu yine doluyor, EFT'ler gecikiyor",
+      "source_id": 25,
+      "source_type": "mail"
+    },
+    "actor_id": 3,
+    "actor_role": "admin",
+    "attempts": 1,
+    "occurred_at": "2026-11-19T13:00:19.232Z",
+    "yaver": {
+      "base_url": "https://yaver.firma.local"
+    }
+  }
+}
