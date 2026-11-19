@@ -1,6 +1,6 @@
 # GenAI Studio — OpenShift ENV rehberi
 
-> Sürüm **0.8.1**. Ayrıntılı akış ve cevap biçimi: [`GENAI-STUDIO.md`](GENAI-STUDIO.md).
+> Sürüm **0.8.2**. Ayrıntılı akış ve cevap biçimi: [`GENAI-STUDIO.md`](GENAI-STUDIO.md).
 > Bu belgede ve repoda **gerçek adres, client id, secret ya da token yoktur**. Değerler yalnız OpenShift Secret'ında durur.
 
 ## Akış: önce token, sonra sorgu
@@ -18,8 +18,8 @@ Curl örneklerindeki `Authorization: Bearer …` ve `Cookie` başlıklarını Se
 
 | ENV | Curl örneğinde nereden alınır |
 |---|---|
-| `GENAI_APPLICATION_BACKEND_URL` | Chat Block adresinin `/chat/block` öncesi (yalnız kök, `https://…`) |
-| `GENAI_SSO_URL` | Token adresinin `/auth/realms/…` öncesi (yalnız kök) |
+| `GENAI_APPLICATION_BACKEND_URL` | Chat Block adresi: kök (`https://…`) ya da `/chat/block` ile biten tam adres |
+| `GENAI_SSO_URL` | SSO adresi: kök, realm adresi (`…/auth/realms/genai-studio`) ya da `…/openid-connect/token` ile biten tam token adresi |
 | `GENAI_CHAT_CLIENT_ID` | token isteğindeki `client_id=` |
 | `GENAI_CHAT_CLIENT_SECRET` | token isteğindeki `client_secret=` |
 | `GENAI_APP_ID` | `app-id:` başlığı |
@@ -35,7 +35,35 @@ Curl örneklerindeki `Authorization: Bearer …` ve `Cookie` başlıklarını Se
 | `GENAI_SSO_TOKEN_FORMAT` | `form` | token ucu JSON gövde istiyorsa `json` |
 | `GENAI_CHAT_PATH` | `/chat/block` | Chat Block yolu farklıysa |
 | `GENAI_ENABLED` | `true` | `false` → entegrasyon tamamen kapalı |
-| `NODE_EXTRA_CA_CERTS` | – | HTTPS sertifikası kurum içi CA ile imzalıysa CA dosyasının yolu |
+| `GENAI_CA_CERT` | – | HTTPS sertifikası kurum içi CA ile imzalıysa CA sertifikasının **PEM metni** (Secret'a yazılır; yalnız GenAI çağrılarında kullanılır) |
+| `NODE_EXTRA_CA_CERTS` | – | aynı amaçla, pod'a bağlanmış CA **dosyasının yolu** (tüm uygulamaya uygulanır) |
+| `GENAI_TLS_INSECURE` | `false` | `true` → GenAI çağrılarında sertifika **doğrulanmaz**. Yalnız demo/test içindir; canlıda `GENAI_CA_CERT` kullanın |
+
+Adresler için 0.8.2'den itibaren kök de tam adres de yazılabilir; yol iki kez eklenmez.
+
+## Kurum içi sertifika (`SELF_SIGNED_CERT_IN_CHAIN`)
+
+Bağlantı testinde `SELF_SIGNED_CERT_IN_CHAIN` / `UNABLE_TO_VERIFY_LEAF_SIGNATURE` görürseniz GenAI Studio adresleri kurum içi bir CA ile imzalıdır.
+
+**Doğru yol — CA'yı tanıtın.** CA zincirini PEM olarak alın (kurumun kök/ara CA dosyası ya da:
+`openssl s_client -showcerts -connect <sso-host>:443 </dev/null` çıktısındaki son `BEGIN/END CERTIFICATE` bloğu) ve Secret'a ekleyin:
+
+```bash
+oc -n yaver create secret generic yaver-genai --dry-run=client -o yaml \
+  --from-literal=...(diğer 6 ENV)... \
+  --from-file=GENAI_CA_CERT=./kurum-ca.pem | oc apply -f -
+oc -n yaver rollout restart deploy/yaver
+```
+
+**Yalnız demo için — doğrulamayı kapatın:**
+
+```bash
+oc -n yaver patch secret yaver-genai -p '{"stringData":{"GENAI_TLS_INSECURE":"true"}}'
+oc -n yaver rollout restart deploy/yaver
+```
+
+Bu yalnız GenAI çağrılarını (token + Chat Block) etkiler, pod günlüğünde uyarı yazılır, Ayarlar → Bağlantı testi'nde "TLS: DOĞRULAMA KAPALI" görünür. Demodan sonra kaldırın:
+`oc -n yaver patch secret yaver-genai --type=json -p '[{"op":"remove","path":"/data/GENAI_TLS_INSECURE"}]'`
 
 ## Kurulum
 
@@ -51,7 +79,7 @@ oc -n yaver create secret generic yaver-genai \
 #    (alternatif: deploy/k8s/yaver-genai-secret.example.yaml şablonu)
 
 # 2) İmaj ve yeniden başlatma
-oc -n yaver set image deploy/yaver yaver=ghcr.io/cgn-t/yaver:0.8.1
+oc -n yaver set image deploy/yaver yaver=ghcr.io/cgn-t/yaver:0.8.2
 oc -n yaver rollout restart deploy/yaver
 
 # 3) Deneme: önce token, sonra Chat Block (token ekrana yazılmaz)
@@ -65,9 +93,10 @@ Ekrandan kontrol: **Ayarlar → GenAI Studio** (her ENV için tanımlı/eksik, B
 
 | Belirti | Neden / çözüm |
 |---|---|
-| Pod `ErrImagePull` / `ImagePullBackOff` | İmaj tag'i `0.8.1` (başında **v yok**; `v0.8.1` yalnız git tag'i). Cluster'ın `ghcr.io`'ya çıkışı / kurum içi mirror senkronu kontrol edin: `oc -n yaver describe pod -l app=yaver` |
+| Pod `ErrImagePull` / `ImagePullBackOff` | İmaj tag'i `0.8.2` (başında **v yok**; `v0.8.2` yalnız git tag'i). Cluster'ın `ghcr.io`'ya çıkışı / kurum içi mirror senkronu kontrol edin: `oc -n yaver describe pod -l app=yaver` |
 | Ayarlarda "eksik" ENV | Secret adı `yaver-genai`, namespace `yaver` olmalı; Secret oluşturulduktan sonra pod yeniden başlatılmalı |
 | `SSO token isteği HTTP 400/401` | client id/secret, realm (`GENAI_SSO_REALM`) ya da `GENAI_SSO_URL`'e yanlışlıkla yol eklenmiş |
 | `Chat Block 401/403` | `GENAI_APP_ID` / `GENAI_APP_IDENTIFIER` ya da client'ın uygulamaya yetkisi |
-| `self-signed certificate` / `unable to verify` | CA'yı ConfigMap olarak bağlayıp `NODE_EXTRA_CA_CERTS=/certs/ca.crt` verin |
+| `SELF_SIGNED_CERT_IN_CHAIN` / `unable to verify` | `GENAI_CA_CERT` ile CA'yı verin; demo için `GENAI_TLS_INSECURE=true` (yukarıdaki bölüm) |
+| Hata adresinde yol iki kez (`…/token/auth/realms/…`) | 0.8.1 ve öncesi: `GENAI_SSO_URL`'e yalnız kök yazın. 0.8.2 tam adresi de kabul eder |
 | Cevap geliyor ama alanlar boş | Ayarlar → GenAI Studio → "(Demo) boş alanları rastgele doldur" (demo için açık, canlıda kapatın) |

@@ -1,6 +1,6 @@
 # Yaver × LangGraph — Ajan Akışı Rehberi ve API Referansı
 
-> Sürüm **0.8.1**. GenAI Studio Chat Block entegrasyonu için bkz. [`GENAI-STUDIO.md`](GENAI-STUDIO.md). MCP yok: ajan Yaver'e yalnız **HTTP (REST + SSE)** ile bağlanır.
+> Sürüm **0.8.2**. GenAI Studio Chat Block entegrasyonu için bkz. [`GENAI-STUDIO.md`](GENAI-STUDIO.md). MCP yok: ajan Yaver'e yalnız **HTTP (REST + SSE)** ile bağlanır.
 > Bu doküman iki parçadır: **(A)** LangGraph akışını nasıl kurmalısın, **(B)** bütün uçların referansı.
 > Uçtan uca test: `server/test/agent-e2e.mjs` (sahte bir ajanla tüm akışı dener, CI'da her push'ta çalışır).
 

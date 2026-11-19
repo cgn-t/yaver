@@ -27,6 +27,7 @@ WORKDIR /app
 COPY --from=deps /app/server/node_modules server/node_modules
 COPY server/package.json server/
 COPY server/src server/src
+COPY server/scripts server/scripts
 COPY db/postgres db/postgres
 COPY --from=web /src/frontend/dist frontend/dist
 RUN mkdir -p /data && chown node:node /data
