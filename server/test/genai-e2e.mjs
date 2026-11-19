@@ -274,6 +274,8 @@ try {
     history: [{ role: 'user', content: 'PAYMENT.IN' }, { role: 'assistant', content: a1.body.answer }] })
   assert.equal(a2.status, 200, a2.text)
   assert.equal(chatCalls.at(-1).body.thread_id, 'thr-ask', 'konuşma aynı thread ile sürmeli')
+  assert.match(chatCalls.at(-1).body.msg, /takımınızın iş takip asistanıyım/)
+  assert.ok(!/IT operasyon ekibinin/.test(chatCalls.at(-1).body.msg))
   assert.equal((await call('POST', '/api/ai/ask', admin, { message: '' })).status, 400)
   // Model JSON döndürürse okunur metne çevrilir
   const aj = await call('POST', '/api/ai/ask', admin, { message: 'JSON-CEVAP PAYMENT.IN kuyruğu doldu, kim çözdü?' })

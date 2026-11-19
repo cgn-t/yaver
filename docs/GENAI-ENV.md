@@ -79,7 +79,7 @@ oc -n yaver create secret generic yaver-genai \
 #    (alternatif: deploy/k8s/yaver-genai-secret.example.yaml şablonu)
 
 # 2) İmaj ve yeniden başlatma
-oc -n yaver set image deploy/yaver yaver=ghcr.io/cgn-t/yaver:0.9.4
+oc -n yaver set image deploy/yaver yaver=ghcr.io/cgn-t/yaver:0.9.5
 oc -n yaver rollout restart deploy/yaver
 
 # 3) Deneme: önce token, sonra Chat Block (token ekrana yazılmaz)
@@ -93,7 +93,7 @@ Ekrandan kontrol: **Ayarlar → GenAI Studio** (her ENV için tanımlı/eksik, B
 
 | Belirti | Neden / çözüm |
 |---|---|
-| Pod `ErrImagePull` / `ImagePullBackOff` | İmaj tag'i `0.9.4` (başında **v yok**; `v0.9.4` yalnız git tag'i). Cluster'ın `ghcr.io`'ya çıkışı / kurum içi mirror senkronu kontrol edin: `oc -n yaver describe pod -l app=yaver` |
+| Pod `ErrImagePull` / `ImagePullBackOff` | İmaj tag'i `0.9.5` (başında **v yok**; `v0.9.5` yalnız git tag'i). Cluster'ın `ghcr.io`'ya çıkışı / kurum içi mirror senkronu kontrol edin: `oc -n yaver describe pod -l app=yaver` |
 | Ayarlarda "eksik" ENV | Secret adı `yaver-genai`, namespace `yaver` olmalı; Secret oluşturulduktan sonra pod yeniden başlatılmalı |
 | `SSO token isteği HTTP 400/401` | client id/secret, realm (`GENAI_SSO_REALM`) ya da `GENAI_SSO_URL`'e yanlışlıkla yol eklenmiş |
 | `Chat Block 401/403` | `GENAI_APP_ID` / `GENAI_APP_IDENTIFIER` ya da client'ın uygulamaya yetkisi |

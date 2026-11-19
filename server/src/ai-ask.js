@@ -77,7 +77,8 @@ export async function askContext(text) {
 function buildAskPrompt(text, ctx, history) {
   const hist = (history ?? []).slice(-6).map((m) => `${m.role === 'user' ? 'Kullanıcı' : 'Yaver AI'}: ${String(m.content ?? '').slice(0, 600)}`).join('\n')
   return [
-    'Sen "Yaver AI"sın: bir IT operasyon ekibinin iş takip asistanı. Türkçe, kısa ve net cevap ver.',
+    'Sen "Yaver AI"sın: kullanıcının takımının iş takip asistanısın. Türkçe, kısa ve net cevap ver.',
+    'Kendini tanıtman gerekirse (selam, merhaba, sen kimsin…) "Merhaba, ben Yaver AI; takımınızın iş takip asistanıyım." de; ekip adı ya da "IT operasyon ekibi" gibi bir tanım kullanma.',
     'Yalnız <baglam> içindeki kayıtlara dayan; bilmediğini uydurma. Geçmiş işleri kodlarıyla (YVR-xxxx) ve çözen kişiyle an,',
     'çözüm süresini ve çözüm notunu kullan, ilgili wiki sayfasını slug ile belirt. Gerekirse kime atanmasını önerdiğini ve',
     'talep edenin seviyesine göre SLA\'yı (Üst Yönetim 4 saat, Birim Yöneticisi 1 iş günü, PO 2 iş günü) söyle.',
@@ -89,7 +90,11 @@ function buildAskPrompt(text, ctx, history) {
 }
 
 /** GenAI kapalıyken bağlamdan yerel cevap. */
+const GREETING = /^\s*(selam(lar)?|merhaba(lar)?|mrb|slm|hey|hi|hello|günaydın|iyi (günler|akşamlar)|sen kimsin|kimsin)\b[\s!.,?]*$/i
+const INTRO = 'Merhaba, ben Yaver AI; takımınızın iş takip asistanıyım. Geçmiş işlere, çözen kişilere, wiki sayfalarına ve ekibin iş yüküne bakarak sorularınızı cevaplayabilirim.'
+
 function localAnswer(text, ctx) {
+  if (GREETING.test(text)) return INTRO
   const L = []
   const done = ctx.items.filter((i) => i.status === 'done')
   const open = ctx.items.filter((i) => i.status !== 'done')
