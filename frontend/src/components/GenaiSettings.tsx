@@ -168,6 +168,7 @@ export function GenaiTab() {
         </Stack>
       </Box>
       <DemoFlowCard />
+      <DraftDemoCard />
     </Stack>
   )
 }
@@ -223,6 +224,100 @@ function DemoFlowCard() {
                     color={x.genai_status === 'done' ? 'success' : x.genai_status === 'failed' ? 'error' : 'default'} title={x.genai_error ?? ''} /></TableCell>
                   <TableCell sx={{ maxWidth: 360 }}><Typography variant="caption" sx={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
                     {x.agent_comment ?? ''}</Typography></TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      )}
+    </Paper>
+  )
+}
+
+type DraftSample = { key: string; from: string; text: string }
+type DraftField = { key: string; required: boolean; type: string; desc: string }
+type DraftResult = {
+  key: string; input: { from: string; text: string }; mode?: string; error?: string; filled?: string[]; warnings?: string[]
+  fields?: { subject: string; body: string; priority: string; category: string; topic_keys: string[]; assignee: string | null; due_date: string; eta_days: number; status: string; comment: string }
+  item?: { id: number; code: string; title: string }
+}
+const PRIO_TR: Record<string, string> = { low: 'Düşük', normal: 'Normal', high: 'Yüksek', critical: 'Kritik' }
+const STATUS_TR: Record<string, string> = { new: 'Yeni', in_progress: 'İşlemde', waiting: 'Bekliyor' }
+
+/** Demo akışı 2: basit mail taslağını AI doldurur → mail + iş. */
+function DraftDemoCard() {
+  const { enqueueSnackbar } = useSnackbar()
+  const [samples, setSamples] = useState<DraftSample[]>([])
+  const [fields, setFields] = useState<DraftField[]>([])
+  const [results, setResults] = useState<DraftResult[]>([])
+  const [from, setFrom] = useState('deniz.arslan@firma.com')
+  const [text, setText] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [showFields, setShowFields] = useState(false)
+  useEffect(() => {
+    apiFetch<{ drafts: DraftSample[]; fields: DraftField[] }>('/demo/drafts').then((r) => { setSamples(r.drafts); setFields(r.fields) }).catch(() => { /* yetki yok */ })
+  }, [])
+  const run = async (body: object) => {
+    setBusy(true)
+    try {
+      const r = await apiFetch<{ count: number; mode: string; results: DraftResult[] }>('/demo/draft', { method: 'POST', body })
+      setResults(r.results)
+      enqueueSnackbar(`${r.count} taslak ${r.mode === 'genai' ? 'GenAI Studio' : 'yerel doldurucu'} ile dolduruldu`, { variant: 'success' })
+    } catch (e) { enqueueSnackbar(e instanceof Error ? e.message : String(e), { variant: 'error' }) } finally { setBusy(false) }
+  }
+  return (
+    <Paper variant="outlined" sx={{ p: 2 }}>
+      <Typography variant="subtitle2">Demo akışı 2: mail taslağını AI doldursun</Typography>
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+        Yalnız gönderen ve tek cümleden oluşan bir taslak gelir. AI mail konusunu ve metnini yazar; işin kategori, konu, öncelik, atanan, son tarih ve durumunu
+        geçmiş işlere bakarak doldurur. Sonuç mail + iş olarak kaydedilir. API: <code>POST /api/demo/draft</code>.{' '}
+        <Box component="span" role="button" tabIndex={0} onClick={() => setShowFields((v) => !v)} sx={{ color: 'primary.main', cursor: 'pointer', fontWeight: 600 }}>
+          {showFields ? 'Alanları gizle' : "AI'dan dönen alanlar"}</Box>
+      </Typography>
+      {showFields && (
+        <TableContainer sx={{ mb: 1.5 }}>
+          <Table size="small">
+            <TableHead><TableRow><TableCell>Alan</TableCell><TableCell>Zorunlu</TableCell><TableCell>Değer</TableCell><TableCell>Açıklama</TableCell></TableRow></TableHead>
+            <TableBody>{fields.map((f) => (
+              <TableRow key={f.key}><TableCell sx={{ fontFamily: MONO_FONT }}>{f.key}</TableCell><TableCell>{f.required ? 'evet' : '—'}</TableCell>
+                <TableCell>{f.type}</TableCell><TableCell>{f.desc}</TableCell></TableRow>))}</TableBody>
+          </Table>
+        </TableContainer>
+      )}
+      <Stack spacing={1} sx={{ mb: 1.5 }}>
+        {samples.map((d) => (
+          <Box key={d.key} sx={{ display: 'flex', gap: 1.5, alignItems: 'center', fontSize: 13 }}>
+            <Typography variant="caption" color="text.secondary" sx={{ width: 190, flexShrink: 0 }} noWrap>{d.from}</Typography>
+            <Typography variant="body2" sx={{ flex: 1 }}>“{d.text}”</Typography>
+          </Box>
+        ))}
+      </Stack>
+      <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.5} sx={{ mb: 1.5 }}>
+        <Button variant="contained" onClick={() => run({})} disabled={busy}>{busy ? 'AI dolduruyor…' : 'Örnek taslakları AI ile doldur'}</Button>
+        <TextField size="small" label="Gönderen" value={from} onChange={(e) => setFrom(e.target.value)} sx={{ minWidth: 220 }} />
+        <TextField size="small" label="Kendi taslağınız (tek cümle yeter)" value={text} onChange={(e) => setText(e.target.value)} sx={{ flex: 1 }} />
+        <Button variant="outlined" disabled={busy || !text.trim() || !from.includes('@')} onClick={() => run({ drafts: [{ from, text }] })}>Doldur</Button>
+      </Stack>
+      {!!results.length && (
+        <TableContainer>
+          <Table size="small">
+            <TableHead><TableRow><TableCell>Taslak</TableCell><TableCell>AI'ın yazdığı konu</TableCell><TableCell>Öncelik</TableCell><TableCell>Kategori / konu</TableCell>
+              <TableCell>Atanan</TableCell><TableCell>Son tarih</TableCell><TableCell>Durum</TableCell></TableRow></TableHead>
+            <TableBody>
+              {results.map((r) => (
+                <TableRow key={r.key + (r.item?.id ?? '')}>
+                  <TableCell sx={{ maxWidth: 220 }}><Typography variant="caption">“{r.input.text}”</Typography></TableCell>
+                  {r.error || !r.fields
+                    ? <TableCell colSpan={6}><Typography variant="caption" color="error">{r.error}</Typography></TableCell>
+                    : <>
+                      <TableCell sx={{ maxWidth: 320 }}><b>{r.item?.code}</b> {r.fields.subject}
+                        {!!r.filled?.length && <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>Yerel doldurulan: {r.filled.join(', ')}</Typography>}</TableCell>
+                      <TableCell>{PRIO_TR[r.fields.priority] ?? r.fields.priority}</TableCell>
+                      <TableCell>{r.fields.category}{r.fields.topic_keys.length ? ` · ${r.fields.topic_keys.join(', ')}` : ''}</TableCell>
+                      <TableCell>{r.fields.assignee ?? '—'}</TableCell>
+                      <TableCell sx={{ whiteSpace: 'nowrap' }}>{r.fields.due_date}</TableCell>
+                      <TableCell>{STATUS_TR[r.fields.status] ?? r.fields.status}</TableCell>
+                    </>}
                 </TableRow>
               ))}
             </TableBody>

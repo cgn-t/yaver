@@ -1,6 +1,7 @@
 import express from 'express'
 import * as G from './genai.js'
 import * as D from './demoflow.js'
+import * as DR from './draftflow.js'
 import { BOOT_ID, SUGGESTIONS, askYaver } from './ai-ask.js'
 import { adminOnly, createApiToken, humanOnly, ldapTest, loadLdapSettings, requireAuth, scope } from './auth.js'
 import { resetDemoData, query } from './db.js'
@@ -156,10 +157,24 @@ export function apiRouter() {
   api.get('/demo/scenarios', scope('items:read'), h(async (_req, res) => res.json({ scenarios: D.listScenarios() })))
   api.post('/demo/run', scope('items:write'), h(async (req, res) => {
     await A.assertDirect(req.user, ['create'])
-    res.status(201).json(await D.runDemo(req.body ?? {}, req.user))
+    const b = req.body ?? {}
+    if (b.scenario === 'taslak') return res.status(201).json(await DR.runDrafts(b, req.user))   // demo akışı 2
+    res.status(201).json(await D.runDemo(b, req.user))
   }))
   api.get('/demo/status', scope('items:read'), h(async (_req, res) => res.json(await D.demoStatus())))
-  api.post('/demo/clear', scope('items:write'), h(async (_req, res) => res.json(await D.clearDemo())))
+  api.post('/demo/clear', scope('items:write'), h(async (_req, res) => res.json({ ...(await D.clearDemo()), taslak: await DR.clearDrafts() })))
+
+  /**
+   * Demo akışı 2: mail taslağını AI doldurur (konu, metin, kategori, konu anahtarı, öncelik, atanan, süre, durum, yorum) → mail + iş.
+   * Gövde: {keys?: [...]} örnek taslaklar ya da {drafts: [{from, text}]} kendi taslağınız; reset?: true (önceki taslak işleri silinir).
+   */
+  api.get('/demo/drafts', scope('items:read'), h(async (_req, res) => res.json({ drafts: DR.listDrafts(), fields: DR.DRAFT_FIELDS })))
+  api.post('/demo/draft', scope('items:write'), h(async (req, res) => {
+    await A.assertDirect(req.user, ['create'])
+    res.status(201).json(await DR.runDrafts(req.body ?? {}, req.user))
+  }))
+  api.get('/demo/draft/status', scope('items:read'), h(async (_req, res) => res.json(await DR.draftStatus())))
+  api.post('/demo/draft/clear', scope('items:write'), h(async (_req, res) => res.json(await DR.clearDrafts())))
   api.post('/demo/reset-all', adminOnly, h(async (_req, res) => res.json(await D.resetAll())))
 
   // =================== Yaver AI sohbet (0.9) ===================

@@ -88,6 +88,12 @@ const mock = http.createServer((req, res) => {
       chatCalls.push({ headers: req.headers, body })
       if (!/^Bearer tok-\d+$/.test(req.headers.authorization ?? '')) return res.writeHead(401).end('{"error":"unauthorized"}')
       if (req.headers['app-id'] !== APP_ID || req.headers['app-identifier'] !== APP_IDENT) return res.writeHead(403).end('{"error":"app"}')
+      if (body.request_context?.source === 'yaver-taslak') {
+        const draft = { subject: 'PAYMENT.OUT kuyruğu doldu, EFT çıkışları gecikiyor', body: 'Merhaba ekip,\n\nKuyruk yine doldu, EFT\'ler gecikiyor. Bakabilir misiniz?\n\nTeşekkürler,\nDeniz',
+          summary: 'Ödeme kuyruğu doldu', category: 'Olay', topic_keys: ['mq', 'olmayan-konu'], priority: 'yüksek', assignee: 'olmayan.kisi', eta_days: 1,
+          status: 'in_progress', comment: 'Benzer iş daha önce 1 günde çözüldü.\n**Öneri:** MQ uzmanına atansın.', confidence: 0.8 }
+        return res.writeHead(200, { 'Content-Type': 'application/json' }).end(JSON.stringify({ status: 'completed', thread_id: 'thr-taslak', last_message: '```json\n' + JSON.stringify(draft) + '\n```' }))
+      }
       if (body.request_context?.source === 'yaver-ai-sohbet') {
         const ctx = JSON.parse(body.msg.slice(body.msg.lastIndexOf('<baglam>') + 8, body.msg.lastIndexOf('</baglam>')))
         const top = ctx.items.find((i) => i.status === 'done') ?? ctx.items[0]
@@ -291,10 +297,37 @@ try {
   assert.match(az.body.answer, /^YVR-\d+ kaydını .+ çözmüştü\.$/)
   step('Yaver AI sohbet: benzer iş + wiki bağlamı, Chat Block cevabı, thread devamı, JSON cevap → okunur metin, zarf alanları gizli')
 
+  // 10b) Demo akışı 2: mail taslağını AI doldurur
+  const dl = (await call('GET', '/api/demo/drafts', admin)).body
+  assert.ok(dl.drafts.length >= 3 && dl.fields.some((f) => f.key === 'subject' && f.required))
+  const dr = await call('POST', '/api/demo/draft', admin, { keys: ['mq-kuyruk'] })
+  assert.equal(dr.status, 201, dr.text)
+  assert.equal(dr.body.mode, 'genai')
+  const r0 = dr.body.results[0]
+  assert.ok(!r0.error, r0.error)
+  assert.match(chatCalls.at(-1).body.msg, /MAIL TASLAĞI/)
+  assert.equal(r0.fields.subject, 'PAYMENT.OUT kuyruğu doldu, EFT çıkışları gecikiyor')
+  assert.equal(r0.fields.priority, 'high', 'Türkçe öncelik normalize edilir')
+  assert.deepEqual(r0.fields.topic_keys, ['mq'], 'listede olmayan konu atılır')
+  assert.ok(r0.filled.includes('assignee') && r0.fields.assignee, 'ekipte olmayan atanan yerel doldurulur')
+  assert.ok(r0.warnings.some((w) => /olmayan.kisi/.test(w)))
+  const dst = (await call('GET', '/api/demo/draft/status', admin)).body
+  assert.equal(dst.total, 1)
+  assert.equal(dst.items[0].category, 'Olay')
+  assert.equal(dst.items[0].status, 'in_progress')
+  assert.equal(dst.items[0].draft, 'kuyruk yine doldu eftler gecikiyor bakabilir misiniz')
+  const own = await call('POST', '/api/demo/run', admin, { scenario: 'taslak', drafts: [{ from: 'murat.aydin@firma.com', text: 'eski ftp sunucusunu kapatalım' }] })
+  assert.equal(own.status, 201, own.text)
+  assert.equal((await call('GET', '/api/demo/draft/status', admin)).body.total, 1, 'tekrar çalıştırınca önceki taslak işleri silinir')
+  assert.equal((await call('POST', '/api/demo/draft', admin, { drafts: [{ from: 'x', text: 'a' }] })).status, 400)
+  step('demo akışı 2: mail taslağı AI ile doldurulur, alanlar doğrulanır, eksikler tamamlanır, mail + iş yazılır')
+
   // 11) Demo işlerini temizle
   const cl = (await call('POST', '/api/demo/clear', admin)).body
   assert.equal(cl.work_items, sc.length)
   assert.equal((await call('GET', '/api/demo/status', admin)).body.total, 0)
+  assert.equal(cl.taslak.work_items, 1)
+  assert.equal((await call('GET', '/api/demo/draft/status', admin)).body.total, 0)
   step('demo işleri temizlenir')
 
   console.log(`\n${ok} adım geçti`)

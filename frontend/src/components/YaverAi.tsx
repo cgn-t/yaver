@@ -25,7 +25,7 @@ type AskResponse = { answer: string; thread_id: string | null; mode: 'genai' | '
 
 const CHAT_KEY = 'yaver_ai_chat'
 const POS_KEY = 'yaver_ai_y'
-const TAB_H = 128
+const TAB_H = 150
 const MARGIN = 12
 const read = <T,>(store: Storage, key: string, fallback: T): T => { try { const v = store.getItem(key); return v ? JSON.parse(v) as T : fallback } catch { return fallback } }
 const write = (store: Storage, key: string, v: unknown) => { try { store.setItem(key, JSON.stringify(v)) } catch { /* depolama yok */ } }
@@ -170,8 +170,8 @@ export default function YaverAi() {
     <>
       {/* Sağ kenar sekmesi: tıkla → aç, sürükle → yukarı/aşağı */}
       {!open && (
-        <Tooltip title="Yaver AI · sürükleyerek taşıyın" placement="left">
-          <Box {...tabDrag} role="button" tabIndex={0} aria-label="Yaver AI'ı aç"
+        <Tooltip title="Yaver GenAI · sürükleyerek taşıyın" placement="left">
+          <Box {...tabDrag} role="button" tabIndex={0} aria-label="Yaver GenAI'ı aç"
                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setOpen(true) } }}
                sx={(t) => ({ position: 'fixed', right: 0, top: tabTop, zIndex: 1200, width: 40, height: TAB_H, cursor: 'grab', touchAction: 'none', userSelect: 'none',
                              display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 1,
@@ -180,22 +180,22 @@ export default function YaverAi() {
                              transition: 'width .15s, box-shadow .15s', '&:hover': { width: 44, boxShadow: t.shadows[8] }, '&:active': { cursor: 'grabbing' },
                              '&:focus-visible': { outline: `2px solid ${t.palette.primary.main}`, outlineOffset: 2 } })}>
             <YaverMark size={20} />
-            <Typography sx={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)', fontSize: 12.5, fontWeight: 650, letterSpacing: 0.4 }}>Yaver AI</Typography>
+            <Typography sx={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)', fontSize: 12.5, fontWeight: 650, letterSpacing: 0.4 }}>Yaver GenAI</Typography>
             <DragIndicatorIcon sx={{ fontSize: 14, color: 'text.disabled' }} />
           </Box>
         </Tooltip>
       )}
 
       {open && (
-        <Paper elevation={0} role="dialog" aria-label="Yaver AI asistanı"
-               sx={(t) => ({ position: 'fixed', right: 0, top: 0, bottom: 0, zIndex: 1300, width: { xs: '100vw', sm: 440 },
+        <Paper elevation={0} role="dialog" aria-label="Yaver GenAI"
+               sx={(t) => ({ position: 'fixed', right: 0, top: 0, bottom: 0, zIndex: 1300, width: { xs: '100vw', sm: 560, lg: 640 },
                              height: '100dvh', display: 'flex', flexDirection: 'column', overflow: 'hidden',
                              borderRadius: 0, borderLeft: 1, borderColor: 'divider', boxShadow: t.shadows[16] })}>
           {/* Başlık: sağ kenarda tam boy panel */}
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, px: 2, height: 56, flexShrink: 0, borderBottom: 1, borderColor: 'divider', bgcolor: 'background.paper' }}>
             <BrandMark size={30} />
             <Box sx={{ flexGrow: 1, minWidth: 0 }}>
-              <Typography sx={{ fontSize: 14, fontWeight: 650, lineHeight: 1.25 }}>Yaver AI Asistan</Typography>
+              <Typography sx={{ fontSize: 14, fontWeight: 650, lineHeight: 1.25 }}>Yaver GenAI</Typography>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
                 <Box sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: mode === 'genai' ? 'success.main' : mode === 'yerel' ? 'warning.main' : 'text.disabled' }} />
                 <Typography variant="caption" color="text.secondary" noWrap>{modeLabel ? `${modeLabel} · geçmiş işler ve wiki` : 'Geçmiş işler ve wiki ile cevaplar'}</Typography>
@@ -212,7 +212,7 @@ export default function YaverAi() {
 
           {/* İçerik */}
           <Box sx={{ flexGrow: 1, overflowY: 'auto', bgcolor: (t) => (t.palette.mode === 'dark' ? 'background.default' : alpha(t.palette.text.primary, 0.015)) }}>
-            {backend !== 'api' && <Typography variant="body2" color="text.secondary" sx={{ p: 2.5 }}>Yaver AI sunucu üzerinden çalışır; şu an demo (tarayıcı) modundasınız.</Typography>}
+            {backend !== 'api' && <Typography variant="body2" color="text.secondary" sx={{ p: 2.5 }}>Yaver GenAI sunucu üzerinden çalışır; şu an demo (tarayıcı) modundasınız.</Typography>}
             {backend === 'api' && !msgs.length && (
               <Box sx={{ p: 2.5 }}>
                 <Typography sx={{ fontSize: 15, fontWeight: 650, mb: 0.5 }}>Size nasıl yardımcı olabilirim?</Typography>
