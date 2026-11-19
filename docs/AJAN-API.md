@@ -888,6 +888,7 @@ es.addEventListener('chat', (e) => { const d = JSON.parse(e.data); if (d.type ==
 | `AGENT_CHAT_MODE` | URL varsa `stream`, yoksa `event` | chat modu |
 | `AGENT_CHAT_TIMEOUT_SEC` | `180` | chat cevabı için azami süre |
 | `AGENT_CHAT_HISTORY` | `20` | chat isteğinde gönderilen önceki mesaj sayısı |
+| `ADMIN_ACTS_AS` | `mehmet.kaya` | admin/admin ile girilince oturum bu ekip üyesinin kimliğiyle açılır (Bana atananlar, yorumlar, karşılama), yetki admin kalır. `""` = admin kendi adıyla |
 | `SEED_UPGRADE` | `true` | 0.6 → 0.7 yükseltmesinde örnek veriyi IT operasyon verisiyle bir kez yenile |
 | `AGENT_DEMO_INTERPRETER` | `auto` | pod içi örnek yorumlayıcı: `true` / `false` / `auto` (= `AGENT_WEBHOOK_URL` yoksa açık) |
 

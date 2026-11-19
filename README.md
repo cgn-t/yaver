@@ -95,6 +95,8 @@ Uçtan uca test (sahte ajan ile): sunucuyu `AGENT_TOKEN`, `AGENT_WEBHOOK_URL=htt
   `{"count": 5}` örnek mail üretir. Genel Bakış'taki "Toplu mail gönder" ve "TFS / Jira al" düğmeleri bu uçları çağırır.
 - Örnek veri IT operasyon ekibine göre: kişi rehberi, 11 wiki sayfası, 14 kapanmış geçmiş iş, 9 açık iş.
   0.6'dan yükseltmede örnek veri bir kez yenilenir (`SEED_UPGRADE=false` ile atlanır).
+- **Tek kullanıcı görünümü:** `admin` / `admin` ile girilir ama uygulama **Mehmet Kaya** (`mehmet.kaya`) girmiş gibi davranır:
+  Bana atananlar, yorumlar ve karşılama onun adına. Yetki admin kalır. Başka biri için `ADMIN_ACTS_AS=<kullanıcı>`, kapatmak için `ADMIN_ACTS_AS=""`.
 
 ## Yalnız arayüz (geliştirme)
 

@@ -55,6 +55,8 @@ jobs:
           ITEMS=$(curl -sf localhost:8080/api/state -H "Authorization: Bearer $TOKEN" | node -pe 'JSON.parse(require("fs").readFileSync(0)).items.length')
           echo "örnek iş sayısı: $ITEMS"; test "$ITEMS" -gt 0
           curl -sf localhost:8080/ | grep -q '<div id="root">'
+          # admin ile giriş → ekipte Mehmet Kaya olarak görünür (ADMIN_ACTS_AS varsayılanı)
+          curl -sf localhost:8080/api/auth/login -H 'content-type: application/json' -d '{"username":"admin","password":"admin"}' | grep -q '"username":"mehmet.kaya"'
       - name: Ajan API uçtan uca testi (sahte LangGraph ajanı ile)
         env:
           DATA_DIR: ${{ runner.temp }}/yaver-agent-data
@@ -66,6 +68,7 @@ jobs:
           AGENT_WEBHOOK_URL: http://127.0.0.1:9099/hook
           AGENT_WEBHOOK_SECRET: s3cret
           AGENT_CHAT_URL: http://127.0.0.1:9099/chat
+          ADMIN_ACTS_AS: ""   # test admin kimliğiyle çalışır
         run: |
           node server/src/index.js > agent-server.log 2>&1 &
           for i in $(seq 1 40); do curl -sf localhost:8081/api/health && break; sleep 1; done
