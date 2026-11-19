@@ -19,7 +19,15 @@ const LABEL = {
 }
 // Gösterilmeyen teknik alanlar
 const SKIP = new Set(['schema_version', 'work_item_id', 'work_item_version', 'thread_id', 'id', 'depends_on', 'needs_human', 'score', 'request_context'])
-const ANSWER_KEYS = ['answer', 'cevap', 'yanit', 'yanıt', 'response', 'reply', 'text', 'content', 'message', 'msg', 'output', 'result']
+const ANSWER_KEYS = ['last_message', 'lastMessage', 'final_answer', 'answer', 'cevap', 'yanit', 'yanıt', 'response', 'reply', 'text', 'content', 'message', 'msg', 'output', 'result']
+
+// Chat Block zarf alanları (cevap metni yanında gelen durum/meta bilgisi): kullanıcıya gösterilmez
+const ENVELOPE = new Set(['status', 'state', 'created_at', 'updated_at', 'createdAt', 'updatedAt', 'timestamp', 'model', 'usage', 'run_id', 'runId',
+  'message_id', 'messageId', 'conversation_id', 'finish_reason', 'role', 'type', 'error', 'errors', 'success', 'ok', 'code', 'metadata', 'meta'])
+/** {role, content} gibi bir mesaj nesnesinden metni alır. */
+const msgText = (v) => typeof v === 'string' ? v
+  : v && typeof v === 'object' && !Array.isArray(v) ? ['content', 'text', 'message', 'msg', 'answer'].map((k) => v[k]).find((x) => typeof x === 'string' && x.trim()) ?? null
+  : null
 
 const label = (k) => LABEL[k] ?? String(k).replace(/_/g, ' ').replace(/^./, (c) => c.toLocaleUpperCase('tr'))
 const nice = (k, v) => {
@@ -103,9 +111,10 @@ export function readableAnswer(text) {
   let o = parsed
   // {answer: "..."} gibi tek metin alanı → doğrudan o metin
   if (!Array.isArray(o)) {
-    const k = ANSWER_KEYS.find((x) => typeof o[x] === 'string' && o[x].trim())
-    const others = Object.keys(o).filter((x) => x !== k && !SKIP.has(x) && !isEmpty(o[x]))
-    if (k && !others.length) return readableAnswer(o[k])
+    const k = ANSWER_KEYS.find((x) => msgText(o[x])?.trim())
+    const others = Object.keys(o).filter((x) => x !== k && !SKIP.has(x) && !ENVELOPE.has(x) && !isEmpty(o[x]))
+    // {status: "completed", last_message: "..."} gibi zarf → yalnız cevap metni
+    if (k && !others.length) return readableAnswer(msgText(o[k]))
   } else {
     return o.map((x) => `- ${inline(x)}`).join('\n')
   }

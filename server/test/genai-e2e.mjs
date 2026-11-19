@@ -91,6 +91,8 @@ const mock = http.createServer((req, res) => {
       if (body.request_context?.source === 'yaver-ai-sohbet') {
         const ctx = JSON.parse(body.msg.slice(body.msg.lastIndexOf('<baglam>') + 8, body.msg.lastIndexOf('</baglam>')))
         const top = ctx.items.find((i) => i.status === 'done') ?? ctx.items[0]
+        if (/ZARF-CEVAP/.test(body.msg)) return res.writeHead(200, { 'Content-Type': 'application/json' })
+          .end(JSON.stringify({ status: 'completed', thread_id: body.thread_id || 'thr-ask', last_message: `${top.code} kaydını ${top.assignee} çözmüştü.` }))
         const answer = /JSON-CEVAP/.test(body.msg)
           ? '```json\n' + JSON.stringify({ schema_version: '1.0', work_item_id: 0, summary: 'Kuyruk doluluğu', comment: `${top.code} ile ${top.assignee} çözmüştü.`,
               suggestion: { priority: 'high', assignee: top.assignee, status: 'in_progress' }, sources: [{ type: 'db', ref: top.code, title: top.title }],
@@ -280,7 +282,12 @@ try {
   assert.match(aj.body.answer, /\*\*Özet:\*\* Kuyruk doluluğu/)
   assert.match(aj.body.answer, /### Öneri\n- \*\*Öncelik:\*\* Yüksek/)
   assert.ok(aj.body.boot_id && aj.body.boot_id === sg.boot_id, 'boot_id sabit olmalı (aynı pod)')
-  step('Yaver AI sohbet: benzer iş + wiki bağlamı, Chat Block cevabı, thread devamı, JSON cevap → okunur metin')
+  // Zarf ({status, last_message}) → yalnız cevap metni; "Durum" / "Last message" görünmez
+  const az = await call('POST', '/api/ai/ask', admin, { message: 'ZARF-CEVAP PAYMENT.IN kuyruğu doldu, kim çözdü?' })
+  assert.equal(az.status, 200, az.text)
+  assert.ok(!/Durum|Last message|completed|Tamamlandı/i.test(az.body.answer), az.body.answer)
+  assert.match(az.body.answer, /^YVR-\d+ kaydını .+ çözmüştü\.$/)
+  step('Yaver AI sohbet: benzer iş + wiki bağlamı, Chat Block cevabı, thread devamı, JSON cevap → okunur metin, zarf alanları gizli')
 
   // 11) Demo işlerini temizle
   const cl = (await call('POST', '/api/demo/clear', admin)).body
