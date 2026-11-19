@@ -120,6 +120,9 @@ try {
   assert.equal(st.body.enabled, true, `GenAI etkin değil: ${JSON.stringify(st.body.missing)}`)
   assert.ok(!st.text.includes(CLIENT_SECRET) && !st.text.includes('127.0.0.1:9199'), 'ayar yanıtında gizli değer var')
   assert.ok(st.body.env.find((e) => e.name === 'GENAI_CHAT_CLIENT_SECRET').set)
+  assert.equal(st.body.fill_missing, true, 'fill_missing varsayılan açık olmalı')
+  // Tam cevap veren sahte LLM adımlarında rastgele doldurma kapalı; 5b'de açılır
+  assert.equal((await call('PUT', '/api/settings/genai', admin, { fill_missing: false })).status, 200)
   step('ayarlar yalnız tanımlı/eksik bilgisi döner, değer sızdırmaz')
 
   // 2) Bağlantı testi
@@ -186,7 +189,8 @@ try {
   assert.deepEqual(it2.keywords, ['decom'])
   step('işe bağlı olmayan mail → iş açıldı → yorumlandı')
 
-  // 5b) Playground'daki gerçek cevap biçimi
+  // 5b) Playground'daki gerçek cevap biçimi (+ boş alanları rastgele doldurma)
+  assert.equal((await call('PUT', '/api/settings/genai', admin, { fill_missing: true })).status, 200)
   const m3 = await call('POST', '/api/bulk-send-mail', admin, { mails: [{
     from_address: 'dis.kullanici@ornek.com', from_name: 'Dış Kullanıcı', subject: 'GERCEK-FORMAT Ödeme MQ kuyruğu yine doluyor, EFT gecikiyor',
     body: 'PAYMENT.IN kuyruğu doldu, EFT gecikiyor.', message_id: '<genai-e2e-3@ornek.com>' }] })
@@ -199,7 +203,12 @@ try {
   assert.match(it3.agent_comment, /Uyarı: Yönetici seviyesi/)
   const a3 = (await call('GET', `/api/agent/actions?work_item_id=${id3}&status=pending`, admin)).body
   const k3 = (a3.actions ?? a3).map((a) => `${a.kind}:${JSON.stringify(a.payload)}`).sort()
-  assert.deepEqual(k3, ['priority:{"priority":"high"}', 'status:{"status":"waiting"}'], `suggestion → öneri: ${k3}`)
+  assert.ok(k3.includes('priority:{"priority":"high"}') && k3.includes('status:{"status":"waiting"}'), `suggestion → öneri: ${k3}`)
+  // fill_missing: boş gelen category / assignee / due_date rastgele dolduruldu
+  assert.match(it3.agent_comment, /Boş alanlar rastgele dolduruldu: .*classification\.category/)
+  assert.ok(it3.agent_suggestion.category && it3.agent_suggestion.assignee && it3.agent_suggestion.due_date && it3.agent_suggestion.sla, JSON.stringify(it3.agent_suggestion))
+  const it3b = (await call('GET', `/api/work-items/${id3}`, admin)).body
+  assert.ok(it3b.category || k3.some((x) => x.startsWith('category:')), `rastgele kategori uygulanmalı ya da öneri olmalı: ${k3}`)
   step('gerçek cevap biçimi: edit/topic_keys → konu, ref → kaynak, suggestion → öneri')
 
   // 6) Çağrı geçmişi

@@ -22,6 +22,7 @@ export interface GenaiConfig {
   apply_topic: boolean
   apply_changes: boolean
   promote_suggestion: boolean
+  fill_missing: boolean
   min_confidence: number
   max_context_chars: number
   max_attempts: number
@@ -143,6 +144,7 @@ export function GenaiTab() {
           <Grid size={{ xs: 12, sm: 6 }}><Sw label="Konuyu AI belirlesin (MQ, Decom, …)" checked={form.apply_topic} onChange={(v) => set('apply_topic', v)} /></Grid>
           <Grid size={{ xs: 12, sm: 6 }}><Sw label="Durum / öncelik / atama önerilerini gönder" checked={form.apply_changes} onChange={(v) => set('apply_changes', v)} /></Grid>
           <Grid size={{ xs: 12, sm: 6 }}><Sw label="suggestion'daki öncelik/durum/atamayı da öner" checked={form.promote_suggestion} onChange={(v) => set('promote_suggestion', v)} disabled={!form.apply_changes} /></Grid>
+          <Grid size={{ xs: 12, sm: 6 }}><Sw label="(Demo) Cevapta boş kalan alanları rastgele doldur" checked={form.fill_missing} onChange={(v) => set('fill_missing', v)} /></Grid>
         </Grid>
         <Typography variant="body2" color="text.secondary" sx={{ mt: 1, mb: 2 }}>
           Öneriler Ajan politikasına göre uygulanır: varsayılanda durum, öncelik, atama ve son tarih onaya düşer; kategori ve etiket doğrudan yazılır.

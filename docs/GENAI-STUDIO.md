@@ -131,6 +131,33 @@ GenAI Studio Playground'da model cevabı **düz JSON** olarak döndü (kod bloğ
 
 `classification.category` bu sürümde eklendi: `Olay`, `Talep`, `Değişiklik` ya da sistemde kullanılan diğer kategorilerden biri.
 
+### Boş kalan alanların rastgele doldurulması (demo)
+
+Ayar `fill_missing` (Ayarlar → GenAI Studio → "(Demo) Cevapta boş kalan alanları rastgele doldur", varsayılan **açık**).
+Cevapta boş, `null` ya da hiç olmayan alanlar doğrulamadan önce doldurulur. Değerler bağlama uygun seçilir, bağlamda karşılığı yoksa rastgele seçilir:
+
+| Alan | Nasıl doldurulur |
+|---|---|
+| `summary` | işin başlığı |
+| `comment` | "<başlık> talebi incelendi. Benzer kayıt: YVR-…" |
+| `confidence` | 0.60–0.90 arası rastgele |
+| `classification.topic_keys` | işin mevcut konusu, yoksa tanımlı konulardan rastgele biri (changes'te konu değişikliği varsa dokunulmaz) |
+| `classification.category` | işin mevcut kategorisi, yoksa `Olay` / `Talep` / `Değişiklik` / kayıtlı kategorilerden rastgele |
+| `classification.mgmt_level` | kişi rehberindeki seviye (boşsa ya da AI `diger` dediyse ve rehberde farklıysa), yoksa rastgele |
+| `classification.is_actionable` | `true` |
+| `suggestion.priority` | Üst Yönetim ise `high`/`critical`, değilse `normal`/`high` rastgele |
+| `suggestion.assignee` | işin atananı, yoksa ekipten rastgele biri |
+| `suggestion.status` | işin durumu `new` değilse aynısı, değilse `in_progress` |
+| `suggestion.eta_days` | 1, 2, 3 ya da 5 gün rastgele |
+| `suggestion.due_date` | bugün + `eta_days` |
+| `suggestion.sla` | talep edenin seviyesine göre SLA |
+| `sources` | bağlamdaki benzer işlerden ya da wiki sayfalarından rastgele biri |
+
+Doldurulmayanlar (boş olması anlamlı): `questions`, `warnings`, `changes`, `is_duplicate_of`.
+Doldurulan alanlar yorumun sonunda "Uyarı: Boş alanlar rastgele dolduruldu: …" olarak görünür. GenAI Çağrıları detayında
+`ai` modelin ham cevabıdır, `ai_filled` doldurulmuş hâlidir. Doldurulan öncelik/durum/atama/son tarih `promote_suggestion`
+açıksa öneri olarak onaya düşer. Canlı kullanımda bu ayarı kapatın.
+
 ## 5. Cevap nasıl uygulanır
 
 | Cevaptaki alan | Yaver'de | Onay |

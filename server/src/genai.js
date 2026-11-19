@@ -51,13 +51,14 @@ const DEFAULTS = {
   apply_topic: true,                    // konu (anahtar kelime grubu) AI'ın seçtiği olsun
   apply_changes: true,                  // durum/öncelik/atama… önerilerini Ajan politikasına gönder
   promote_suggestion: true,             // suggestion'daki öncelik/durum/atama changes'te yoksa öneri yap
+  fill_missing: true,                   // (demo) cevapta boş kalan alanları rastgele doldur
   min_confidence: 0.4,                  // altında yalnız yorum yazılır, değişiklik önerilmez
   max_context_chars: 12000,
   max_attempts: 4,
   concurrency: 2,
   extra_instructions: '',               // prompta eklenecek kurum içi kurallar
 }
-const BOOL = ['active', 'auto_interpret', 'auto_from_mail', 'auto_from_zoom', 'apply_topic', 'apply_changes', 'promote_suggestion']
+const BOOL = ['active', 'auto_interpret', 'auto_from_mail', 'auto_from_zoom', 'apply_topic', 'apply_changes', 'promote_suggestion', 'fill_missing']
 const NUM = ['timeout_sec', 'min_confidence', 'max_context_chars', 'max_attempts', 'concurrency']
 export const GENAI_LABEL = 'GenAI Studio'
 const CHANGE_KINDS = ['status', 'priority', 'assign', 'due_date', 'category', 'tags', 'edit']
@@ -343,6 +344,47 @@ function resolveSourceId(s, map) {
   return null
 }
 
+// ---------- Boş alanları doldurma (demo) ----------
+const pick = (a) => a[Math.floor(Math.random() * a.length)]
+const blank = (v) => v === undefined || v === null || (typeof v === 'string' && !v.trim()) || (Array.isArray(v) && !v.length)
+const addDays = (n) => new Date(Date.now() + n * 86400000).toISOString().slice(0, 10)
+/** Ayar fill_missing açıksa AI cevabında boş kalan alanları rastgele (bağlama uygun) doldurur.
+ *  ai nesnesini yerinde değiştirir; doldurulan alan adlarını döner ve warnings'e not düşer. */
+export function fillMissing(ai, ctx, vocab) {
+  if (!ai || typeof ai !== 'object') return []
+  const it = ctx.item, filled = []
+  const set = (obj, key, val, name) => { if (blank(obj[key]) && val !== undefined && val !== null) { obj[key] = val; filled.push(name) } }
+  const topicKeys = vocab.topics.map((t) => t.key)
+  const level = ctx.contact?.mgmt_level ?? it.mgmt_level ?? pick(['ust', 'birim', 'po', 'diger'])
+  const team = [...new Set((ctx.team_load ?? []).map((u) => u.username).concat(vocab.users))]
+  ai.classification = ai.classification && typeof ai.classification === 'object' ? ai.classification : {}
+  ai.suggestion = ai.suggestion && typeof ai.suggestion === 'object' ? ai.suggestion : {}
+  const cls = ai.classification, sg = ai.suggestion
+  set(ai, 'summary', String(it.title ?? '').slice(0, 200), 'summary')
+  set(ai, 'comment', `${it.title} talebi incelendi. ${ctx.similar_items?.length ? `Benzer kayıt: ${ctx.similar_items[0].code}.` : ''}`.trim(), 'comment')
+  if (ai.confidence === undefined || ai.confidence === null || !Number.isFinite(Number(ai.confidence))) { ai.confidence = Math.round((0.6 + Math.random() * 0.3) * 100) / 100; filled.push('confidence') }
+  const hasTopicChange = (Array.isArray(ai.changes) ? ai.changes : []).some((c) => c?.payload && ['topic_keys', 'topics', 'topic', 'keywords'].some((k) => k in c.payload))
+  if (!hasTopicChange) {
+    const known = (it.keywords ?? []).filter((k) => topicKeys.includes(k))
+    set(cls, 'topic_keys', known.length ? known.slice(0, 3) : topicKeys.length ? [pick(topicKeys)] : null, 'classification.topic_keys')
+  }
+  set(cls, 'category', it.category || pick(vocab.categories), 'classification.category')
+  if (blank(cls.mgmt_level) || (cls.mgmt_level === 'diger' && level !== 'diger')) { cls.mgmt_level = level; filled.push('classification.mgmt_level') }
+  if (cls.is_actionable === undefined) { cls.is_actionable = true; filled.push('classification.is_actionable') }
+  const eta = pick([1, 2, 3, 5])
+  set(sg, 'priority', level === 'ust' ? pick(['high', 'critical']) : pick(['normal', 'high']), 'suggestion.priority')
+  set(sg, 'assignee', it.assignee || (team.length ? pick(team) : null), 'suggestion.assignee')
+  set(sg, 'status', it.status && it.status !== 'new' ? it.status : 'in_progress', 'suggestion.status')
+  set(sg, 'eta_days', eta, 'suggestion.eta_days')
+  set(sg, 'due_date', addDays(Number(sg.eta_days) || eta), 'suggestion.due_date')
+  set(sg, 'sla', SLA_BY_LEVEL[level] ?? SLA_BY_LEVEL.diger ?? 'standart', 'suggestion.sla')
+  const cand = [...(ctx.similar_items ?? []).map((x) => ({ type: 'db', id: x.id, ref: x.code, title: x.title, used_for: 'benzer geçmiş iş' })),
+                ...(ctx.wiki_pages ?? []).map((x) => ({ type: 'wiki', id: x.id, ref: x.slug, title: x.title, used_for: 'runbook' }))]
+  set(ai, 'sources', cand.length ? [pick(cand)] : null, 'sources')
+  if (filled.length) ai.warnings = [...(Array.isArray(ai.warnings) ? ai.warnings : []), `Boş alanlar rastgele dolduruldu: ${filled.join(', ')}`]
+  return filled
+}
+
 /** AI yanıtını bağlama göre doğrular; atılanlar warnings'e eklenir. Hata fırlatırsa yanıt tamamen geçersizdir. */
 export function validate(ai, ctx, vocab, cfg) {
   if (!ai || typeof ai !== 'object') throw new Error('Yanıtta JSON nesnesi bulunamadı')
@@ -487,9 +529,11 @@ export async function interpretWithGenAI(itemId, { trigger = 'manual', jobId = n
     const ans = extractAnswer(call.text)
     const ai = ans.direct ?? extractJson(ans.text)
     if (!ai) throw new Error(`Yanıtta JSON bulunamadı: ${ans.text.slice(0, 200)}`)
+    const raw = JSON.parse(JSON.stringify(ai))
+    const filled = cfg.fill_missing ? fillMissing(ai, ctx, vocab) : []
     const v = validate(ai, ctx, vocab, cfg)
     const applied = await apply(itemId, v, cfg, actor)
-    const result = { ai, applied, warnings: v.warnings }
+    const result = { ai: raw, ...(filled.length ? { filled, ai_filled: ai } : {}), applied, warnings: v.warnings }
     await query(`UPDATE genai_job SET status = 'done', thread_id = $2, request_chars = $3, http_status = $4, duration_ms = $5, response_text = $6, result = $7, error = NULL, finished_at = now() WHERE id = $1`,
       [jobId, ans.thread_id, msg.length, call.status, call.duration_ms, call.text.slice(0, 20000), JSON.stringify(result)])
     await query(`UPDATE agent_run SET status = 'succeeded', thread_id = $2, summary = $3, finished_at = now() WHERE id = $1`, [run.id, ans.thread_id, v.suggestion.summary || `${ctx.item.code} yorumlandı`])
