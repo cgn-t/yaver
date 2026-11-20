@@ -42,6 +42,42 @@ interface GenaiJob {
   warnings?: string[] | null
   response_text?: string; result?: unknown
 }
+interface QueueStatus {
+  enabled: boolean; env_enabled: boolean; active: boolean; missing: string[]; auto_interpret: boolean; auto_from_mail: boolean
+  concurrency: number; timeout_sec: number; max_attempts: number; in_process: number; in_flight: number[]
+  pending: number; running_db: number; failed: number; done: number; oldest_pending_at: string | null
+  last_tick_at: string | null; last_tick_error: string | null; last_taken_at: string | null; last_event_at: string | null; last_event: string | null
+}
+const ago = (t: string | null) => (t ? `${Math.max(0, Math.round((Date.now() - new Date(t).getTime()) / 1000))} sn önce` : '—')
+
+/** Kuyruk sağlık kartı: kuyruk neden işlemiyor sorusunun cevabı burada görünür. */
+function QueueCard({ q }: { q: QueueStatus }) {
+  const problems: string[] = []
+  if (!q.env_enabled) problems.push('GENAI_ENABLED=false: entegrasyon ortamdan kapatılmış.')
+  if (q.missing.length) problems.push(`Eksik ortam değişkenleri: ${q.missing.join(', ')}`)
+  if (!q.active) problems.push('Entegrasyon ekrandan duraklatılmış (GenAI Studio ayarları → Etkin).')
+  if (!q.auto_interpret) problems.push('"Her yeni işi yorumlat" kapalı: yeni işler kuyruğa girmez.')
+  if (q.last_tick_error) problems.push(`Kuyruk hatası: ${q.last_tick_error}`)
+  if (!q.last_tick_at || Date.now() - new Date(q.last_tick_at).getTime() > 30_000) problems.push('Kuyruk döngüsü çalışmıyor (30 sn\'dir dönmedi). Pod logunda [genai] satırlarına bakın.')
+  if (q.enabled && q.pending > 0 && q.oldest_pending_at && Date.now() - new Date(q.oldest_pending_at).getTime() > 60_000 && q.in_process === 0)
+    problems.push('Bekleyen iş var ama kuyruk işi almıyor.')
+  return (
+    <Paper variant="outlined" sx={{ p: 2 }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap', mb: problems.length ? 1.5 : 0 }}>
+        <Typography variant="subtitle2" sx={{ mr: 1 }}>Kuyruk</Typography>
+        <Chip size="small" color={q.enabled ? 'success' : 'error'} label={q.enabled ? 'Etkin' : 'Kapalı'} />
+        <Chip size="small" variant="outlined" label={`Bekleyen ${q.pending}`} />
+        <Chip size="small" variant="outlined" label={`Çalışan ${q.in_process}/${q.concurrency}`} />
+        <Chip size="small" variant="outlined" color={q.failed ? 'warning' : 'default'} label={`Başarısız ${q.failed}`} />
+        <Typography variant="caption" color="text.secondary">
+          Son dönüş {ago(q.last_tick_at)} · son iş alma {ago(q.last_taken_at)} · son olay {q.last_event ? `${q.last_event}, ${ago(q.last_event_at)}` : '—'}
+        </Typography>
+      </Box>
+      {problems.map((p) => <Alert key={p} severity="warning" sx={{ mt: 0.75, py: 0 }}>{p}</Alert>)}
+    </Paper>
+  )
+}
+
 interface TestResult { ok: boolean; steps: { step: string; ok: boolean; detail: string }[]; answer?: string; thread_id?: string | null; raw?: string }
 
 const STATUS: Record<GenaiJob['status'], { label: string; color: 'default' | 'info' | 'success' | 'error' | 'warning' }> = {
@@ -421,9 +457,10 @@ function DraftDemoCard() {
 export function GenaiLogTab() {
   const { enqueueSnackbar } = useSnackbar()
   const [jobs, setJobs] = useState<GenaiJob[] | null>(null)
+  const [queue, setQueue] = useState<QueueStatus | null>(null)
   const [detail, setDetail] = useState<GenaiJob | null>(null)
   const load = useCallback(async () => {
-    try { setJobs((await apiFetch<{ jobs: GenaiJob[] }>('/genai/jobs?limit=100')).jobs) } catch { setJobs([]) }
+    try { const r = await apiFetch<{ jobs: GenaiJob[]; queue?: QueueStatus }>('/genai/jobs?limit=100'); setJobs(r.jobs); setQueue(r.queue ?? null) } catch { setJobs([]) }
   }, [])
   useEffect(() => {
     if (backend !== 'api') return
@@ -441,6 +478,7 @@ export function GenaiLogTab() {
   }
   return (
     <Stack spacing={2}>
+      {queue && <QueueCard q={queue} />}
       <Paper variant="outlined">
         <TableContainer>
           <Table size="small">

@@ -318,7 +318,7 @@ export function apiRouter() {
   api.get('/settings/genai', humanOnly, h(async (_req, res) => res.json(await G.publicConfig())))
   api.put('/settings/genai', adminOnly, h(async (req, res) => res.json(await G.saveConfig(req.body ?? {}, req.user))))
   api.post('/settings/genai/test', adminOnly, h(async (req, res) => res.json(await G.testConnection(req.body ?? {}))))
-  api.get('/genai/jobs', scope('items:read'), h(async (req, res) => res.json({ jobs: await G.listJobs(req.query) })))
+  api.get('/genai/jobs', scope('items:read'), h(async (req, res) => res.json({ jobs: await G.listJobs(req.query), queue: await G.queueStatus() })))
   api.get('/genai/jobs/:id', humanOnly, h(async (req, res) => {
     const j = (await G.listJobs({ id: id(req), full: true, limit: 1 }))[0]
     j ? res.json(j) : notFound(res, 'Çağrı')
