@@ -371,6 +371,9 @@ try {
   assert.equal((await call('PUT', '/api/settings/genai', admin, { active: true })).status, 200)
   const kd = await waitFor(async () => { const r = await call('GET', `/api/work-items/${kw.body.id}`, admin); return r.body.agent_comment_by === 'GenAI Studio' && r.body }, 90_000)
   assert.equal(kd.genai_status, 'done')
+  assert.match(kd.genai_stage ?? '', /Chat Block cevabı alındı: HTTP 200/, 'aşama işe yazılmalı')
+  const kj = (await call('GET', `/api/genai/jobs?work_item_id=${kw.body.id}`, admin)).body.jobs[0]
+  assert.ok(kj.started_at && /cevabı alındı/.test(kj.stage), 'GenAI çağrılarında aşama görünmeli')
   assert.ok((await call('GET', '/api/state', admin)).body.items.find((w) => w.id === kw.body.id).genai_status === 'done', '/state genai_status taşımalı')
   step('olayı kaçan yeni iş taranıp yorumlanır, iş satırında genai_status görünür')
 

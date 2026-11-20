@@ -37,7 +37,7 @@ export interface GenaiConfig {
 interface GenaiJob {
   id: number; kind: 'interpret' | 'mail' | 'meeting'; work_item_id: number | null; work_item_code: string | null; work_item_title: string | null
   status: 'pending' | 'running' | 'done' | 'failed' | 'skipped'; attempts: number; trigger: string | null; thread_id: string | null
-  http_status: number | null; duration_ms: number | null; error: string | null; created_at: string; finished_at: string | null
+  http_status: number | null; duration_ms: number | null; error: string | null; stage?: string | null; started_at?: string | null; created_at: string; finished_at: string | null
   applied?: { topic: string[] | null; actions: { kind: string; applied: boolean; error?: string }[]; questions: number } | null
   warnings?: string[] | null
   response_text?: string; result?: unknown
@@ -462,7 +462,11 @@ export function GenaiLogTab() {
                       j.applied.actions?.length ? `${j.applied.actions.filter((a) => a.applied).length} uygulandı / ${j.applied.actions.filter((a) => !a.applied && !a.error).length} onayda` : null]
                       .filter(Boolean).join(' · ') || 'yalnız yorum' : '—'}
                   </TableCell>
-                  <TableCell sx={{ maxWidth: 280 }}><Typography variant="body2" color="error" noWrap title={j.error ?? ''}>{j.error ?? ''}</Typography></TableCell>
+                  <TableCell sx={{ maxWidth: 280 }}>
+                    {j.status === 'running' && j.stage
+                      ? <Typography variant="body2" color="text.secondary" noWrap title={j.stage}>{j.stage}</Typography>
+                      : <Typography variant="body2" color="error" noWrap title={j.error ?? ''}>{j.error ?? ''}</Typography>}
+                  </TableCell>
                   <TableCell onClick={(e) => e.stopPropagation()}>
                     {(j.status === 'failed' || j.status === 'done') && j.kind === 'interpret' &&
                       <Button size="small" startIcon={<RefreshIcon />} onClick={() => retry(j.id)}>Tekrar</Button>}
