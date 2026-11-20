@@ -36,6 +36,8 @@ export interface WorkItem {
   agent_suggestion?: AgentSuggestion | null
   agent_comment_by?: string | null
   agent_comment_at?: string | null
+  genai_status?: 'pending' | 'running' | 'done' | 'failed' | 'skipped' | null   // son GenAI yorumlama işinin durumu
+  genai_error?: string | null
 }
 
 export type MgmtLevel = 'ust' | 'birim' | 'po' | 'diger'

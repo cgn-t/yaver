@@ -4,7 +4,7 @@ import ViewKanbanOutlinedIcon from '@mui/icons-material/ViewKanbanOutlined'
 import MenuBookOutlinedIcon from '@mui/icons-material/MenuBookOutlined'
 import RefreshIcon from '@mui/icons-material/Refresh'
 import StorageOutlinedIcon from '@mui/icons-material/StorageOutlined'
-import { Box, Chip, IconButton, Tooltip, Typography } from '@mui/material'
+import { Box, Chip, CircularProgress, IconButton, Tooltip, Typography } from '@mui/material'
 import { alpha } from '@mui/material/styles'
 import { useState } from 'react'
 import { ageLabel, boldParts, hasMgmtBadge, itemKeywords, MGMT_COLOR, MGMT_LABEL, plain } from '../data/groups'
@@ -44,6 +44,28 @@ export function KeywordChips({ item, max = 2 }: { item: WorkItem; max?: number }
 
 export function AgeLabel({ item }: { item: WorkItem }) {
   return <Typography variant="caption" color="text.secondary" sx={{ whiteSpace: 'nowrap', fontWeight: 500 }}>{ageLabel(item)}</Typography>
+}
+
+/** Yorum henüz yokken GenAI yorumlama durumu: kuyrukta / yorumluyor / alınamadı (hata). Durum yoksa null. */
+export function GenaiPending({ item, compact = false }: { item: WorkItem; compact?: boolean }) {
+  const st = item.genai_status
+  if (backend !== 'api' || item.agent_comment || !st || st === 'done' || st === 'skipped') return null
+  const busy = st === 'pending' || st === 'running'
+  const retrying = st === 'pending' && !!item.genai_error
+  const text = st === 'failed' ? 'GenAI yorumu alınamadı' : retrying ? 'GenAI yanıt vermedi, tekrar denenecek' : st === 'running' ? 'GenAI yorumluyor…' : 'GenAI yorumu sırada…'
+  return (
+    <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start', mt: compact ? 1 : 0 }}>
+      {busy ? <CircularProgress size={14} sx={{ mt: '3px', flexShrink: 0 }} /> : <Box sx={{ mt: '2px', flexShrink: 0 }}><YaverMark size={14} /></Box>}
+      <Box sx={{ minWidth: 0 }}>
+        <Typography variant={compact ? 'caption' : 'body2'} color={st === 'failed' ? 'error' : 'text.secondary'} sx={{ display: 'block', fontWeight: 500 }}>{text}</Typography>
+        {item.genai_error && (st === 'failed' || retrying) && (
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', wordBreak: 'break-word' }}>
+            {item.genai_error.slice(0, 220)}{st === 'failed' ? ' · Sağ üstteki yenile düğmesiyle tekrar deneyebilirsiniz.' : ''}
+          </Typography>
+        )}
+      </Box>
+    </Box>
+  )
 }
 
 /** Kartlarda / listelerde ajan yorumunun ilk satırları. */
@@ -128,6 +150,8 @@ export function AgentCommentBox({ item, onOpenItem }: { item: WorkItem; onOpenIt
             {item.agent_comment_by ?? 'ajan'}{item.agent_comment_at ? ` · ${new Date(item.agent_comment_at).toLocaleString('tr-TR', { dateStyle: 'short', timeStyle: 'short' })}` : ''}
           </Typography>
         </>
+      ) : item.genai_status && item.genai_status !== 'done' && item.genai_status !== 'skipped' && backend === 'api' ? (
+        <GenaiPending item={item} />
       ) : (
         <Typography variant="body2" color="text.secondary">
           {backend === 'api' ? 'Henüz yorum yok. Ajan geçmiş işlere, wiki ve maillere bakıp burada değerlendirme yazar.' : 'Ajan yorumu sunucu modunda görünür.'}

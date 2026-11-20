@@ -11,6 +11,7 @@ import { alpha } from '@mui/material/styles'
 import { AnimatePresence, motion } from 'motion/react'
 import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
+import { AgentSnippet, GenaiPending } from '../components/AgentKit'
 import { EmptyState, StatusChip, UserAvatar, WorkItemDrawer, formatDateTime, timeAgo } from '../components/WorkKit'
 import { markEmailRead, useDb } from '../data/store'
 import type { Email, WorkItem } from '../data/types'
@@ -140,6 +141,7 @@ export default function Emails() {
                       <StatusChip status={linked.status} />
                     </ButtonBase>
                   )}
+                  {linked && (linked.agent_comment ? <AgentSnippet item={linked} lines={3} /> : <GenaiPending item={linked} compact />)}
                   <Typography sx={{ mt: 3, fontSize: 15, lineHeight: 1.75, whiteSpace: 'pre-wrap', maxWidth: 680 }}>{mail.body_preview}</Typography>
                   <Typography variant="caption" color="text.disabled" sx={{ display: 'block', mt: 4 }}>Kutu: {mail.mailbox} · Message-ID: {mail.message_id}</Typography>
                 </Box>

@@ -18,8 +18,10 @@ export const ITEM_SQL = `
          w.due_date, w.created_at, w.updated_at, w.closed_at, w.external_ref, w.external_url, w.version,
          w.requester_email, w.mgmt_level, w.keywords, w.agent_comment, w.agent_sources, w.agent_confidence, w.agent_suggestion,
          w.agent_comment_by, w.agent_comment_at, w.keywords_by,
+         gj.status AS genai_status, gj.error AS genai_error,
          coalesce((SELECT array_agg(t.tag ORDER BY t.tag) FROM work_item_tag t WHERE t.work_item_id = w.id), '{}') AS tags
-  FROM work_item w LEFT JOIN app_user u ON u.id = w.assignee_id`
+  FROM work_item w LEFT JOIN app_user u ON u.id = w.assignee_id
+  LEFT JOIN LATERAL (SELECT j.status, j.error FROM genai_job j WHERE j.work_item_id = w.id AND j.kind = 'interpret' ORDER BY j.id DESC LIMIT 1) gj ON TRUE`
 
 export const toItem = (r) => {
   const { external_ref, ...rest } = r
