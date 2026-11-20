@@ -106,6 +106,7 @@ const mock = http.createServer((req, res) => {
           : top ? `${top.code} ${top.title}: ${top.assignee} ${top.resolved_in_days} günde çözdü.` : 'Bağlamda kayıt yok.'
         return res.writeHead(200, { 'Content-Type': 'application/json' }).end(JSON.stringify({ thread_id: body.thread_id || 'thr-ask', msg: answer }))
       }
+      if (/MOCK-502/.test(body.msg) && body.request_context?.source === 'yaver') return res.writeHead(502).end('{"error":"bad gateway"}')
       if (body.request_context?.scenario === 'zaman-asimi') await new Promise((r) => setTimeout(r, 400))   // gerçek LLM gibi yavaş
       if (body.request_context?.test) return res.writeHead(200, { 'Content-Type': 'application/json' }).end(JSON.stringify({ thread_id: 'thr-test', msg: 'Merhaba! Size nasıl yardımcı olabilirim?' }))
       const real = /GERCEK-FORMAT/.test(body.msg)
@@ -372,6 +373,14 @@ try {
   assert.equal(kd.genai_status, 'done')
   assert.ok((await call('GET', '/api/state', admin)).body.items.find((w) => w.id === kw.body.id).genai_status === 'done', '/state genai_status taşımalı')
   step('olayı kaçan yeni iş taranıp yorumlanır, iş satırında genai_status görünür')
+
+  // 10g) Chat Block hatası: iş "running"de takılı kalmaz, durum + hata işe yazılır
+  assert.equal((await call('PUT', '/api/settings/genai', admin, { max_attempts: 1 })).status, 200)
+  const fw = await call('POST', '/api/work-items', admin, { title: 'MOCK-502 hata testi', description: 'MOCK-502', priority: 'normal', category: 'Talep' })
+  const fd = await waitFor(async () => { const r = await call('GET', `/api/work-items/${fw.body.id}`, admin); return r.body.genai_status === 'failed' && r.body })
+  assert.match(fd.genai_error, /502/)
+  assert.equal((await call('PUT', '/api/settings/genai', admin, { max_attempts: 4 })).status, 200)
+  step('Chat Block hatası: iş başarısız olarak kapanır (takılı kalmaz), hata işte görünür')
 
   // 11) Demo işlerini temizle
   const cl = (await call('POST', '/api/demo/clear', admin)).body

@@ -674,8 +674,9 @@ async function runJob(j, cfg) {
   } catch (e) {
     const last = j.attempts >= cfg.max_attempts || e.status === 404 || e.status === 409
     const backoff = Math.min(1800, 30 * 2 ** (j.attempts - 1))
-    await query(`UPDATE genai_job SET status = $2, error = $3, next_at = now() + make_interval(secs => $4), finished_at = CASE WHEN $2 = 'failed' THEN now() END WHERE id = $1`,
-      [j.id, last ? 'failed' : 'pending', e.message.slice(0, 1000), backoff]).catch(() => {})
+    // $2::text: parametre hem atamada hem CASE'te kullanıldığı için tip açıkça verilmeli; yoksa sorgu hata verip iş "running"de takılı kalıyordu
+    await query(`UPDATE genai_job SET status = $2::text, error = $3, next_at = now() + make_interval(secs => $4::int), finished_at = CASE WHEN $2::text = 'failed' THEN now() END WHERE id = $1`,
+      [j.id, last ? 'failed' : 'pending', e.message.slice(0, 1000), backoff]).catch((err) => console.warn(`[genai] iş #${j.id} durumu yazılamadı: ${err.message}`))
     console.warn(`[genai] iş #${j.id} (${j.kind}) ${last ? 'başarısız' : `tekrar denenecek (${backoff} sn)`}: ${e.message}`)
   }
 }
