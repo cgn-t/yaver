@@ -1,3 +1,4 @@
+import { parsePyLiteral } from './pyliteral.js'
 import { listen, query, tx } from './db.js'
 import { activity, addComment, createWorkItem, httpError, saveSettings, settings } from './state.js'
 import { buildContext, keywordRules, setAgentComment, setGenaiProbe, MGMT_LABEL, SLA_BY_LEVEL, SOURCE_LABEL } from './intel.js'
@@ -226,6 +227,9 @@ export function extractJson(text) {
   for (const c of candidates) {
     try { return JSON.parse(c) } catch { /* sonraki */ }
     try { return JSON.parse(c.replace(/,\s*([}\]])/g, '$1')) } catch { /* sonraki */ }
+    // Akış JSON yerine Python dict'i döndürdüyse ({'a': 'b', 'x': True, 'y': None})
+    const py = parsePyLiteral(c)
+    if (py && typeof py === 'object' && !Array.isArray(py)) return py
   }
   return null
 }

@@ -1,3 +1,4 @@
+import { parsePyLiteral } from './pyliteral.js'
 /**
  * Yaver AI cevabını okunur metne çevirir (0.9.2).
  * GenAI Studio uygulamasının kendi sistem talimatı modeli JSON'a zorlayabilir (ör. AI yorum şeması).
@@ -53,6 +54,8 @@ export function parseJsonLoose(text) {
   for (const t of tries) {
     if (!/^[[{"]/.test(t)) continue
     try { const v = JSON.parse(t); if (v && typeof v === 'object') return v; if (typeof v === 'string') return v } catch { /* sıradaki */ }
+    const py = /^[[{]/.test(t) ? parsePyLiteral(t) : null   // Python dict gösterimi
+    if (py && typeof py === 'object') return py
   }
   return null
 }

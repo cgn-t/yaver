@@ -72,6 +72,9 @@ olmalı ve mesajdaki talimatı ezmemelidir.
 
 **Yaver Triyaj Agent** (çıktı: JSON)
 
+> **Not (0.9.18):** Akıştaki bir kod/çıktı düğümü sonucu Python sözlüğü olarak metne çevirirse (`{'summary': 'x', 'ok': True, 'dup': None}`)
+> Yaver bunu da ayrıştırır. Yine de en temizi çıktıyı `json.dumps(sonuc, ensure_ascii=False)` ile JSON metni olarak vermektir.
+
 ```text
 Sen Yaver iş takip uygulamasının triyaj asistanısın.
 Kullanıcı mesajı; kuralları, geçerli değerleri, ŞEMA bölümünü ve <baglam> içindeki kayıtları içerir.
