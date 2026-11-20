@@ -1,0 +1,1 @@
+Mail, Zoom, TFS ve Jira'dan gelen her iş artık tek panoda. Yaver her birine benzer geçmiş işleri, wiki notlarını ve "kim alsın, ne kadar sürer" önerisini yazan bir ajan yorumu ekliyor; pano da talep edene göre sıralı. Tek pod'da çalışıyor.
