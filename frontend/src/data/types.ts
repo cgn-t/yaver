@@ -38,6 +38,8 @@ export interface WorkItem {
   agent_comment_at?: string | null
   genai_status?: 'pending' | 'running' | 'done' | 'failed' | 'skipped' | null   // son GenAI yorumlama işinin durumu
   genai_error?: string | null
+  genai_stage?: string | null       // GenAI çağrısının aşaması (token / istek gönderildi / cevap alındı)
+  genai_started_at?: string | null
 }
 
 export type MgmtLevel = 'ust' | 'birim' | 'po' | 'diger'

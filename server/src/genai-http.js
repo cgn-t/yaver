@@ -81,6 +81,9 @@ export async function httpRequest(url, { method = 'GET', headers = {}, body } = 
       res.on('error', reject)
     })
     req.on('timeout', () => req.destroy(new Error(`zaman aşımı (${Math.round(ms / 1000)} sn): ${url}`)))
+    // Kesin üst sınır: sunucu bağlantıyı açık tutup azar azar veri gönderse (akış) bile istek ms sonunda kesilir
+    const hard = setTimeout(() => req.destroy(new Error(`zaman aşımı (${Math.round(ms / 1000)} sn): ${url}`)), ms)
+    req.on('close', () => clearTimeout(hard))
     req.on('error', (e) => reject(new Error(e.message.startsWith('zaman aşımı') ? e.message : `${url}: ${e.code ?? e.message}${certHint(e.code)}`)))
     if (body !== undefined) req.write(body)
     req.end()

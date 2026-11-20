@@ -58,6 +58,11 @@ export function GenaiPending({ item, compact = false }: { item: WorkItem; compac
       {busy ? <CircularProgress size={14} sx={{ mt: '3px', flexShrink: 0 }} /> : <Box sx={{ mt: '2px', flexShrink: 0 }}><YaverMark size={14} /></Box>}
       <Box sx={{ minWidth: 0 }}>
         <Typography variant={compact ? 'caption' : 'body2'} color={st === 'failed' ? 'error' : 'text.secondary'} sx={{ display: 'block', fontWeight: 500 }}>{text}</Typography>
+        {st === 'running' && item.genai_stage && (
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', wordBreak: 'break-word' }}>
+            {item.genai_stage}{item.genai_started_at ? ` · ${Math.max(0, Math.round((Date.now() - new Date(item.genai_started_at).getTime()) / 1000))} sn` : ''}
+          </Typography>
+        )}
         {item.genai_error && (st === 'failed' || retrying) && (
           <Typography variant="caption" color="text.secondary" sx={{ display: 'block', wordBreak: 'break-word' }}>
             {item.genai_error.slice(0, 220)}{st === 'failed' ? ' · Sağ üstteki yenile düğmesiyle tekrar deneyebilirsiniz.' : ''}

@@ -157,11 +157,14 @@ export async function getToken(cfg, { force = false } = {}) {
 const fetchT = (url, opts, ms) => httpRequest(url, opts, ms)
 
 /** Chat Block çağrısı. 401'de token yenilenip bir kez tekrar denenir. */
-export async function chatBlock(cfg, { msg, thread_id = '', request_context = {} }) {
+export async function chatBlock(cfg, { msg, thread_id = '', request_context = {} }, onStage = null) {
   const url = chatUrl(cfg.backend_url, cfg.chat_path)
   const started = Date.now()
+  const stage = async (s) => { if (onStage) await onStage(s).catch(() => {}) }
+  await stage('SSO token alınıyor')
   let tok = await getToken(cfg)
   for (let attempt = 0; attempt < 2; attempt++) {
+    await stage(`Chat Block isteği gönderildi, cevap bekleniyor (token: ${tok.source === 'cache' ? 'önbellekten' : 'SSO\'dan yeni alındı'}, ${msg.length} karakter${attempt ? ', 401 sonrası yeni token ile' : ''})`)
     const res = await fetchT(url, {
       method: 'POST',
       headers: { 'app-id': String(cfg.app_id), 'app-identifier': String(cfg.app_identifier), 'content-type': 'application/json',
@@ -169,7 +172,8 @@ export async function chatBlock(cfg, { msg, thread_id = '', request_context = {}
       body: JSON.stringify({ thread_id, msg, request_context }),
     }, cfg.timeout_sec * 1000)
     const text = await res.text()
-    if (res.status === 401 && attempt === 0) { tok = await getToken(cfg, { force: true }); continue }
+    await stage(`Chat Block cevabı alındı: HTTP ${res.status}, ${((Date.now() - started) / 1000).toFixed(1)} sn`)
+    if (res.status === 401 && attempt === 0) { await stage('HTTP 401: token yenileniyor'); tok = await getToken(cfg, { force: true }); continue }
     return { status: res.status, ok: res.ok, text, duration_ms: Date.now() - started, url }
   }
 }
@@ -534,7 +538,11 @@ export async function interpretWithGenAI(itemId, { trigger = 'manual', jobId = n
   const request_context = { source: 'yaver', work_item_id: ctx.item.id, work_item_code: ctx.item.code, source_type: ctx.item.source_type, schema_version: '1.0' }
   let call
   try {
-    call = await chatBlock(cfg, { msg, thread_id: threadId, request_context })
+    const onStage = async (s) => {
+      console.log(`[genai] iş #${jobId} ${ctx.item.code}: ${s}`)
+      await query(`UPDATE genai_job SET stage = $2, stage_at = now() WHERE id = $1`, [jobId, s.slice(0, 200)])
+    }
+    call = await chatBlock(cfg, { msg, thread_id: threadId, request_context }, onStage)
     if (!call.ok) throw Object.assign(new Error(`Chat Block ${call.status}: ${call.text.slice(0, 300)}`), { http: call.status })
     const ans = extractAnswer(call.text)
     const ai = ans.direct ?? extractJson(ans.text)
@@ -638,6 +646,7 @@ export async function enqueue(kind, refId, trigger = 'event', delaySec = 0) {
 }
 
 let running = 0
+const inFlight = new Set()   // bu süreçte şu an çalışan iş id'leri
 let timer = null
 let wakeFlag = false
 const wake = () => { wakeFlag = true; if (timer) { clearTimeout(timer); timer = setTimeout(tick, 50) } }
@@ -648,13 +657,22 @@ async function tick() {
     const cfg = await loadConfig()
     if (cfg.enabled) {
       await sweepMissed(cfg).catch((e) => console.warn('[genai] tarama:', e.message))
+      // Bekçi: süresinden çok "running"de kalmış (bu süreçte çalışmayan) işleri tekrar kuyruğa al
+      const stuck = (await query(
+        `SELECT id, stage FROM genai_job WHERE status = 'running' AND coalesce(started_at, created_at) < now() - make_interval(secs => $1::int)`,
+        [Math.round(cfg.timeout_sec * 2 + 60)])).rows.filter((r) => !inFlight.has(r.id))
+      for (const r of stuck) {
+        await query(`UPDATE genai_job SET status = 'pending', next_at = now() + interval '30 seconds', error = $2 WHERE id = $1 AND status = 'running'`,
+          [r.id, `Takıldı: "${r.stage ?? '?'}" aşamasında cevap gelmedi, tekrar denenecek`])
+        console.warn(`[genai] iş #${r.id} takılı kalmıştı ("${r.stage ?? '?'}"), tekrar kuyruğa alındı`)
+      }
       const free = Math.max(0, cfg.concurrency - running)
       if (free > 0) {
         const jobs = (await query(
-          `UPDATE genai_job SET status = 'running', attempts = attempts + 1
+          `UPDATE genai_job SET status = 'running', attempts = attempts + 1, started_at = now(), stage = 'başladı', stage_at = now()
            WHERE id IN (SELECT id FROM genai_job WHERE status = 'pending' AND next_at <= now() ORDER BY next_at, id LIMIT $1)
            RETURNING *`, [free])).rows
-        for (const j of jobs) { running++; runJob(j, cfg).finally(() => { running--; wake() }) }
+        for (const j of jobs) { running++; inFlight.add(j.id); runJob(j, cfg).finally(() => { running--; inFlight.delete(j.id); wake() }) }
       }
     }
   } catch (e) { console.warn('[genai] kuyruk:', e.message) }
@@ -734,7 +752,7 @@ export async function listJobs(q = {}) {
   vals.push(Math.min(200, Number(q.limit) || 50))
   const { rows } = await query(
     `SELECT j.id, j.kind, j.work_item_id, w.code AS work_item_code, w.title AS work_item_title, j.email_id, j.meeting_id, j.status, j.attempts,
-            j.trigger, j.thread_id, j.request_chars, j.http_status, j.duration_ms, j.error, j.created_at, j.finished_at, j.next_at,
+            j.trigger, j.thread_id, j.stage, j.stage_at, j.started_at, j.request_chars, j.http_status, j.duration_ms, j.error, j.created_at, j.finished_at, j.next_at,
             ${q.full ? 'j.response_text, j.result' : `j.result -> 'applied' AS applied, j.result -> 'warnings' AS warnings`}
      FROM genai_job j LEFT JOIN work_item w ON w.id = j.work_item_id
      ${where.length ? `WHERE ${where.join(' AND ')}` : ''} ORDER BY j.id DESC LIMIT $${vals.length}`, vals)
