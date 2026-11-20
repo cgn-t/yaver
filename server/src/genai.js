@@ -646,6 +646,7 @@ export async function enqueue(kind, refId, trigger = 'event', delaySec = 0) {
 }
 
 let running = 0
+const qs = { last_tick_at: null, last_tick_error: null, last_taken_at: null, last_event_at: null, last_event: null }
 const inFlight = new Set()   // bu süreçte şu an çalışan iş id'leri
 let timer = null
 let wakeFlag = false
@@ -653,6 +654,7 @@ const wake = () => { wakeFlag = true; if (timer) { clearTimeout(timer); timer = 
 
 async function tick() {
   timer = null
+  qs.last_tick_at = new Date().toISOString()
   try {
     const cfg = await loadConfig()
     if (cfg.enabled) {
@@ -666,16 +668,18 @@ async function tick() {
           [r.id, `Takıldı: "${r.stage ?? '?'}" aşamasında cevap gelmedi, tekrar denenecek`])
         console.warn(`[genai] iş #${r.id} takılı kalmıştı ("${r.stage ?? '?'}"), tekrar kuyruğa alındı`)
       }
-      const free = Math.max(0, cfg.concurrency - running)
+      const free = Math.max(0, Math.max(1, cfg.concurrency) - running)   // eşzamanlılık 0 girilse de kuyruk durmasın
       if (free > 0) {
         const jobs = (await query(
           `UPDATE genai_job SET status = 'running', attempts = attempts + 1, started_at = now(), stage = 'başladı', stage_at = now()
            WHERE id IN (SELECT id FROM genai_job WHERE status = 'pending' AND next_at <= now() ORDER BY next_at, id LIMIT $1)
            RETURNING *`, [free])).rows
+        if (jobs.length) qs.last_taken_at = new Date().toISOString()
         for (const j of jobs) { running++; inFlight.add(j.id); runJob(j, cfg).finally(() => { running--; inFlight.delete(j.id); wake() }) }
       }
     }
-  } catch (e) { console.warn('[genai] kuyruk:', e.message) }
+    qs.last_tick_error = null
+  } catch (e) { qs.last_tick_error = e.message; console.warn('[genai] kuyruk:', e.message) }
   wakeFlag = false
   timer = setTimeout(tick, 3000)
 }
@@ -732,6 +736,7 @@ export async function startGenai() {
     try { evt = JSON.parse(payload) } catch { return }
     try {
       if (!['work_item.created', 'email.received', 'meeting.created'].includes(evt.type)) return
+      qs.last_event_at = new Date().toISOString(); qs.last_event = `${evt.type} #${evt.entity_id}`
       const c = await loadConfig()
       if (!c.enabled) return
       if (evt.type === 'work_item.created' && c.auto_interpret) await enqueue('interpret', evt.entity_id, 'event')
@@ -743,6 +748,19 @@ export async function startGenai() {
 }
 
 // ---------- Ekran / API yardımcıları ----------
+/** Kuyruğun canlı durumu (Ayarlar → GenAI Çağrıları üstünde gösterilir). Sır / adres içermez. */
+export async function queueStatus() {
+  const cfg = await loadConfig()
+  const c = Object.fromEntries((await query(`SELECT status, count(*)::int AS n FROM genai_job GROUP BY status`)).rows.map((r) => [r.status, r.n]))
+  const oldest = (await query(`SELECT min(next_at) AS t FROM genai_job WHERE status = 'pending'`)).rows[0]?.t ?? null
+  return {
+    enabled: cfg.enabled, env_enabled: cfg.env_enabled, active: cfg.active, missing: cfg.missing, auto_interpret: cfg.auto_interpret,
+    auto_from_mail: cfg.auto_from_mail, concurrency: cfg.concurrency, timeout_sec: cfg.timeout_sec, max_attempts: cfg.max_attempts,
+    in_process: running, in_flight: [...inFlight], pending: c.pending ?? 0, running_db: c.running ?? 0, failed: c.failed ?? 0, done: c.done ?? 0,
+    oldest_pending_at: oldest, ...qs, timer_alive: !!timer || running > 0,
+  }
+}
+
 export async function listJobs(q = {}) {
   const vals = []
   const where = []

@@ -374,6 +374,9 @@ try {
   assert.match(kd.genai_stage ?? '', /Chat Block cevabı alındı: HTTP 200/, 'aşama işe yazılmalı')
   const kj = (await call('GET', `/api/genai/jobs?work_item_id=${kw.body.id}`, admin)).body.jobs[0]
   assert.ok(kj.started_at && /cevabı alındı/.test(kj.stage), 'GenAI çağrılarında aşama görünmeli')
+  const qst = (await call('GET', '/api/genai/jobs?limit=1', admin)).body.queue
+  assert.ok(qst.enabled && qst.auto_interpret && qst.last_tick_at && qst.last_taken_at && qst.last_event, 'kuyruk durumu dönmeli')
+  assert.ok(!JSON.stringify(qst).includes('127.0.0.1') && !JSON.stringify(qst).includes(CLIENT_SECRET), 'kuyruk durumunda adres/sır olmamalı')
   assert.ok((await call('GET', '/api/state', admin)).body.items.find((w) => w.id === kw.body.id).genai_status === 'done', '/state genai_status taşımalı')
   step('olayı kaçan yeni iş taranıp yorumlanır, iş satırında genai_status görünür')
 
