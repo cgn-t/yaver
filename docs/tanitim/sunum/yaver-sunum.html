@@ -1,0 +1,477 @@
+<!doctype html><html lang="tr"><head><meta charset="utf-8"><title>Yaver Sunumu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300..700&family=Inter:wght@400;600;700&display=swap">
+<style>*{margin:0;box-sizing:border-box} html{background:#ccc} body{margin:0;padding:24px 0} section{width:1920px;height:1080px;position:relative;overflow:hidden;margin:0 auto 24px} x-shape{display:block;clip-path:polygon(0 30%,60% 30%,60% 0,100% 50%,60% 100%,60% 70%,0 70%)} aside.notes{display:none} td,th{padding:.35em .6em;text-align:left;border-bottom:1px solid #F2C4C5} :root {
+  --ink: #DC0005;
+  --soft: #1A1A1A;
+  --paper: #FBF8F7;
+  --paper2: #F5ECEA;
+  --card: #FFFFFF;
+  --line: #F2C4C5;
+  --accent: #DC0005;
+  --accent-deep: #8C0012;
+  --accent-soft: #FCE6E5;
+  --night: #1A0D10;
+  --night-text: #E3CFD1;
+  --grad: linear-gradient(135deg, #DC0005 0%, #B3000E 55%, #6E0014 100%);
+}
+body { font-family: 'Inter', Arial, sans-serif; color: #1A1A1A; }
+section {
+  padding: 128px 128px 160px;
+  background: #FFFFFF;
+  color: var(--ink);
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+  counter-increment: page;
+}
+section.alt { background: #FFFFFF; }
+section.dark { background: #FFFFFF; color: #DC0005; }
+section.accent { background: #FFFFFF; color: #DC0005; }
+
+.eyebrow { font-size: 26px; font-weight: 600; color: var(--accent); letter-spacing: 3px; text-transform: uppercase; }
+
+
+
+h1.display { font-family: 'Space Grotesk', Arial, sans-serif; font-size: 160px; font-weight: 700; line-height: 1; letter-spacing: -4px; }
+h2.title { font-family: 'Space Grotesk', Arial, sans-serif; font-size: 64px; font-weight: 700; line-height: 1.1; letter-spacing: -1px; }
+h2.statement { font-family: 'Space Grotesk', Arial, sans-serif; font-size: 96px; font-weight: 700; line-height: 1.08; letter-spacing: -2px; }
+.lead { font-size: 32px; line-height: 1.45; color: var(--soft); }
+
+
+.body { font-size: 28px; line-height: 1.45; color: var(--soft); }
+
+.cards { display: grid; gap: 28px; }
+.cols2 { grid-template-columns: 1fr 1fr; }
+.cols3 { grid-template-columns: 1fr 1fr 1fr; }
+.cols4 { grid-template-columns: 1fr 1fr 1fr 1fr; }
+.card { background: var(--card); border: 2px solid var(--line); border-radius: 20px; padding: 36px; display: flex; flex-direction: column; gap: 14px; }
+.card h3 { font-family: 'Space Grotesk', Arial, sans-serif; font-size: 36px; font-weight: 700; line-height: 1.15; color: var(--ink); }
+.card p { font-size: 26px; line-height: 1.4; color: var(--soft); }
+.card .tag { font-size: 24px; font-weight: 700; color: var(--accent); letter-spacing: 2px; text-transform: uppercase; }
+
+
+
+
+.card.hot { background: var(--grad); border-color: #B3000E; }
+.card.hot h3, .card.hot p, .card.hot .tag { color: #FFF8F7; }
+
+.split { display: flex; gap: 64px; align-items: flex-start; flex: 1; }
+.split .text { width: 640px; display: flex; flex-direction: column; gap: 24px; }
+.shot { width: 960px; height: 666px; object-fit: contain; border-radius: 18px; border: 2px solid var(--line); background: #FFFFFF; box-shadow: 0 24px 60px rgba(110,0,20,0.16); }
+
+.points { font-size: 28px; line-height: 1.4; color: var(--soft); display: flex; flex-direction: column; gap: 14px; padding-left: 36px; }
+.points li { color: var(--soft); }
+
+.ver { font-size: 24px; font-weight: 700; color: #FFF8F7; background: var(--grad); border-radius: 999px; padding: 6px 20px; align-self: flex-start; }
+
+.foot { position: absolute; left: 128px; bottom: 64px; width: 1664px; font-size: 24px; color: #595959; display: flex; justify-content: space-between; }
+
+.foot .num::after { content: counter(page); }
+
+.big { font-family: 'Space Grotesk', Arial, sans-serif; font-size: 112px; font-weight: 700; line-height: 1; color: var(--accent); }
+
+.flow { display: flex; align-items: center; gap: 24px; }
+.node { background: var(--card); border: 2px solid var(--line); border-radius: 20px; padding: 28px 32px; display: flex; flex-direction: column; gap: 10px; }
+.node.hero { background: var(--grad); border-color: #B3000E; }
+.node.hero h3, .node.hero p { color: #FFF8F7; }
+.node h3 { font-family: 'Space Grotesk', Arial, sans-serif; font-size: 34px; font-weight: 700; color: var(--ink); }
+.node p { font-size: 24px; line-height: 1.4; color: var(--soft); }
+.arrow { width: 72px; height: 36px; background: #DC0005; }
+
+.bar { height: 10px; width: 240px; border-radius: 6px; background: linear-gradient(90deg, #DC0005 0%, #FF6B3D 100%); }
+
+
+.logo { width: 372px; height: 120px; object-fit: contain; }
+.code { font-family: 'Courier New', monospace; font-size: 26px; font-weight: 700; color: var(--accent); }
+
+.quote { font-family: 'Space Grotesk', Arial, sans-serif; font-size: 56px; font-weight: 500; line-height: 1.2; color: var(--ink); }
+
+@keyframes rise { from { opacity: 0; transform: translateY(24px); } to { opacity: 1; transform: translateY(0); } }
+.in { animation: rise 600ms ease-out both; animation-delay: calc(var(--i, 0) * 120ms); }
+.card .big { font-family: 'Space Grotesk', Arial, sans-serif; font-weight: 700; line-height: 1; color: var(--accent); }
+</style></head><body>
+<section id="cover" class="dark" data-transition="fade" style="justify-content:center">
+<p class="eyebrow in" style="--i:0">Takım iş takibi · Sürüm 0.9.12</p>
+<img class="in" style="--i:1;width:868px;height:280px;object-fit:contain;align-self:flex-start" src="img/yaver-logo-kirmizi.png" alt="Yaver logosu: Düğüm amblemli Y harfi ve aver yazısı">
+<div class="bar in" style="--i:2;width:320px"></div>
+<p class="lead in" style="--i:2;width:1200px;font-size:40px">Mail, Zoom, TFS Kanban ve Jira’dan gelen her işi tek yerde toplayan, önceliklendiren ve geçmişe bakarak yorumlayan takım yardımcısı.</p>
+<div class="foot"><span>Yaver · IT operasyon ekibi için</span><span>19 Kasım 2026</span></div>
+<aside class="notes">Açılış. Yaver bir iş takip uygulaması ama asıl fikir şu: komutanın yanındaki yaver gibi, ekibin yanında duran ve hiçbir işi unutturmayan bir yardımcı. Bugün paralelde yürüyen işlerin hepsini sürüm sürüm göstereceğim.</aside>
+</section>
+<section id="kelime">
+<p class="eyebrow">Yaver nedir?</p>
+<div class="split" style="gap:96px">
+<div class="text" style="width:640px">
+<h2 class="statement in" style="--i:0;font-size:120px">yâver</h2>
+<p class="lead in" style="--i:1">Farsça kökenli bir kelime. İlk anlamı <b>yardımcı, destekçi</b>.</p>
+<p class="lead in" style="--i:2">Dilimizde hâlâ yaşıyor: <i>“Allah yâr ve yâverin olsun.”</i></p>
+</div>
+<div class="cards" style="flex:1;grid-template-columns:1fr">
+<div class="card in" style="--i:2"><p class="tag">Askerî anlam</p><h3>Komutanın yanındaki subay</h3><p>Bir general, komutan ya da devlet başkanının yanında, onun işlerini görmek için görevlendirilen subay.</p></div>
+<div class="card in" style="--i:3"><p class="tag">Tarihte</p><h3>Saraydan bugüne</h3><p>Osmanlı sarayındaki padişah yaverlerinden bugünkü komutan ve cumhurbaşkanı yaverlerine uzanan bir görev. Omuzdaki kordonla tanınır.</p></div>
+</div>
+</div>
+<div class="foot"><span>Yaver · Yaver nedir?</span><span class="num"></span></div>
+<aside class="notes">Kelime Farsça yâver, yardımcı demek. Askerî anlamı TDK’da da geçer: bir komutanın veya devlet başkanının yanında özel işlerini görmek için bulunan subay. Osmanlı’da padişah yaverleri vardı, bugün komutan ve cumhurbaşkanı yaverleri var; omuzdaki kordonla tanınırlar.</aside>
+</section>
+<section id="bag" class="alt">
+<p class="eyebrow">İsmin ürünle bağı</p>
+<h2 class="title">Yaver’in eski işi, bizim uygulamanın işi</h2>
+<table style="font-size:28px;color:var(--soft);width:1664px">
+<tr><th style="width:38%">Bir komutanın yaveri ne yapar?</th><th>Yaver uygulaması ne yapar?</th></tr>
+<tr><td>Gelen evrakı ve haberi karşılar</td><td>Mail, Zoom, TFS Kanban ve Jira’dan gelen her işi toplar</td></tr>
+<tr><td>Randevuları ve ajandayı tutar</td><td>Toplantıları, son tarihleri ve “bugün” listesini gösterir</td></tr>
+<tr><td>Kimin ne istediğini bilir, önemliyi öne alır</td><td>Talep edeni Üst Yönetim, Birim Yöneticisi, PO diye ayırır, önceliği önerir</td></tr>
+<tr><td>Verilen emrin takibini yapar, unutturmaz</td><td>Atanan, durum ve termin takibi; geciken iş görünür olur</td></tr>
+<tr><td>Geçmişi hatırlar, komutana not geçer</td><td>Benzer eski işlere, wiki ve maillere bakıp “ajan yorumu” yazar</td></tr>
+<tr><td>Son kararı komutan verir</td><td>Kritik değişiklikler öneri olarak gelir, kararı insan verir</td></tr>
+</table>
+<div class="foot"><span>Yaver · Yaver nedir?</span><span class="num"></span></div>
+<aside class="notes">İsim rastgele değil. Yaverin klasik görevleri ile uygulamanın yaptıkları birebir örtüşüyor. Özellikle son satır önemli: yaver karar vermez, komutana hazırlar. Yaver uygulamasında da durum, öncelik, atama gibi kritik değişiklikler öneri olarak gelir ve onayı insan verir.</aside>
+</section>
+<section id="sorun" class="dark" style="justify-content:center">
+<p class="eyebrow">Sorun neydi?</p>
+<h2 class="statement in" style="--i:0;width:1500px">İş her yerden geliyor, kimse tek bir yerden göremiyor.</h2>
+<div class="cards cols4 in" style="--i:1;margin-top:24px">
+<div class="card"><p class="tag">Mail</p><p>Talepler, alarmlar, “acil” notları ve CC zincirleri</p></div>
+<div class="card"><p class="tag">Zoom</p><p>Toplantıda söylenen ama hiçbir yere yazılmayan işler</p></div>
+<div class="card"><p class="tag">TFS Kanban</p><p>Failed pipeline’lar, release ve deploy kartları</p></div>
+<div class="card"><p class="tag">Jira</p><p>Incident, problem ve change kayıtları</p></div>
+</div>
+<div class="foot"><span>Yaver · Sorun</span><span class="num"></span></div>
+<aside class="notes">IT operasyon ekibine iş dört ayrı kanaldan geliyor. Her kanalın kendi listesi var ama ekibin toplam yükünü, kimin neyle uğraştığını ve neyin geciktiğini tek bakışta gösteren bir yer yok.</aside>
+</section>
+<section id="sorun-sonuc">
+<p class="eyebrow">Sorun neydi?</p>
+<h2 class="title">Dağınıklığın ekibe maliyeti</h2>
+<div class="cards cols2" style="flex:1">
+<div class="card in" style="--i:0"><h3>Kim istedi, ne kadar acil?</h3><p>Üst Yönetim, Birim Yöneticisi ve PO talepleri aynı kuyruğa düşüyor. Üst Yönetim birkaç saat içinde dönüş beklerken, bu fark görünmüyor.</p></div>
+<div class="card in" style="--i:1"><h3>Takip kayboluyor</h3><p>Maildeki iş Jira’ya, toplantıdaki karar TFS’e taşınmıyor. Sahibi ve termini belirsiz işler sessizce gecikiyor.</p></div>
+<div class="card in" style="--i:2"><h3>Aynı sorun tekrar tekrar çözülüyor</h3><p>MQ kuyruğu doluyor, pipeline failed oluyor… Geçen sefer kim, nasıl, kaç günde çözdü bilgisi kişilerin aklında kalıyor.</p></div>
+<div class="card in" style="--i:3"><h3>Önceliklendirme el ile</h3><p>Her sabah kanalları tek tek gezip neyin önce yapılacağına karar vermek zaman alıyor ve kişiye bağlı.</p></div>
+</div>
+<div class="foot"><span>Yaver · Sorun</span><span class="num"></span></div>
+<aside class="notes">Dağınıklığın dört somut sonucu var. Birincisi talep edenin seviyesi görünmüyor; Üst Yönetim için ilk dönüş 4 saat, Birim Yöneticisi için 1 iş günü, PO için sprint önceliği gibi farklı beklentiler var. İkincisi takip kayboluyor. Üçüncüsü geçmiş bilgi kişilerde kalıyor. Dördüncüsü önceliklendirme el ile yapılıyor.</aside>
+</section>
+<section id="cozum" class="alt">
+<p class="eyebrow">Neyi çözüyoruz?</p>
+<h2 class="title">Topla, anla, öner, takip et</h2>
+<div class="flow" style="flex:1;align-items:stretch">
+<div class="node in" style="--i:0;width:330px"><h3>Kaynaklar</h3><p>Mail · Zoom<br>TFS Kanban · Jira<br>Manuel iş</p></div>
+<div style="display:flex;align-items:center"><x-shape kind="arrow-right" class="arrow"></x-shape></div>
+<div class="node hero in" style="--i:1;flex:1"><h3>Yaver</h3><p>Her gelen kaydı işe çevirir. Konuyu (MQ, OpenShift, Decom…) ve talep edenin seviyesini belirler. Geçmiş işler, wiki ve maillere bakıp ajan yorumu yazar.</p></div>
+<div style="display:flex;align-items:center"><x-shape kind="arrow-right" class="arrow"></x-shape></div>
+<div class="node in" style="--i:2;width:330px"><h3>Ekip</h3><p>Tek pano<br>Öncelik, atama önerisi<br>Onay ve takip</p></div>
+</div>
+<p class="lead">Kategori ve etiket gibi zararsız alanlar doğrudan yazılır. Durum, öncelik, atama ve termin değişikliği her zaman bir insanın onayına düşer.</p>
+<div class="foot"><span>Yaver · Çözüm</span><span class="num"></span></div>
+<aside class="notes">Çözümün özeti: dört kaynaktan gelen her şey Yaver’de işe dönüşüyor. Yaver konuyu ve talep edeni sınıflandırıyor, geçmişe bakarak yorum yazıyor ve öneri üretiyor. Kritik değişiklikleri kendisi yapmıyor, onaya sunuyor.</aside>
+</section>
+<section id="sdlc" class="dark">
+<p class="eyebrow">SDLC’de Yaver</p>
+<h2 class="title">Yaşam döngüsünün her aşamasında bir dokunuş</h2>
+<div class="cards cols3" style="flex:1;gap:20px">
+<div class="card in" style="--i:0;padding:28px 32px;gap:10px"><p class="tag">1 · Talep ve planlama</p><h3>İş kaybolmadan kayda girer</h3><p>Mail, Zoom ve PO talepleri işe dönüşür; talep edenin seviyesine göre öncelik önerilir.</p></div>
+<div class="card in" style="--i:1;padding:28px 32px;gap:10px"><p class="tag">2 · Analiz</p><h3>Geçmiş önüne gelir</h3><p>Benzer eski işler, çözen kişi, süre ve runbook ajan yorumunda hazır.</p></div>
+<div class="card in" style="--i:2;padding:28px 32px;gap:10px"><p class="tag">3 · Geliştirme ve build</p><h3>Failed pipeline sahipsiz kalmaz</h3><p>TFS Kanban’daki failed kartlar konusu ve önerilen sahibiyle gelir.</p></div>
+<div class="card in" style="--i:3;padding:28px 32px;gap:10px"><p class="tag">4 · Test ve release</p><h3>Ortam ve release talepleri</h3><p>Test ortamı deploy’u, release hazırlığı ve CAB onayları termin ile takip edilir.</p></div>
+<div class="card in" style="--i:4;padding:28px 32px;gap:10px"><p class="tag">5 · Deploy ve change</p><h3>Upgrade’ler planlı ilerler</h3><p>OpenShift ve server upgrade, change takvimi ve dondurma dönemleri tek panoda.</p></div>
+<div class="card hot in" style="--i:5;padding:28px 32px;gap:10px"><p class="tag">6 · Operasyon ve bakım</p><h3>Olaydan öğrenen ekip</h3><p>MQ alarmı, batch failed, incident ve problem kayıtları, decom; çözüm hafızaya yazılır.</p></div>
+</div>
+<div class="foot"><span>Yaver · SDLC</span><span class="num"></span></div>
+<aside class="notes">Yaver tek bir aşamaya değil, yaşam döngüsünün tamamına dokunuyor. Talep aşamasında işi kayda alıyor ve önceliklendiriyor. Analizde geçmişi getiriyor. Build tarafında TFS’ten gelen failed pipeline’ları sahiplendiriyor. Test ve release’te ortam taleplerini ve CAB onaylarını takip ediyor. Deploy ve change’te upgrade’leri ve dondurma dönemlerini gösteriyor. Operasyonda MQ alarmları, batch hataları, incident ve problem kayıtları geliyor; her çözüm bir sonraki benzer iş için hafızaya dönüşüyor.</aside>
+</section>
+<section id="sdlc-sorun" class="alt">
+<p class="eyebrow">SDLC’de Yaver</p>
+<h2 class="title">Hangi sorunu nasıl çözüyoruz?</h2>
+<table style="font-size:26px;color:var(--soft);width:1664px">
+<tr><th style="width:20%">Aşama</th><th style="width:40%">Bugünkü sorun</th><th>Yaver ile</th></tr>
+<tr><td>Talep</td><td>Talep mailde ya da toplantıda kalıyor</td><td>Her talep otomatik işe dönüşür</td></tr>
+<tr><td>Planlama</td><td>Kimin istediği, ne kadar acil belirsiz</td><td>Seviye ve ilk dönüş hedefi görünür</td></tr>
+<tr><td>Analiz</td><td>Aynı sorun sıfırdan araştırılıyor</td><td>Benzer iş, çözen kişi ve runbook hazır</td></tr>
+<tr><td>Build</td><td>Failed pipeline kimin, belli değil</td><td>Konu ve atanacak kişi önerilir</td></tr>
+<tr><td>Release</td><td>Ortam ve CAB talepleri gözden kaçıyor</td><td>Termin ve onay adımıyla takip</td></tr>
+<tr><td>Operasyon</td><td>Alarm, incident ve problem dağınık</td><td>Tek pano, geçmişe dayalı yorum</td></tr>
+<tr><td>İyileştirme</td><td>Tekrarlayan sorunlar fark edilmiyor</td><td>Konuya göre geçmiş ve çözüm süresi</td></tr>
+</table>
+<p class="lead">Yaver TFS, Jira ya da CI aracının yerini almaz; onların üstünde duran takip, önceliklendirme ve hafıza katmanıdır.</p>
+<div class="foot"><span>Yaver · SDLC</span><span class="num"></span></div>
+<aside class="notes">Her aşama için bugünkü somut sorun ve Yaver’in getirdiği çözüm. Altını çizmek istediğim nokta: Yaver mevcut araçları değiştirmiyor. TFS, Jira, mail ve Zoom olduğu gibi kalıyor; Yaver onlardan gelen işleri topluyor, önceliklendiriyor ve geçmişi hatırlatıyor.</aside>
+</section>
+<section id="surumler" class="dark">
+<p class="eyebrow">Paralelde yapılan işler</p>
+<h2 class="title">Bir günde v0.2’den v0.9.12’ye</h2>
+<div class="cards cols4" style="flex:1">
+<div class="card in" style="--i:0"><p class="tag">v0.2 – v0.4</p><h3>Arayüz ve tek pod</h3><p>Önyüz, API ve veri tek konteynerde.</p></div>
+<div class="card in" style="--i:1"><p class="tag">v0.5</p><h3>Ajan API’si</h3><p>LangGraph için REST ve SSE.</p></div>
+<div class="card in" style="--i:2"><p class="tag">v0.6</p><h3>Geçmişe dayalı yorum</h3><p>DB, Wiki ve Mail geçmişi.</p></div>
+<div class="card in" style="--i:3"><p class="tag">v0.7</p><h3>TFS, Jira, IT konuları</h3><p>Talep eden kırılımı.</p></div>
+<div class="card in" style="--i:4"><p class="tag">v0.8</p><h3>GenAI Studio</h3><p>Chat Block ve AI yanıt formatı.</p></div>
+<div class="card in" style="--i:5"><p class="tag">v0.8.2 – v0.9.0</p><h3>Gerçek bağlantı, demo</h3><p>200 dönen bağlantı, demo iş akışı.</p></div>
+<div class="card in" style="--i:6"><p class="tag">v0.9.1 – v0.9.9</p><h3>Yaver GenAI ve logo</h3><p>Sohbet paneli, taslak akışı.</p></div>
+<div class="card hot in" style="--i:7"><p class="tag">v0.9.10 – v0.9.12</p><h3>/db, akış, tema</h3><p>Salt okunur DB, istek işaretleri, kırmızı tema.</p></div>
+</div>
+<div class="foot"><span>Yaver · Yapılan işler</span><span class="num"></span></div>
+<aside class="notes">Bugün işler paralel ilerledi: bir kol arayüz ve pod, bir kol ajan API’si, bir kol AI entegrasyonu ve belgeler. Her değişiklik ayrı versiyon etiketiyle yayınlandı; gün 0.9.12 ile kapandı. Şimdi tek tek bakalım.</aside>
+</section>
+<section id="v03">
+<p class="eyebrow">Yapılan işler · v0.2 – v0.4</p>
+<div class="split">
+<div class="text">
+<h2 class="title">Arayüz, API ve veri tek pod’da</h2>
+<ul class="points">
+<li>Modern, açık ve koyu temalı önyüz; ⌘K hızlı arama, pano, gelen kutusu, ajanda</li>
+<li>Önyüz, API ve gömülü PostgreSQL (PGlite) tek konteynerde, ayrı DB yok</li>
+<li>Örnek veriyle hazır açılır, kurulum tek manifest</li>
+<li><b>admin / admin</b> ile giriş; ekipte Mehmet Kaya olarak görünür</li>
+</ul>
+</div>
+<img class="shot in" style="--i:1" src="img/v0.9.12-genel-bakis.png" alt="Genel Bakış ekranı: açık işler, bu hafta kapanan, termini geçen ve okunmamış mail kartları, gelen iş akışı grafiği ve bugünün ajandası">
+</div>
+<div class="foot"><span>Yaver · Yapılan işler</span><span class="num"></span></div>
+<aside class="notes">İlk kol altyapı. Kullanıcı isteği “tablolar ve arayüz tek pod’da, veriler hazır gelsin” idi. 0.3’te Postgres ayrı konteynerdeydi, 0.4’te bunu sadeleştirip gömülü PGlite’a geçtik; artık tek konteyner, tek PVC. Giriş admin/admin, ekranda Mehmet Kaya olarak görünüyor ki demo gerçekçi olsun.</aside>
+</section>
+<section id="v03-servis" class="alt">
+<p class="eyebrow">Yapılan işler · v0.3 – v0.4</p>
+<div class="split">
+<div class="text">
+<h2 class="title">Ayarlar: API servisi ve LDAP</h2>
+<ul class="points">
+<li>Dış sistemlere belirli aralıkla çağrı atan servis; varsayılan <b>1 dakika</b></li>
+<li>Dönen kayıtlar e-posta, Zoom ya da iş olarak içeri alınır</li>
+<li>Her çağrı Çağrı Geçmişi’ne yazılır, önceki bitmeden yenisi başlamaz</li>
+<li>LDAP / Active Directory ile kurumsal giriş</li>
+</ul>
+</div>
+<img class="shot in" style="--i:1" src="img/v0.9.12-api.png" alt="Ayarlar ekranında API Çağrı Servisi: mail kutusu ve Zoom toplantı senkronu, her 1 dakikada bir">
+</div>
+<div class="foot"><span>Yaver · Yapılan işler</span><span class="num"></span></div>
+<aside class="notes">Ayarlar ekranında iki ana parça var. API Çağrı Servisi: mail kutusu, Zoom gibi kaynaklara dakikada bir çağrı atıp dönen kayıtları içeri alıyor; çağrılar sunucu tarafında çalışıyor ve geçmişi tutuluyor. İkincisi LDAP / Active Directory ayarları, kurumsal hesapla giriş için.</aside>
+</section>
+<section id="v05">
+<p class="eyebrow">Yapılan işler · v0.5</p>
+<h2 class="title">LangGraph ajanı için Ajan API’si</h2>
+<div class="flow" style="align-items:stretch">
+<div class="node in" style="--i:0;flex:1"><h3>1 · Olay</h3><p>Yeni iş gelince Yaver olay yayınlar: webhook ya da çekme ile.</p></div>
+<div style="display:flex;align-items:center"><x-shape kind="arrow-right" class="arrow"></x-shape></div>
+<div class="node in" style="--i:1;flex:1"><h3>2 · Bağlam</h3><p>Ajan işi, benzer işleri ve ekibi REST ile okur.</p></div>
+<div style="display:flex;align-items:center"><x-shape kind="arrow-right" class="arrow"></x-shape></div>
+<div class="node hero in" style="--i:2;flex:1"><h3>3 · Aksiyon</h3><p>Yorum yazar, değişiklik önerir.</p></div>
+<div style="display:flex;align-items:center"><x-shape kind="arrow-right" class="arrow"></x-shape></div>
+<div class="node in" style="--i:3;flex:1"><h3>4 · Onay</h3><p>Politika gereği öneriler insana düşer.</p></div>
+</div>
+<div class="cards cols3" style="flex:1">
+<div class="card"><h3>MCP yerine HTTP</h3><p>Ekibin kararı: sade REST uçları ve chat için SSE akışı.</p></div>
+<div class="card"><h3>Politika</h3><p>Kategori, etiket ve bağlantı doğrudan; durum, öncelik, atama ve termin öneri olarak.</p></div>
+<div class="card"><h3>Güvenli erişim</h3><p>Kapsamlı ajan token’ları, kullanıcı adına chat ve uçtan uca test.</p></div>
+</div>
+<div class="foot"><span>Yaver · Yapılan işler</span><span class="num"></span></div>
+<aside class="notes">İkinci kol: ekibin kendi LangGraph akışı Yaver’i yorumlayıp geri yazabilsin diye bir ajan API’si. MCP kullanmama kararı bilinçli; düz HTTP uçları ve chat için Server-Sent Events. Ajan neyi doğrudan yapabilir, neyi önerir; bunu Ayarlar’daki ajan politikası belirliyor. Akış rehberi Python LangGraph örnekleriyle belgelendi.</aside>
+</section>
+<section id="v06" class="alt">
+<p class="eyebrow">Yapılan işler · v0.6</p>
+<div class="split">
+<div class="text">
+<h2 class="title">Geçmişe bakan ajan yorumu</h2>
+<ul class="points">
+<li>Her gelen işe <b>DB, Wiki ve Mail</b> geçmişinden yorum: benzer işler, kim çözdü, kaç günde</li>
+<li>Öneri: öncelik, atanacak kişi, tahmini çözüm süresi, ilk dönüş hedefi</li>
+<li>Pano gruplaması: talep eden, anahtar kelime, süre</li>
+<li>Toplu mail gönderimiyle pod’a veri yükleme</li>
+</ul>
+</div>
+<img class="shot in" style="--i:1" src="img/v0.9.12-ajan-yorumu.png" alt="Genel Bakış ekranında Gelen işler ve ajan yorumu kartları: her işte öncelik, atanan ve benzer geçmiş iş önerisi">
+</div>
+<div class="foot"><span>Yaver · Yapılan işler</span><span class="num"></span></div>
+<aside class="notes">Ekranda her gelen işin altında bir öneri kutusu var. Örneğin “MQ channel RETRY durumunda” işi için: öncelik Yüksek, mehmet.kaya’ya ata çünkü benzer işleri o çözmüş, tahmini çözüm 2 gün, Birim Yöneticisi için ilk dönüş 1 iş günü, en yakın benzer iş şu. Bu bilgi DB’deki geçmiş işlerden, wiki runbook’larından ve maillerden derleniyor.</aside>
+</section>
+<section id="v07">
+<p class="eyebrow">Yapılan işler · v0.7</p>
+<div class="split">
+<div class="text">
+<h2 class="title">TFS, Jira ve talep eden kırılımı</h2>
+<ul class="points">
+<li>Kaynaklar: Mail, Zoom, <b>TFS Kanban, Jira</b></li>
+<li>Talep eden: Üst Yönetim, Birim Yöneticisi, PO, Diğer</li>
+<li>Konular: MQ, OpenShift ve Server Upgrade, Decom, DevOps, Failed hataları, Servis Yönetimi, Yazılım</li>
+<li>Örnek veri gerçek bir IT operasyon ekibine göre yenilendi</li>
+</ul>
+</div>
+<img class="shot in" style="--i:1" src="img/v0.9.12-pano-talep-eden.png" alt="İşler panosu talep edene göre gruplanmış: Üst Yönetim, Birim Yöneticisi, PO ve Diğer talepler sütunları">
+</div>
+<div class="foot"><span>Yaver · Yapılan işler</span><span class="num"></span></div>
+<aside class="notes">0.7’de “Üst Yönetim” tek grup olarak çok genişti; üçe böldük: Üst Yönetim, Birim Yöneticisi, PO. Pano artık talep edene göre sütunlara ayrılıyor, böylece kimin işinin beklediği tek bakışta görünüyor. TFS Kanban ve Jira kaynak olarak eklendi; işler MQ, OpenShift, Decom gibi gerçek IT operasyon konularına göre etiketleniyor.</aside>
+</section>
+<section id="yanit" class="dark">
+<p class="eyebrow">Yapılan işler · AI yanıt formatı</p>
+<h2 class="title">Model tek bir JSON döner, Yaver uygular</h2>
+<div class="cards cols3" style="flex:1">
+<div class="card in" style="--i:0"><p class="tag">Yorum</p><h3>comment, sources, confidence</h3><p>İşe ajan yorumu olarak yazılır; dayandığı kaynaklar ve güven puanı ile.</p></div>
+<div class="card in" style="--i:1"><p class="tag">Değişiklikler</p><h3>changes[ ]</h3><p>Durum, öncelik, atama önerileri. Neyin doğrudan, neyin onayla yapılacağına politika karar verir.</p></div>
+<div class="card in" style="--i:2"><p class="tag">Güvenlik</p><h3>Veri talimat değildir</h3><p>Maildeki “işi kapat” uygulanmaz. Kapatma ve iptal her zaman onaya düşer.</p></div>
+</div>
+<p class="lead">Gerçek çıktıyla iki uçtan uca örnek belgelendi: <b>Üst Yönetim’den MQ talebi</b> ve <b>TFS failed pipeline</b>. Olay, bağlam, LLM isteği, AI yanıtı, Yaver çağrıları ve kullanıcı onayı adım adım.</p>
+<div class="foot"><span>Yaver · Yapılan işler</span><span class="num"></span></div>
+<aside class="notes">Modelle Yaver arasındaki sözleşme. Model serbest metin değil tek bir JSON döndürüyor: yorum kısmı doğrudan işe yazılıyor, değişiklik kısmı politikadan geçiyor. Mail, TFS ve Jira metni veri olarak işaretleniyor, içindeki talimatlar uygulanmıyor. İki gerçek senaryo dosya dosya örneklendi.</aside>
+</section>
+<section id="v08">
+<p class="eyebrow">Yapılan işler · v0.8</p>
+<div class="split">
+<div class="text">
+<h2 class="title">GenAI Studio Chat Block entegrasyonu</h2>
+<ul class="points">
+<li>Her yeni iş Chat Block’a gider; yorumlanır, konusu ve kategorisi belirlenir</li>
+<li>Önce SSO’dan token, sonra sorgu (OpenID Connect)</li>
+<li>Bağlantı bilgileri yalnız ortam değişkeninden okunur, ekranda görünmez</li>
+<li>Hata olursa yeniden dener; her çağrı kayıt altında</li>
+<li>Demo için boş kalan alanları doldurma seçeneği</li>
+</ul>
+</div>
+<img class="shot in" style="--i:1" src="img/v0.9.12-genai-ayarlar.png" alt="Ayarlar ekranında GenAI Studio bölümü: ortam değişkenlerinin durumu, bağlantı testi ve davranış seçenekleri">
+</div>
+<div class="foot"><span>Yaver · Yapılan işler</span><span class="num"></span></div>
+<aside class="notes">Son sürüm AI’ı gerçek platforma bağlıyor. Akış: SSO’dan token al, sonra Chat Block’a sorguyu gönder. Adres, uygulama kimliği ve client bilgileri koda ya da ekrana yazılmıyor; pod’a secret olarak veriliyor, ekranda yalnızca “tanımlı mı” görünüyor. Davranış ayarları Ayarlar’dan açılıp kapatılabiliyor: her işi yorumlat, maili işe çevir, konuyu AI belirlesin, önerileri gönder. Demo için boş alanları doldurma açık; canlıda kapatılacak.</aside>
+</section>
+<section id="v09-demo" class="alt">
+<p class="eyebrow">Yapılan işler · v0.8.1 – v0.9.2</p>
+<h2 class="title">Gerçek bağlantı ve tekrarlanabilir demo</h2>
+<div class="cards cols3" style="flex:1">
+<div class="card in" style="--i:0"><p class="tag">Bağlantı</p><h3>GenAI 200 döndü</h3><p>Adres birleştirme düzeltildi ve kurum içi sertifika desteği eklendi; SSO token ve Chat Block çağrısı gerçek ortamda başarıyla yanıt veriyor. Ortam değişkenleri için rehber ve Secret şablonu hazır.</p></div>
+<div class="card in" style="--i:1"><p class="tag">Demo akışı 1</p><h3>Tek çağrıyla 9 yeni iş</h3><p>Mail, Jira, TFS ve Zoom’dan “yeni gelmiş” gibi görünen 9 senaryo. Her biri DB’de geçmişi olan bir konuya bağlı, AI benzer işlere bakarak yorumlar. Tekrar çalıştırınca çift kayıt olmaz.</p></div>
+<div class="card hot in" style="--i:2"><p class="tag">Sıfırlama</p><h3>Her sunum temiz başlar</h3><p>Demo işleri tek uçla silinir, tüm veri örnek hâline döner. Yeni sürüm yayılınca (rollout) sohbet geçmişi temizlenir.</p></div>
+</div>
+<div class="foot"><span>Yaver · Yapılan işler</span><span class="num"></span></div>
+<aside class="notes">0.8.x’te asıl kazanım gerçek GenAI bağlantısının 200 dönmesi: adres birleştirme ve kurum içi sertifika sorunlarını çözdük. 0.9.0 ile demo iş akışı geldi: Ayarlar’dan ya da API’den tek çağrıyla 9 senaryo yaratılıyor ve AI’a yorumlatılıyor. Sunum öncesi her şey tek adımla örnek veriye dönebiliyor.</aside>
+</section>
+<section id="v098-taslak">
+<p class="eyebrow">Yapılan işler · v0.9.8</p>
+<div class="split">
+<div class="text">
+<h2 class="title">Demo akışı 2: tek cümleden tam iş</h2>
+<ul class="points">
+<li>Yalnızca gönderen ve tek cümlelik bir mail taslağı gelir</li>
+<li>AI konuyu ve metni yazar; kategori, öncelik, atanan, son tarih ve durumu geçmiş işlere bakarak doldurur</li>
+<li>Sonuç mail ve iş olarak kaydedilir</li>
+</ul>
+</div>
+<img class="shot in" style="--i:1" src="img/v0.9.12-demo-taslak.png" alt="Demo akışı 2 ekranı: dört tek cümlelik taslak ve AI’ın doldurduğu konu, öncelik, kategori, atanan, son tarih ve durum sütunları">
+</div>
+<div class="foot"><span>Yaver · Yapılan işler</span><span class="num"></span></div>
+<aside class="notes">İkinci demo akışı en etkileyici kısım. “Kuyruk yine doldu, eftler gecikiyor, bakabilir misiniz” gibi tek cümlelik bir taslak veriyoruz. AI bundan düzgün bir iş başlığı çıkarıyor; geçmişe bakarak önceliği Yüksek, konuyu MQ, atananı geçmişte bu işleri çözen kişi olarak dolduruyor ve son tarih öneriyor.</aside>
+</section>
+<section id="v09-panel" class="alt">
+<p class="eyebrow">Yapılan işler · v0.9.0 – v0.9.9</p>
+<div class="split">
+<div class="text">
+<h2 class="title">Yaver GenAI: takımın asistanı</h2>
+<ul class="points">
+<li>Sağda tam boy sohbet paneli; kendini takımın iş takip asistanı olarak tanıtır</li>
+<li>Cevaplar geçmiş işlere, çözen kişilere, wiki sayfalarına ve ekibin yüküne dayanır</li>
+<li>Okunur metin; teknik zarf alanları gizlenir</li>
+<li>Panelde ve ajan yorumlarında Düğüm amblemi</li>
+</ul>
+</div>
+<img class="shot in" style="--i:1" src="img/v0.9.12-yaver-genai.png" alt="Genel Bakış ekranı ve sağda Yaver GenAI sohbet paneli: asistan kendini takımın iş takip asistanı olarak tanıtıyor">
+</div>
+<div class="foot"><span>Yaver · Yapılan işler</span><span class="num"></span></div>
+<aside class="notes">Yaver GenAI sohbet paneli: kullanıcı “PAYMENT.IN kuyruğu yine doldu, daha önce nasıl çözüldü?” gibi bir soru soruyor; Yaver benzer işleri, wiki’yi ve ekip yükünü bağlam olarak ekleyip GenAI Studio’ya gönderiyor. Cevap kaynaklara dayanıyor; kritik kararlarda kaynakları kontrol edin uyarısı var.</aside>
+</section>
+<section id="v0910-db">
+<p class="eyebrow">Yapılan işler · v0.9.10</p>
+<div class="split">
+<div class="text">
+<h2 class="title">Veritabanı web’den görünür</h2>
+<ul class="points">
+<li>Girişsiz, <b>salt okunur</b> /db sayfası</li>
+<li>Tüm tablolar, satır sayıları, arama ve sayfalama</li>
+<li>Şifre, token ve sır alanları maskeli</li>
+<li>CSV ve JSON olarak dışa aktarma</li>
+</ul>
+</div>
+<img class="shot in" style="--i:1" src="img/v0.9.12-db.png" alt="Veritabanı sayfası: solda 23 tablo ve satır sayıları, sağda work_item tablosunun satırları">
+</div>
+<div class="foot"><span>Yaver · Yapılan işler</span><span class="num"></span></div>
+<aside class="notes">Demo sırasında “AI neye bakıyor?” sorusuna cevap vermek için veritabanını tarayıcıdan gösterebiliyoruz. Sayfa salt okunur, hiçbir şey değiştirilemiyor ve gizli alanlar maskeli. 23 tablo, iş, mail, toplantı, wiki ve ajan kayıtları burada.</aside>
+</section>
+<section id="v0911-akis" class="dark">
+<p class="eyebrow">Yapılan işler · v0.9.11</p>
+<h2 class="title">Tek uç, üç istek türü: akış ilk satıra bakar</h2>
+<div class="cards cols3" style="flex:1">
+<div class="card in" style="--i:0"><p class="code" >[YAVER:TRIYAJ]</p><h3>Yeni iş geldiğinde</h3><p>Mail, Jira, TFS, Zoom ve demo akışı 1. Çıktı: AI yorum şemasında JSON (özet, yorum, sınıflandırma, öneriler).</p></div>
+<div class="card in" style="--i:1"><p class="code" >[YAVER:TASLAK]</p><h3>Mail taslağını doldurma</h3><p>Demo akışı 2. Çıktı: konu, metin, öncelik ve kategori içeren JSON.</p></div>
+<div class="card in" style="--i:2"><p class="code" >[YAVER:SOHBET]</p><h3>Yaver GenAI sorusu</h3><p>İkinci satır “SORU: …”. Çıktı: Türkçe, okunur düz metin.</p></div>
+</div>
+<p class="lead">GenAI Studio akışı, İstek Türü Kontrolü ile doğru ajana dallanır. Yanıt hangi biçimde gelirse gelsin Yaver çözer; eksik alanlar geçmişe göre tamamlanır.</p>
+<div class="foot"><span>Yaver · Yapılan işler</span><span class="num"></span></div>
+<aside class="notes">Yaver GenAI Studio’ya hep aynı uca gidiyor ama üç farklı iş istiyor. Bunu ayırt etmek için her mesajın ilk satırına bir işaret koyduk. Studio’daki akış bu işarete bakıp triyaj ajanına, taslak doldurucuya ya da soru sınıflandırıcıya dallanıyor. Akış rehberi prompt taslaklarıyla birlikte belgelendi.</aside>
+</section>
+<section id="logo" class="alt">
+<p class="eyebrow">Yapılan işler · v0.9.6</p>
+<h2 class="title">Yeni kimlik: Düğüm amblemli Y + aver</h2>
+<div style="display:flex;gap:28px;flex:1">
+<div class="card" style="flex:1;align-items:center;justify-content:center"><img style="width:620px;height:200px;object-fit:contain" src="img/yaver-logo-kirmizi.png" alt="Yaver logosu açık zeminde: kırmızı ve sarı kollu Düğüm amblemi ve koyu aver yazısı"></div>
+<div style="flex:1;border-radius:20px;background:linear-gradient(135deg, #DC0005 0%, #B3000E 55%, #6E0014 100%);display:flex;align-items:center;justify-content:center"><img style="width:620px;height:200px;object-fit:contain" src="img/yaver-logo-mono-beyaz.png" alt="Yaver logosu kırmızı geçişli zeminde, beyaz"></div>
+</div>
+<p class="lead">İki kol tek bir düğümde birleşip Y’nin gövdesini oluşturur: dağınık gelen işler Yaver’de bağlanır. Giriş ekranı, menü, Yaver GenAI paneli, uygulama ikonu ve favicon’da kullanılıyor.</p>
+<div class="foot"><span>Yaver · Yapılan işler</span><span class="num"></span></div>
+<aside class="notes">Dört aday arasından Düğüm seçildi. Y harfi amblemin kendisi: iki kol bir halkada birleşiyor, altından gövde iniyor. Sunumda ana renk kırmızıya çekildi; logodaki sarı kordon rengi korunuyor. Logo dosyaları açık, koyu ve tek renk varyantlarıyla proje dosyalarında.</aside>
+</section>
+<section id="demo" class="alt">
+<p class="eyebrow">Demo</p>
+<h2 class="title">AI’a okutulan örnek veri ve demo soruları</h2>
+<div style="display:flex;gap:64px;flex:1">
+<div style="width:520px;display:flex;flex-direction:column;gap:24px">
+<p class="body">Ekibin geçmişi tek bir metin dosyasında: ekip, talep edenler ve ilk dönüş hedefleri, konular, runbook’lar, işler, mailler ve toplantılar.</p>
+<div class="cards cols2" style="gap:20px">
+<div class="card" style="padding:24px"><p class="big" style="font-size:72px">54</p><p>iş</p></div>
+<div class="card" style="padding:24px"><p class="big" style="font-size:72px">24</p><p>mail</p></div>
+<div class="card" style="padding:24px"><p class="big" style="font-size:72px">11</p><p>wiki sayfası</p></div>
+<div class="card" style="padding:24px"><p class="big" style="font-size:72px">9</p><p>Zoom toplantısı</p></div>
+</div>
+</div>
+<ol class="points" style="flex:1;font-size:30px;gap:20px">
+<li>“Ödeme kanalında MQ kuyrukları doluyor.” Geçmişte benzer iş var mı, kim nasıl çözdü?</li>
+<li>Üst Yönetim’den gelen açık işler hangileri, ilk dönüş hedefini aşan var mı?</li>
+<li>OpenShift prod upgrade’inde node drain sorunu için hangi runbook var?</li>
+<li>Kimin üzerinde kaç açık iş var; yeni MQ işini kime atamalıyım?</li>
+<li>Son failed pipeline’ların ortak bir sebebi var mı?</li>
+</ol>
+</div>
+<div class="foot"><span>Yaver · Demo</span><span class="num"></span></div>
+<aside class="notes">Demo için örnek veri dosyası hazırlandı. İçinde 4 kişilik ekip, talep edenler ve seviyeleri, 8 konu, 11 runbook, 54 iş, 24 mail ve 9 toplantı var. Kişi ve kurum adları örnektir. Sağdaki sorular canlı demoda sorulacak sorular; her biri dosyadaki gerçek bir işe dayanıyor.</aside>
+</section>
+<section id="deger">
+<p class="eyebrow">Ne değer kattık?</p>
+<h2 class="title">Ekip için dört kazanım</h2>
+<div class="cards cols2" style="flex:1">
+<div class="card in" style="--i:0"><p class="tag">Görünürlük</p><h3>Dört kanal, tek pano</h3><p>Mail, Zoom, TFS ve Jira’daki iş tek listede. Talep edene, konuya ve süreye göre gruplanıyor.</p></div>
+<div class="card in" style="--i:1"><p class="tag">Doğru öncelik</p><h3>Kimin istediği belli</h3><p>Üst Yönetim, Birim Yöneticisi ve PO talepleri ayrışıyor; her biri kendi ilk dönüş hedefiyle.</p></div>
+<div class="card in" style="--i:2"><p class="tag">Kurumsal hafıza</p><h3>Geçmiş kaybolmuyor</h3><p>Yeni iş geldiğinde benzer eski iş, çözen kişi, süre ve runbook önüne geliyor.</p></div>
+<div class="card in" style="--i:3"><p class="tag">Kontrol</p><h3>AI önerir, insan karar verir</h3><p>Kritik değişiklikler onaya düşüyor; gizli bilgiler yalnız ortamda, kodda değil.</p></div>
+</div>
+<div class="foot"><span>Yaver · Değer</span><span class="num"></span></div>
+<aside class="notes">Değeri dört başlıkta topluyorum. Görünürlük: dağınık iş tek yerde. Doğru öncelik: talep edenin seviyesi ve ilk dönüş hedefi görünür. Kurumsal hafıza: bilgi kişilerde değil sistemde. Kontrol: AI karar vermiyor, hazırlıyor; tıpkı bir yaver gibi. Ölçülmüş bir zaman kazancı rakamı henüz yok; pilotta ilk dönüş ve çözüm süresini ölçmeyi öneriyoruz.</aside>
+</section>
+<section id="sonraki" class="alt">
+<p class="eyebrow">Sonraki adımlar</p>
+<h2 class="title">Pilottan canlıya</h2>
+<table style="font-size:28px;color:var(--soft);width:1664px">
+<tr><th style="width:34%">Adım</th><th>Ne yapılacak</th></tr>
+<tr><td>GenAI test seti</td><td>Triyaj, taslak ve sohbet için soru ve beklenen cevap seti (hazırlanıyor)</td></tr>
+<tr><td>Gerçek kaynaklar</td><td>Mail kutusu, TFS ve Jira bağlantılarını API servisine tanımlamak</td></tr>
+<tr><td>Canlı ayarları</td><td>Demo için açık olan “boş alanları doldur” seçeneğini kapatmak</td></tr>
+<tr><td>Konu düzeltme</td><td>Kullanıcının AI’ın belirlediği konuyu tek tıkla düzeltebilmesi</td></tr>
+<tr><td>Ölçüm</td><td>İlk dönüş ve çözüm sürelerini pilot öncesi ve sonrası karşılaştırmak</td></tr>
+<tr><td>Politika ayarı</td><td>Ekip geri bildirimiyle neyin doğrudan, neyin onayla yapılacağını netleştirmek</td></tr>
+</table>
+<div class="foot"><span>Yaver · Sonraki adımlar</span><span class="num"></span></div>
+<aside class="notes">İlk iş GenAI test seti: üç istek türü için soru ve beklenen cevaplar hazırlanıyor, böylece akıştaki değişikliklerin kaliteyi bozup bozmadığını ölçebileceğiz. Sonra gerçek kaynakları bağlamak, demo ayarını kapatmak ve pilot öncesi ve sonrası süreleri ölçmek.</aside>
+</section>
+<section id="kapanis" class="accent" style="justify-content:center">
+<img class="in" style="--i:0;width:496px;height:160px;object-fit:contain;align-self:flex-start" src="img/yaver-logo-kirmizi.png" alt="Yaver logosu">
+<h2 class="statement in" style="--i:1;width:1500px">Komutanın yaveri gibi: her işi karşılar, hatırlar, takip eder. Kararı ekibe bırakır.</h2>
+<p class="lead in" style="--i:2;font-size:40px">Teşekkürler · Sorular?</p>
+<div class="foot"><span>Yaver</span><span class="num"></span></div>
+<aside class="notes">Kapanış cümlesi. Ardından canlı demo ve sorular.</aside>
+</section>
+</body></html>
