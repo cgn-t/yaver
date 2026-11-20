@@ -27,7 +27,7 @@ import { BrandLogo, BrandMark, Kbd } from '../components/Brand'
 import CommandPalette from '../components/CommandPalette'
 import YaverAi from '../components/YaverAi'
 import { LiveDot, PageTransition } from '../components/Motion'
-import { NewWorkItemDialog, StatusIcon, UserAvatar, timeAgo } from '../components/WorkKit'
+import { NewWorkItemDialog, ResolutionDialog, StatusIcon, UserAvatar, timeAgo } from '../components/WorkKit'
 import { isOpen, isOverdue, useDb, type NewWorkItem } from '../data/store'
 import { useApiPoller } from '../services/apiPoller'
 import { UiContext } from './ui'
@@ -251,6 +251,7 @@ export default function AppLayout() {
 
       <CommandPalette open={palette} onClose={() => setPalette(false)} onNewItem={() => openNew()} onToggleTheme={toggle} />
       <NewWorkItemDialog open={newOpen} initial={newInit} onClose={() => setNewOpen(false)} />
+      <ResolutionDialog />
       <YaverAi />
     </UiContext.Provider>
   )

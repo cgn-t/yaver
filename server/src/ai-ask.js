@@ -39,7 +39,7 @@ export async function askContext(text) {
 
   const rows = (await query(
     `SELECT w.id, w.code, w.title, w.description, w.status, w.priority, w.keywords, w.mgmt_level, w.requester, w.created_at, w.closed_at,
-            w.source_type, w.external_ref, w.agent_comment, u.username AS assignee,
+            w.source_type, w.external_ref, w.agent_comment, w.resolution, u.username AS assignee,
             (SELECT a.comment FROM work_item_activity a WHERE a.work_item_id = w.id AND a.action = 'comment' ORDER BY a.id DESC LIMIT 1) AS last_note
      FROM work_item w LEFT JOIN app_user u ON u.id = w.assignee_id WHERE w.status <> 'cancelled' ORDER BY w.created_at DESC LIMIT 800`)).rows
   const scored = rows.map((w) => {
@@ -54,7 +54,7 @@ export async function askContext(text) {
     requester: w.requester, requester_level: MGMT_LABEL[w.mgmt_level] ?? w.mgmt_level, assignee: w.assignee,
     opened: String(w.created_at.toISOString?.() ?? w.created_at).slice(0, 10),
     resolved_in_days: w.closed_at ? round1(days(w.created_at, w.closed_at)) : null,
-    resolution_note: w.status === 'done' ? w.last_note : null, description: String(w.description ?? '').slice(0, 300),
+    resolution_note: w.status === 'done' ? (w.resolution ?? w.last_note) : null, description: String(w.description ?? '').slice(0, 300),
     ai_comment: w.status !== 'done' && w.agent_comment ? String(w.agent_comment).slice(0, 300) : null, score,
   }))
 
