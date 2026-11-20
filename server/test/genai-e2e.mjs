@@ -359,6 +359,20 @@ try {
   assert.equal((await call('GET', '/api/public/db/tables')).status, process.env.DB_PUBLIC === 'true' ? 200 : 403)
   step('veritabanı görünümü: tablolar, arama/sıralama, gizli alanlar maskeli, girişsiz uç DB_PUBLIC ile')
 
+  // 10f) Olayı kaçan iş: GenAI duraklatılmışken mailden iş açılır (yorumlama işi kuyruğa girmez), açılınca tarama yakalar
+  assert.equal((await call('PUT', '/api/settings/genai', admin, { active: false })).status, 200)
+  const kc = await call('POST', '/api/bulk-send-mail', admin, { create_items: false, mails: [{ from_address: 'deniz.arslan@firma.com', from_name: 'Deniz Arslan',
+    subject: 'Disk doldu (kaçan olay testi)', body: 'APPSRV07 disk doldu', message_id: '<genai-e2e-kacan@firma.com>' }] })
+  const kw = await call('POST', '/api/work-items', admin, { title: 'Disk doldu (kaçan olay testi)', description: 'APPSRV07 disk doldu', source_type: 'mail',
+    source_id: kc.body.emails[0].id, priority: 'normal', category: 'Talep' })
+  assert.equal(kw.status, 201, kw.text)
+  assert.equal((await call('GET', `/api/work-items/${kw.body.id}`, admin)).body.genai_status ?? null, null, 'GenAI kapalıyken iş kuyruğa girmemeli')
+  assert.equal((await call('PUT', '/api/settings/genai', admin, { active: true })).status, 200)
+  const kd = await waitFor(async () => { const r = await call('GET', `/api/work-items/${kw.body.id}`, admin); return r.body.agent_comment_by === 'GenAI Studio' && r.body }, 90_000)
+  assert.equal(kd.genai_status, 'done')
+  assert.ok((await call('GET', '/api/state', admin)).body.items.find((w) => w.id === kw.body.id).genai_status === 'done', '/state genai_status taşımalı')
+  step('olayı kaçan yeni iş taranıp yorumlanır, iş satırında genai_status görünür')
+
   // 11) Demo işlerini temizle
   const cl = (await call('POST', '/api/demo/clear', admin)).body
   assert.equal(cl.work_items, sc.length)

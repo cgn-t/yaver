@@ -647,6 +647,7 @@ async function tick() {
   try {
     const cfg = await loadConfig()
     if (cfg.enabled) {
+      await sweepMissed(cfg).catch((e) => console.warn('[genai] tarama:', e.message))
       const free = Math.max(0, cfg.concurrency - running)
       if (free > 0) {
         const jobs = (await query(
@@ -677,6 +678,29 @@ async function runJob(j, cfg) {
       [j.id, last ? 'failed' : 'pending', e.message.slice(0, 1000), backoff]).catch(() => {})
     console.warn(`[genai] iş #${j.id} (${j.kind}) ${last ? 'başarısız' : `tekrar denenecek (${backoff} sn)`}: ${e.message}`)
   }
+}
+
+/**
+ * Güvenlik ağı: "work_item.created" olayı kaçtıysa (pod yeniden başladı, dinleyici o an hazır değildi, olay sırasında GenAI
+ * kapalıydı…) yeni iş hiç yorumlanmıyordu. Son 24 saatte açılmış, açık, GenAI yorumlama işi hiç olmamış ve yorumu olmayan (ya da GenAI kapalıyken
+ * yalnız örnek yorumlayıcıdan yorum almış) işler kuyruğa alınır.
+ */
+let lastSweep = 0
+const BOOT_AT = new Date(Date.now() - process.uptime() * 1000).toISOString()   // açılıştaki örnek veri (geçmiş tarihli) taranmaz
+export async function sweepMissed(cfg, { minAgeSec = 15, force = false } = {}) {
+  if (!cfg.enabled || !cfg.auto_interpret) return 0
+  if (!force && Date.now() - lastSweep < 30_000) return 0
+  lastSweep = Date.now()
+  const { rows } = await query(
+    `SELECT w.id FROM work_item w
+     WHERE w.created_at > now() - interval '24 hours' AND w.created_at < now() - make_interval(secs => $1)
+       AND w.status NOT IN ('done','cancelled')
+       AND (w.agent_comment IS NULL OR (w.agent_comment_by = 'yaver-ajan (örnek)' AND w.created_at >= $2))   -- GenAI kapalıyken yalnız örnek yorum almış yeni işler
+       AND NOT EXISTS (SELECT 1 FROM genai_job j WHERE j.work_item_id = w.id AND j.kind = 'interpret')
+     ORDER BY w.created_at LIMIT 20`, [minAgeSec, BOOT_AT])
+  for (const r of rows) await enqueue('interpret', r.id, 'event')
+  if (rows.length) console.log(`[genai] olayı kaçan ${rows.length} yeni iş yorumlama kuyruğuna alındı`)
+  return rows.length
 }
 
 export async function startGenai() {
