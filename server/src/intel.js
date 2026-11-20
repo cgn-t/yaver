@@ -94,7 +94,7 @@ export async function buildContext(id) {
   // ---- DB: benzer geçmiş işler (anahtar kelime + kelime örtüşmesi) ----
   const cands = (await query(
     `SELECT w.id, w.code, w.title, w.description, w.status, w.keywords, w.created_at, w.closed_at, w.priority, u.username AS assignee,
-            w.source_type, w.external_ref,
+            w.source_type, w.external_ref, w.resolution,
             (SELECT a.comment FROM work_item_activity a WHERE a.work_item_id = w.id AND a.action IN ('comment','agent_note')
              ORDER BY a.id DESC LIMIT 1) AS last_note
      FROM work_item w LEFT JOIN app_user u ON u.id = w.assignee_id
@@ -107,7 +107,7 @@ export async function buildContext(id) {
     .sort((a, b) => b.score - a.score || (b.status === 'done') - (a.status === 'done')).slice(0, 5)
     .map((w) => ({ id: w.id, code: w.code, title: w.title, status: w.status, priority: w.priority, assignee: w.assignee,
                    source_type: w.source_type, external_ref: w.external_ref,
-                   resolved_in_days: w.closed_at ? round1(days(w.created_at, w.closed_at)) : null, last_note: w.last_note,
+                   resolved_in_days: w.closed_at ? round1(days(w.created_at, w.closed_at)) : null, last_note: w.last_note, resolution: w.resolution ?? null,
                    shared_keywords: w.shared_keywords, shared_words: w.shared_words, score: w.score }))
 
   // ---- Wiki: anahtar kelime terimleri + kelime örtüşmesi ----

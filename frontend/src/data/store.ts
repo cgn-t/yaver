@@ -257,7 +257,20 @@ function createWorkItemLocal(input: NewWorkItem): WorkItem {
   return item
 }
 
+// Tamamlandı'ya geçişte çözüm açıklaması zorunlu: arayüz diyaloğu açar, onaylanınca aynı patch resolution ile tekrar gönderilir.
+type ResolutionRequest = { item: WorkItem; patch: Partial<WorkItem> }
+let resolutionListener: ((r: ResolutionRequest | null) => void) | null = null
+export function onResolutionRequest(fn: (r: ResolutionRequest | null) => void) {
+  resolutionListener = fn
+  return () => { if (resolutionListener === fn) resolutionListener = null }
+}
+
 export function updateWorkItem(id: number, patch: Partial<WorkItem>) {
+  const cur = db.items.find((w) => w.id === id)
+  if (cur && patch.status === 'done' && cur.status !== 'done' && !patch.resolution?.trim() && !cur.resolution && resolutionListener) {
+    resolutionListener({ item: cur, patch })
+    return
+  }
   if (backend === 'api') void sync(() => apiFetch(`/work-items/${id}`, { method: 'PATCH', body: patch }))
   const old = db.items.find((w) => w.id === id)
   if (!old) return
@@ -268,6 +281,10 @@ export function updateWorkItem(id: number, patch: Partial<WorkItem>) {
     acts = addActivity(acts, id, 'assign', `Atanan: ${patch.assignee || '—'}`)
   if (patch.priority && patch.priority !== old.priority)
     acts = addActivity(acts, id, 'priority', `Öncelik: ${PRIORITY_LABEL[patch.priority]}`)
+  if (patch.resolution && patch.resolution !== old.resolution) {
+    acts = addActivity(acts, id, 'comment', `**Çözüm:** ${patch.resolution}`)
+    patch = { ...patch, resolved_at: now(), resolved_by: patch.resolved_by ?? currentUser() }
+  }
   const closing = patch.status && (patch.status === 'done' || patch.status === 'cancelled')
   const next = { ...old, ...patch, updated_at: now(),
                  closed_at: patch.status ? (closing ? now() : null) : old.closed_at }

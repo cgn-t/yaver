@@ -1,6 +1,6 @@
 # Demo iş akışı ve Yaver GenAI sohbet
 
-> Sürüm **0.9.18**. GenAI Studio bağlantısı: [`GENAI-ENV.md`](GENAI-ENV.md) · ayrıntı: [`GENAI-STUDIO.md`](GENAI-STUDIO.md)
+> Sürüm **0.9.19**. GenAI Studio bağlantısı: [`GENAI-ENV.md`](GENAI-ENV.md) · ayrıntı: [`GENAI-STUDIO.md`](GENAI-STUDIO.md)
 
 ## 1. Demo iş akışı
 
@@ -42,6 +42,17 @@ curl -s -X POST https://<yaver>/api/demo/run -H "Authorization: Bearer $TOKEN" -
 ```
 
 Ajan token'ı (`yvr_…`, `items:write` yetkili) ile de çağrılabilir.
+
+### Çözülen işler (0.9.19)
+
+Demo akışında 3 iş (PAYMENT.OUT kuyruğu, EOD batch, Jenkins incident) **Tamamlandı**'ya geçer:
+
+1. İş bir mühendise atanır, durum *Devam Ediyor* olur.
+2. Mühendisin notları (neden, yapılan, kalıcı önlem) yorum olarak yazılır.
+3. GenAI açıksa notlar Chat Block'a gönderilir (`[YAVER:TRIYAJ]` işaretli, `request_context.kind = "cozum"`), dönen `resolution: {neden, yapilan, kalici_onlem}` çözüm açıklaması olur. GenAI kapalıysa ya da cevap alınamazsa açıklama notlardan yerel olarak derlenir.
+4. İş `status: done` ve `resolution` ile kapanır; açıklama işin **Çözüm** kutusunda ve geçmişinde görünür.
+
+`{"resolve": false}` bu adımı atlar. `wait: true` sonucu `resolved` alanında döner.
 
 ### Pod rollout
 

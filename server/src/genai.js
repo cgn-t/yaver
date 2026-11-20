@@ -751,6 +751,43 @@ export async function startGenai() {
   timer = setTimeout(tick, 1000)
 }
 
+// ---------- Çözüm açıklaması (0.9.19) ----------
+/** Çözüm nesnesini ({neden, yapilan, kalici_onlem} ya da düz metin) tek metne çevirir. */
+export function formatResolution(r) {
+  if (!r) return ''
+  if (typeof r === 'string') return r.trim()
+  if (typeof r !== 'object') return String(r)
+  const pick = (...ks) => ks.map((k) => r[k]).find((v) => typeof v === 'string' && v.trim())?.trim()
+  const lines = [['Neden', pick('neden', 'kok_neden', 'root_cause', 'cause')], ['Yapılan', pick('yapilan', 'yapılan', 'action', 'actions', 'cozum', 'fix')],
+    ['Kalıcı önlem', pick('kalici_onlem', 'kalıcı_önlem', 'prevention', 'onlem')]].filter(([, v]) => v).map(([k, v]) => `**${k}:** ${v}`)
+  return lines.length ? lines.join('\n') : JSON.stringify(r)
+}
+
+/**
+ * Çözülen bir iş için çözüm açıklamasını GenAI'a yazdırır. Mühendis notlarından neden / yapılan / kalıcı önlem çıkarılır.
+ * İstek triyaj dalından gider ([YAVER:TRIYAJ] ilk satır; akışta yeni dal gerekmez), cevap JSON (ya da Python dict) olabilir.
+ * Dönen: { text, raw, http_status } — çözüm çıkmazsa hata fırlatır (çağıran yerel özete düşer).
+ */
+export async function resolutionWithGenAI(item, notes) {
+  const cfg = await loadConfig()
+  if (!cfg.enabled) throw new Error('GenAI kapalı')
+  const msg = [MARK.TRIYAJ,
+    'Bu istek bir ÇÖZÜM AÇIKLAMASI isteğidir: aşağıdaki iş çözüldü. Mühendis notlarına dayanarak işin nasıl çözüldüğünü Türkçe yaz.',
+    'Notlarda olmayan bir bilgiyi uydurma. Her alan en fazla 2 cümle.',
+    'Yalnız şu JSON nesnesini döndür (başka metin yok):',
+    JSON.stringify({ schema_version: '1.0', work_item_id: item.id, summary: '<tek cümle: iş nasıl çözüldü>', comment: '<1-2 satır kapanış notu>',
+      resolution: { neden: '<kök neden>', yapilan: '<yapılan işlem>', kalici_onlem: '<tekrar etmemesi için önlem>' } }),
+    '<is>', JSON.stringify({ code: item.code, title: item.title, description: String(item.description ?? '').slice(0, 1500) }), '</is>',
+    '<muhendis_notlari>', ...notes.map((n) => `- ${n}`), '</muhendis_notlari>'].join('\n')
+  const call = await chatBlock(cfg, { msg, request_context: { source: 'yaver', kind: 'cozum', work_item_id: item.id, work_item_code: item.code, schema_version: '1.0' } })
+  if (!call.ok) throw new Error(`Chat Block ${call.status}: ${call.text.slice(0, 200)}`)
+  const ans = extractAnswer(call.text)
+  const ai = ans.direct ?? extractJson(ans.text)
+  const text = formatResolution(ai?.resolution) || (typeof ai?.summary === 'string' ? ai.summary.trim() : '')
+  if (!text) throw new Error(`Yanıtta çözüm yok: ${ans.text.slice(0, 200)}`)
+  return { text, raw: call.text.slice(0, 4000), http_status: call.status }
+}
+
 // ---------- Ekran / API yardımcıları ----------
 /** Kuyruğun canlı durumu (Ayarlar → GenAI Çağrıları üstünde gösterilir). Sır / adres içermez. */
 export async function queueStatus() {

@@ -51,7 +51,7 @@ export async function saveAgentSettings(body, actor) {
 
 /** PATCH alanı → politika türü */
 const FIELD_KIND = { status: 'status', priority: 'priority', assignee: 'assign', due_date: 'due_date', category: 'category',
-  tags: 'tags', title: 'edit', description: 'edit', requester: 'edit' }
+  tags: 'tags', title: 'edit', description: 'edit', requester: 'edit', resolution: 'status' }
 
 /** Bu aktör bu türleri doğrudan uygulayabilir mi? Ekrandaki kullanıcı için her zaman evet. */
 export async function directKindsAllowed(actor, kinds) {
@@ -88,6 +88,8 @@ export function validateItemPatch(p, { create = false } = {}) {
   if (p.due_date !== undefined && !isDate(p.due_date)) throw httpError(400, 'invalid', 'due_date YYYY-AA-GG olmalı', { field: 'due_date' })
   if (p.tags !== undefined && (!Array.isArray(p.tags) || p.tags.some((t) => typeof t !== 'string' || t.length > 100)))
     throw httpError(400, 'invalid', 'tags metin dizisi olmalı', { field: 'tags' })
+  if (p.resolution !== undefined && (typeof p.resolution !== 'string' || p.resolution.length > 4000))
+    throw httpError(400, 'invalid', 'resolution en fazla 4000 karakterlik metin olmalı', { field: 'resolution' })
   if (p.source_type !== undefined && !SOURCE_TYPES.includes(p.source_type))
     throw httpError(400, 'invalid', `source_type: ${SOURCE_TYPES.join(' | ')}`, { field: 'source_type' })
   if (p.assignee) return assertUser(p.assignee)
@@ -296,7 +298,7 @@ const toAction = (r) => ({ ...r, confidence: r.confidence === null ? null : Numb
 
 /** Öneri yükünü doğrular ve updateWorkItem'a gidecek yamaya çevirir. */
 async function actionToPatch(kind, payload) {
-  const pick = { status: ['status'], priority: ['priority'], assign: ['assignee'], due_date: ['due_date'], category: ['category'],
+  const pick = { status: ['status', 'resolution'], priority: ['priority'], assign: ['assignee'], due_date: ['due_date'], category: ['category'],
     tags: ['tags'], edit: ['title', 'description', 'requester'] }[kind]
   const patch = Object.fromEntries(pick.filter((k) => payload[k] !== undefined).map((k) => [k, payload[k]]))
   if (!Object.keys(patch).length) throw httpError(400, 'invalid', `payload içinde ${pick.join(' / ')} bekleniyor`, { field: 'payload' })
@@ -330,7 +332,11 @@ async function applyAction(a, actor) {
     return { work_item: item }
   }
   if (a.kind === 'link') return linkToWorkItem(a.work_item_id, p, actor)
-  const item = await updateWorkItem(a.work_item_id, await actionToPatch(a.kind, p), actor)
+  const patch = await actionToPatch(a.kind, p)
+  // Ajanın "Tamamlandı" önerisi onaylanırken çözüm yazılmadıysa ajanın gerekçesi çözüm açıklaması olur
+  if (patch.status === 'done' && !String(patch.resolution ?? '').trim())
+    patch.resolution = a.reasoning ? `Ajan önerisi (onaylandı): ${a.reasoning}` : 'Ajan önerisi onaylandı.'
+  const item = await updateWorkItem(a.work_item_id, patch, actor)
   if (!item) throw httpError(404, 'not_found', 'İş bulunamadı')
   return { work_item: item }
 }

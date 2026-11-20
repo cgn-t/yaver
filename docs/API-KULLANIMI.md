@@ -121,6 +121,18 @@ curl -s -X POST "$URL/api/bulk-import" \
 
 ---
 
+## İşi Tamamlandı yapmak: çözüm açıklaması zorunlu (0.9.19)
+
+`PATCH /api/work-items/:id` ile `status: "done"` gönderirken `resolution` (ne yapıldı, en fazla 4000 karakter) zorunludur; yoksa `400 resolution_required` döner. İşte daha önce yazılmış bir çözüm varsa tekrar istenmez.
+
+```json
+{ "status": "done", "resolution": "Neden: …\nYapılan: …\nKalıcı önlem: …" }
+```
+
+Açıklama `resolution`, `resolved_by`, `resolved_at` alanlarına ve işin geçmişine yazılır. Ajan `done` önerirse öneri yine onay bekler; onaylanınca ajanın gerekçesi çözüm açıklaması olur.
+
+---
+
 ## Veritabanını web'den görüntüleme (0.9.10)
 
 Tüm tablolar ve satırlar **salt okunur** olarak görüntülenir: tablo listesi ve satır sayıları, sayfalama, tüm kolonlarda arama,

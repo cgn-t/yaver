@@ -1,6 +1,6 @@
 import { query, resetDemoData } from './db.js'
 import { bulkImport, bulkSendMail, interpret } from './intel.js'
-import { createWorkItem, httpError } from './state.js'
+import { addComment, createWorkItem, httpError, updateWorkItem } from './state.js'
 import { loadDemoHistory } from './demo.js'
 import * as G from './genai.js'
 
@@ -46,8 +46,73 @@ const SCENARIOS = [
     'Gündem: sabah tüm build\'lerin kuyrukta beklemesi, agent disk doluluğu, kalıcı çözüm ve aksiyon sahipleri.', 'normal'],
 ]
 
+/**
+ * Demo'da çözülen işler (0.9.19): mühendis işi üstlenir, notlarını yazar, iş "Tamamlandı"ya geçer.
+ * Çözüm açıklamasını (neden / yapılan / kalıcı önlem) notlardan AI yazar; AI kapalıysa ya da cevap vermezse notlardan yerel özet.
+ */
+const RESOLVED = {
+  'mq-payment-out': { by: 'ayse.yilmaz', notes: [
+    'PAYMENT.OUT derinliği %92: consumer uygulamasının 2 instance\'ından biri gece deploy sonrası bağlanamamış (MQRC 2035 yetki hatası).',
+    'Consumer servis hesabına kanal yetkisi yeniden verildi, ikinci instance restart edildi; kuyruk 20 dakikada boşaldı, DLQ\'daki 37 mesaj yeniden işlendi.',
+    'Kalıcı önlem: deploy sonrası MQ bağlantı kontrolü pipeline\'a eklendi, kuyruk derinliği %70 alarmı açıldı.'] },
+  'eod-batch': { by: 'zeynep.demir', notes: [
+    'ORA-01555: EOD_MUTABAKAT uzun süren sorgusu sırasında undo alanı yetersiz kaldı, aynı saatte arşiv job\'ı da çalışıyordu.',
+    'UNDO_RETENTION 900 → 3600 sn yapıldı, arşiv job\'ı 04:00\'e alındı; batch elle yeniden çalıştırıldı ve 02:55\'te tamamlandı.',
+    'Kalıcı önlem: batch takvim çakışma kontrolü ve süre alarmı eklendi.'] },
+  'jenkins-incident': { by: 'mehmet.kaya', notes: [
+    'Build\'ler kuyrukta: jenkins-agent-02 ve 03 diskleri %100 dolmuş, workspace temizliği çalışmıyordu.',
+    'Eski workspace\'ler ve docker imajları temizlendi (180 GB boşaldı), agent\'lar yeniden bağlandı, kuyruk 15 dakikada eridi.',
+    'Kalıcı önlem: günlük workspace cleanup job\'ı ve disk %80 alarmı eklendi.'] },
+}
+
+/** Notlardan yerel çözüm açıklaması (AI yokken): ilk not neden, ikinci yapılan, üçüncü kalıcı önlem. */
+const localResolution = (notes) => G.formatResolution({ neden: notes[0], yapilan: notes[1], kalici_onlem: String(notes[2] ?? '').replace(/^Kalıcı önlem:\s*/i, '') })
+
+async function userActor(username) {
+  const u = (await query(`SELECT id, username, full_name, role FROM app_user WHERE username = $1 AND is_active`, [username])).rows[0]
+  return u ? { id: u.id, username: u.username, role: u.role } : null
+}
+
+/** Çözülecek demo işlerini kapatır: atama → notlar → çözüm açıklaması (AI ya da yerel) → Tamamlandı. */
+async function resolveDemoItems(items, fallbackActor) {
+  const out = []
+  for (const it of items) {
+    const r = RESOLVED[it.key]
+    if (!r) continue
+    try {
+      const actor = (await userActor(r.by)) ?? fallbackActor
+      const w = (await query(`SELECT id, code, title, description, status FROM work_item WHERE id = $1`, [it.id])).rows[0]
+      if (!w || w.status === 'done') continue
+      await updateWorkItem(w.id, { assignee: r.by, status: 'in_progress' }, actor).catch(() => null)
+      for (const n of r.notes) await addComment(w.id, n, actor)
+      let text = null, by = 'yerel'
+      if (G.isActive()) {
+        try { text = (await G.resolutionWithGenAI(w, r.notes)).text; by = G.GENAI_LABEL }
+        catch (e) { console.warn(`[demo] ${w.code} çözüm açıklaması GenAI'dan alınamadı, yerel özet yazılıyor: ${e.message}`) }
+      }
+      if (!text) text = localResolution(r.notes)
+      await updateWorkItem(w.id, { status: 'done', resolution: text, resolved_by: by === 'yerel' ? r.by : `${G.GENAI_LABEL} (${r.by} notlarından)` }, actor)
+      out.push({ key: it.key, id: w.id, code: w.code, by, resolution: text })
+    } catch (e) { out.push({ key: it.key, id: it.id, error: e.message }) }
+  }
+  return out
+}
+
+/** GenAI yorumları bittikten sonra (en fazla limitSec) çözülecek işleri kapatır. */
+async function resolveAfterInterpret(items, actor, limitSec = 240) {
+  const ids = items.filter((x) => RESOLVED[x.key]).map((x) => x.id)
+  if (!ids.length) return []
+  const until = Date.now() + limitSec * 1000
+  while (G.isActive() && Date.now() < until) {
+    const busy = (await query(`SELECT count(*)::int AS n FROM genai_job WHERE work_item_id = ANY($1::bigint[]) AND kind = 'interpret' AND status IN ('pending','running')`, [ids])).rows[0].n
+    if (!busy) break
+    await new Promise((r) => setTimeout(r, 2000))
+  }
+  return resolveDemoItems(items, actor)
+}
+
 export function listScenarios() {
-  return SCENARIOS.map(([key, src, ref, from, title, body, priority]) => ({ key, source_type: src, external_ref: ref, from, title, body, priority }))
+  return SCENARIOS.map(([key, src, ref, from, title, body, priority]) => ({ key, source_type: src, external_ref: ref, from, title, body, priority, resolved: !!RESOLVED[key] }))
 }
 
 /** Demo kayıtlarını (işler, mailler, toplantılar ve bağlı yorum/öneri/çağrı kayıtları) siler. */
@@ -110,6 +175,12 @@ export async function runDemo(body = {}, actor) {
     }
   }
   const out = { mode: genai ? 'genai' : 'yerel', cleared, count: items.length, items }
+  // Bir kısmı çözülür (resolve:false ile kapatılabilir). wait varsa sonucu bekler, yoksa arka planda.
+  if (body.resolve !== false) {
+    const p = resolveAfterInterpret(items, actor, Math.min(600, Math.max(5, Number(body.timeout_sec) || 240)))
+    if (body.wait || !genai) out.resolved = await p
+    else p.then((r) => console.log(`[demo] ${r.length} demo işi çözüldü`)).catch((e) => console.warn('[demo] çözüm:', e.message))
+  }
   if (body.wait && genai && body.interpret !== false) {
     const until = Date.now() + Math.min(600, Math.max(5, Number(body.timeout_sec) || 180)) * 1000
     while (Date.now() < until) {
@@ -126,7 +197,7 @@ export async function runDemo(body = {}, actor) {
 export async function demoStatus() {
   const { rows } = await query(
     `SELECT w.id, w.code, w.title, w.source_type, w.external_ref, w.status, w.priority, w.category, w.keywords, w.agent_comment_by,
-            left(w.agent_comment, 400) AS agent_comment, w.agent_confidence, w.created_at,
+            left(w.agent_comment, 400) AS agent_comment, w.agent_confidence, w.created_at, w.resolution, w.resolved_by,
             (SELECT j.status FROM genai_job j WHERE j.work_item_id = w.id AND j.kind = 'interpret' ORDER BY j.id DESC LIMIT 1) AS genai_status,
             (SELECT j.error FROM genai_job j WHERE j.work_item_id = w.id AND j.kind = 'interpret' ORDER BY j.id DESC LIMIT 1) AS genai_error,
             (SELECT count(*)::int FROM agent_action a WHERE a.work_item_id = w.id AND a.status = 'pending') AS pending_actions

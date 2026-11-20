@@ -11,9 +11,9 @@ import {
 } from '@mui/material'
 import { alpha } from '@mui/material/styles'
 import { useSnackbar } from 'notistack'
-import { useState, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import {
-  addComment, createWorkItem, isOverdue, PRIORITY_COLOR, PRIORITY_LABEL, SOURCE_LABEL, STATUS_HEX, STATUS_LABEL, STATUS_ORDER,
+  addComment, createWorkItem, isOverdue, onResolutionRequest, PRIORITY_COLOR, PRIORITY_LABEL, SOURCE_LABEL, STATUS_HEX, STATUS_LABEL, STATUS_ORDER,
   updateWorkItem, useDb, type NewWorkItem,
 } from '../data/store'
 import type { Priority, SourceType, WorkItem, WorkStatus } from '../data/types'
@@ -186,6 +186,55 @@ export function NewWorkItemDialog({ open, onClose, initial }: { open: boolean; o
   )
 }
 
+// ---------- Çözüm açıklaması (Tamamlandı'ya geçerken zorunlu) ----------
+export function ResolutionDialog() {
+  const [req, setReq] = useState<{ item: WorkItem; patch: Partial<WorkItem> } | null>(null)
+  const [text, setText] = useState('')
+  useEffect(() => onResolutionRequest((r) => { setReq(r); setText('') }), [])
+  const ok = text.trim().length >= 10
+  const save = () => {
+    if (!req || !ok) return
+    updateWorkItem(req.item.id, { ...req.patch, resolution: text.trim() })
+    setReq(null)
+  }
+  return (
+    <Dialog open={!!req} onClose={() => setReq(null)} fullWidth maxWidth="sm">
+      <DialogTitle sx={{ pb: 0.5 }}>İşi tamamla</DialogTitle>
+      <DialogContent>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+          <b>{req?.item.code}</b> · {req?.item.title}
+        </Typography>
+        <TextField autoFocus fullWidth multiline minRows={5} label="Çözüm: ne yapıldı?" value={text} onChange={(e) => setText(e.target.value)}
+                   placeholder={'Neden: …\nYapılan: …\nKalıcı önlem: …'}
+                   helperText={ok ? 'Açıklama işin geçmişine ve Çözüm kutusuna yazılır.' : 'Zorunlu, en az 10 karakter.'}
+                   onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) save() }} />
+      </DialogContent>
+      <DialogActions sx={{ px: 3, pb: 2.5 }}>
+        <Button onClick={() => setReq(null)}>Vazgeç</Button>
+        <Button variant="contained" color="success" onClick={save} disabled={!ok}>Tamamlandı olarak kaydet</Button>
+      </DialogActions>
+    </Dialog>
+  )
+}
+
+const boldText = (t: string) => t.split(/(\*\*[^*]+\*\*)/g).map((part, i) =>
+  part.startsWith('**') && part.endsWith('**') ? <b key={i}>{part.slice(2, -2)}</b> : part)
+
+function ResolutionBox({ item }: { item: WorkItem }) {
+  if (!item.resolution) return null
+  return (
+    <Box sx={{ mt: 2, p: 1.75, borderRadius: 3, border: 1, borderColor: alpha(STATUS_HEX.done, 0.45), bgcolor: alpha(STATUS_HEX.done, 0.06) }}>
+      <Typography variant="caption" sx={{ fontWeight: 650, color: STATUS_HEX.done, letterSpacing: '0.02em' }}>ÇÖZÜM</Typography>
+      <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', mt: 0.5, lineHeight: 1.6 }}>
+        {boldText(item.resolution)}
+      </Typography>
+      <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.75 }}>
+        {item.resolved_by ?? '—'} · {formatDateTime(item.resolved_at)}
+      </Typography>
+    </Box>
+  )
+}
+
 // ---------- İş detayı (Linear tarzı: sol içerik, sağ özellikler) ----------
 function Prop({ label, children }: { label: string; children: ReactNode }) {
   return (
@@ -262,6 +311,7 @@ export function WorkItemDrawer({ item, onClose, onOpenItem }: { item: WorkItem |
               <Prop label="Oluşturma"><Typography variant="body2" color="text.secondary">{formatDateTime(live.created_at)}</Typography></Prop>
             </Box>
 
+            <ResolutionBox item={live} />
             <AgentCommentBox item={live} onOpenItem={onOpenItem} />
 
             {(email || meeting) && (
@@ -290,7 +340,7 @@ export function WorkItemDrawer({ item, onClose, onOpenItem }: { item: WorkItem |
                   {a.action === 'comment' ? (
                     <Box sx={{ p: 1.5, borderRadius: 2.5, border: 1, borderColor: 'divider', bgcolor: 'background.paper' }}>
                       <Typography variant="caption" color="text.secondary"><b>{a.actor}</b> · {timeAgo(a.at)}</Typography>
-                      <Typography variant="body2" sx={{ mt: 0.25 }}>{a.text}</Typography>
+                      <Typography variant="body2" sx={{ mt: 0.25, whiteSpace: 'pre-wrap' }}>{boldText(a.text)}</Typography>
                     </Box>
                   ) : (
                     <Typography variant="body2" color="text.secondary" sx={{ pt: 0.25 }}>

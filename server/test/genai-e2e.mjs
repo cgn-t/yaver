@@ -117,6 +117,11 @@ const mock = http.createServer((req, res) => {
           suggestion: { priority: 'high', eta_days: 1.0 }, changes: [], questions: [], warnings: [] }
         return res.writeHead(200, { 'Content-Type': 'application/json' }).end(JSON.stringify({ status: 'done', thread_id: 'thr-py', request_context: {}, last_message: toPy(d) }))
       }
+      if (body.request_context?.kind === 'cozum') {
+        const r = { schema_version: '1.0', work_item_id: body.request_context.work_item_id, summary: 'Çözüldü', comment: 'Çözüm notlardan derlendi.',
+          resolution: { neden: 'Mock neden: ' + (body.msg.match(/<muhendis_notlari>\s*-?\s*([^\n]{0,40})/)?.[1] ?? ''), yapilan: 'Mock yapılan', kalici_onlem: 'Mock kalıcı önlem' } }
+        return res.writeHead(200, { 'Content-Type': 'application/json' }).end(JSON.stringify({ status: 'completed', thread_id: 'thr-cozum', last_message: '```json\n' + JSON.stringify(r) + '\n```' }))
+      }
       if (/MOCK-502/.test(body.msg) && body.request_context?.source === 'yaver') return res.writeHead(502).end('{"error":"bad gateway"}')
       if (body.request_context?.scenario === 'zaman-asimi') await new Promise((r) => setTimeout(r, 400))   // gerçek LLM gibi yavaş
       if (body.request_context?.test) return res.writeHead(200, { 'Content-Type': 'application/json' }).end(JSON.stringify({ thread_id: 'thr-test', msg: 'Merhaba! Size nasıl yardımcı olabilirim?' }))
@@ -271,6 +276,36 @@ try {
   const zoomIt = d1.body.items.find((x) => x.source_type === 'zoom')
   assert.ok((await call('GET', `/api/work-items/${zoomIt.id}`, admin)).body.source_id, 'Zoom işi toplantıya bağlı olmalı')
   step(`demo akışı: ${sc.length} iş (mail, Jira, TFS, Zoom) oluşturuldu ve GenAI ile yorumlandı`)
+  const nRes = sc.filter((x) => x.resolved).length
+  assert.ok(nRes >= 3, 'demo işlerinin bir kısmı çözülmeli')
+  assert.equal(d1.body.resolved?.length, nRes, JSON.stringify(d1.body.resolved))
+  for (const r of d1.body.resolved) {
+    assert.ok(!r.error, r.error)
+    const w = (await call('GET', `/api/work-items/${r.id}`, admin)).body
+    assert.equal(w.status, 'done', `${w.code} Tamamlandı olmalı`)
+    assert.match(w.resolution, /\*\*Neden:\*\* Mock neden/, w.resolution)
+    assert.match(w.resolution, /\*\*Yapılan:\*\*/)
+    assert.match(w.resolved_by, /GenAI Studio \(.+ notlarından\)/)
+    assert.ok(w.resolved_at && w.assignee)
+  }
+  const cozCall = chatCalls.find((x) => x.body.request_context?.kind === 'cozum')
+  assert.ok(cozCall && /<muhendis_notlari>/.test(cozCall.body.msg))
+  step(`demo akışı: ${nRes} iş mühendis notlarıyla Tamamlandı'ya geçti, çözüm açıklamasını GenAI yazdı`)
+
+  // Tamamlandı'ya geçerken çözüm açıklaması zorunlu (insan kullanıcı)
+  const open1 = d1.body.items.find((x) => !d1.body.resolved.some((r) => r.id === x.id))
+  const noRes = await call('PATCH', `/api/work-items/${open1.id}`, admin, { status: 'done' })
+  assert.equal(noRes.status, 400, noRes.text)
+  assert.match(noRes.text, /resolution_required/)
+  const withRes = await call('PATCH', `/api/work-items/${open1.id}`, admin, { status: 'done', resolution: 'Sertifika yenilendi, kanallar yeniden başlatıldı.' })
+  assert.equal(withRes.status, 200, withRes.text)
+  const w1 = (await call('GET', `/api/work-items/${open1.id}`, admin)).body
+  assert.equal(w1.status, 'done'); assert.equal(w1.resolution, 'Sertifika yenilendi, kanallar yeniden başlatıldı.')
+  const acts1 = (await call('GET', `/api/work-items/${open1.id}/activities`, admin))
+  if (acts1.status === 200) assert.ok(JSON.stringify(acts1.body).includes('Çözüm:'), 'geçmişe çözüm satırı yazılmalı')
+  assert.equal((await call('PATCH', `/api/work-items/${open1.id}`, admin, { status: 'in_progress' })).status, 200)
+  assert.equal((await call('PATCH', `/api/work-items/${open1.id}`, admin, { status: 'done' })).status, 200, 'önceden çözüm yazılmışsa tekrar istenmez')
+  step('Tamamlandı\'ya geçişte çözüm açıklaması zorunlu (400 resolution_required), açıklama işe ve geçmişe yazılır')
   const d2 = await call('POST', '/api/demo/run', admin, { wait: true, timeout_sec: 120 })
   assert.equal(d2.status, 201, d2.text)
   assert.equal(d2.body.cleared.work_items, sc.length)

@@ -17,7 +17,7 @@ export const ITEM_SQL = `
          w.status, w.priority, coalesce(w.category, '') AS category, u.username AS assignee, w.requester,
          w.due_date, w.created_at, w.updated_at, w.closed_at, w.external_ref, w.external_url, w.version,
          w.requester_email, w.mgmt_level, w.keywords, w.agent_comment, w.agent_sources, w.agent_confidence, w.agent_suggestion,
-         w.agent_comment_by, w.agent_comment_at, w.keywords_by,
+         w.agent_comment_by, w.agent_comment_at, w.keywords_by, w.resolution, w.resolved_by, w.resolved_at,
          gj.status AS genai_status, gj.error AS genai_error, gj.stage AS genai_stage, gj.started_at AS genai_started_at,
          coalesce((SELECT array_agg(t.tag ORDER BY t.tag) FROM work_item_tag t WHERE t.work_item_id = w.id), '{}') AS tags
   FROM work_item w LEFT JOIN app_user u ON u.id = w.assignee_id
@@ -171,6 +171,17 @@ export async function updateWorkItem(id, patch, actor, expectedVersion = null) {
       set('assignee_id', await userId(c, patch.assignee || null))
       changes.assignee = [old.assignee, patch.assignee || null]
       await activity(c, id, actor, 'assign', `Atanan: ${patch.assignee || '—'}`, old.assignee, patch.assignee || null)
+    }
+    // Çözüm açıklaması: ekrandaki kullanıcı bir işi "Tamamlandı"ya alırken ne yapıldığını yazmak zorundadır
+    const resolution = typeof patch.resolution === 'string' ? patch.resolution.trim().slice(0, 4000) : ''
+    if (patch.status === 'done' && old.status !== 'done' && !resolution && !old.resolution && actor && actor.role !== 'agent')
+      throw httpError(400, 'resolution_required', 'İşi Tamamlandı yapmak için çözüm açıklaması zorunlu: ne yapıldı? (resolution alanı)', { field: 'resolution' })
+    if (resolution && resolution !== old.resolution) {
+      set('resolution', resolution)
+      set('resolved_by', String(patch.resolved_by ?? actor?.onBehalfOf?.username ?? actor?.username ?? 'sistem').slice(0, 100))
+      sets.push('resolved_at = now()')
+      changes.resolution = [old.resolution, resolution]
+      await activity(c, id, actor, 'comment', `**Çözüm:** ${resolution}`)
     }
     if (patch.status && patch.status !== old.status) {
       set('status', patch.status)
